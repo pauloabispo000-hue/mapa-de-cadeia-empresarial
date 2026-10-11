@@ -27,6 +27,12 @@ O programa deve aprender com todas as respostas recebidas para melhorar progress
 
 O aprendizado deve separar o repositório interno das respostas da lista de opções exibida a outras pessoas. Antes de reutilizar ou mostrar dados identificáveis de um negócio — como nome associado ao CNPJ — a pesquisa deve explicar esse uso e permitir que a empresa ou o respondente corrija a associação ou peça sua remoção. Relações comerciais de cada respondente, respostas completas e outros dados privados não devem aparecer para os próximos participantes apenas porque foram usados para melhorar o sistema. Sugestões ainda não verificadas devem ser identificadas como tal e aceitar texto livre quando a empresa procurada não aparecer.
 
+## Objetivo comum da rede
+
+Ao cruzar as respostas sobre empresas, ofertas, compras e relações, o programa deve descobrir os fornecedores presentes nas doze áreas e tornar visível como esses negócios se conectam como clientes e fornecedores uns dos outros. A direção desejada é uma cadeia de interdependência tão completa quanto os dados e as relações reais permitirem: identificar elos existentes, negócios que também poderiam atender seus próprios fornecedores ou os clientes de seus clientes, e lacunas onde ainda não há conexão.
+
+Essa completude é um objetivo de investigação e cooperação, não uma regra para presumir que toda relação exista. O sistema deve separar relações informadas e confirmadas de correspondências sugeridas e oportunidades potenciais. Deve ajudar os participantes a validar conexões e encontrar elos faltantes, sem transformar uma relação possível em fato nem exigir que todas as empresas comprem umas das outras.
+
 ## Como o programa deve interpretar as respostas
 
 O programa pode sugerir uma ou mais áreas a partir da descrição de produtos, serviços e relações comerciais. Essa classificação deve ser interna, explicável e corrigível. Para cada sugestão, convém guardar o texto original, a classificação proposta, o nível de confiança, a origem da regra ou modelo e o histórico de correções. Casos ambíguos podem permanecer sem classificação até haver informação suficiente.
@@ -41,7 +47,7 @@ Consolidar o cadastro de negócios, ofertas, compras, clientes, fornecedores, lo
 
 ### 2. Mapa de dependências e lacunas
 
-Mostrar quem oferece o quê, quem depende de cada solução, quais conexões são recorrentes e quais necessidades declaradas ainda não encontraram fornecedor. Permitir que uma organização confirme ou corrija as relações associadas a ela. A primeira visualização deve ser útil mesmo com dados parciais.
+Cruzar respostas para mostrar quem oferece o quê, quem depende de cada solução e como fornecedores e clientes se conectam entre as doze áreas. Revelar elos recorrentes, necessidades sem fornecedor e possíveis conexões que poderiam fechar lacunas na cadeia de interdependência. Permitir que uma organização confirme ou corrija as relações associadas a ela. Distinguir os vínculos confirmados das oportunidades sugeridas; a primeira visualização deve ser útil mesmo com dados parciais.
 
 ### 3. Fluxos de recursos
 
