@@ -543,6 +543,65 @@
   @media(max-width:980px){.platform-topbar{flex-wrap:wrap;gap:8px;padding:10px 18px}.platform-brand{min-width:180px}.platform-nav{order:3;flex-basis:100%}.platform-nav button{padding:9px}.platform-account{margin-left:auto}.platform-grid{grid-template-columns:1fr}.platform-area-list{max-height:260px}.platform-hero-symbol{width:110px;height:110px;flex-basis:110px}.platform-hero-symbol svg{width:78px;height:78px}}
   @media(max-width:760px){.journey-missions{grid-template-columns:repeat(2,minmax(0,1fr))}.connection-journey-head{flex-direction:column}}
   @media(max-width:640px){#platformContent{padding-top:20px}.platform-hero{align-items:flex-start}.platform-hero-symbol{display:none}.platform-stats,.workforce-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.platform-stat{padding:14px}.platform-stat strong{font-size:22px}.platform-card{padding:15px}.connection-journey{padding:16px}.platform-map-wrap{margin:0 -4px}.app#surveyWizard{margin:10px;border-radius:13px}.survey-heading{align-items:flex-start}.platform-account{font-size:10px}}
+  /* Camada visual inspirada na arquitetura social do Facebook. Mantém os mesmos
+     componentes, conteúdo e eventos; altera apenas cores, alinhamento e superfícies. */
+  body{background:#F0F2F5;color:#1C1E21;font-family:Arial,Helvetica,sans-serif;}
+  .platform-topbar{position:sticky;top:0;z-index:100;min-height:64px;height:64px;flex-wrap:nowrap;gap:24px;padding:0 clamp(16px,3vw,44px);background:#fff;color:#1C1E21;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .platform-brand{min-width:190px;}
+  .platform-mark{color:#0866FF;filter:none;}
+  .platform-brand strong{color:#0866FF;text-shadow:none;letter-spacing:.08em;}
+  .platform-brand small{color:#65676B;}
+  .platform-nav{height:64px;justify-content:center;gap:8px;}
+  .platform-nav button{position:relative;height:64px;min-width:112px;padding:0 16px;border-radius:0;color:#65676B;font-size:14px;font-weight:600;}
+  .platform-nav button:hover{background:#F2F3F5;color:#1C1E21;border-radius:8px;}
+  .platform-nav button.active{background:transparent;color:#0866FF;}
+  .platform-nav button.active::after{position:absolute;content:"";height:3px;left:8px;right:8px;bottom:0;border-radius:3px 3px 0 0;background:#0866FF;}
+  .platform-account{border:0;color:#4B4F56;background:#F0F2F5;padding:7px 9px 7px 12px;border-radius:999px;font-weight:600;}
+  .platform-account button{border:0;background:#E4E6EB;color:#1C1E21;border-radius:50%;width:30px;height:30px;padding:0;font-size:11px;font-weight:700;}
+  #platformContent{max-width:1320px;padding:24px 28px 56px;min-height:calc(100vh - 64px);}
+  .platform-page{animation:platform-enter .16s ease-out;}
+  .platform-page h1,.platform-page h2,.platform-page h3{font-family:Arial,Helvetica,sans-serif;color:#1C1E21;letter-spacing:-.02em;}
+  .platform-page h1{font-size:clamp(26px,2.7vw,34px);font-weight:750;}
+  .platform-page h2{font-size:20px;font-weight:700;}
+  .platform-page h3{font-size:15px;font-weight:700;}
+  .platform-eyebrow{color:#65676B;letter-spacing:.08em;}
+  .platform-lead{color:#65676B;}
+  .platform-hero{background:#fff;border:0;border-radius:10px;padding:clamp(22px,3.3vw,36px);box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .platform-hero-actions{margin-top:20px;}
+  .platform-action{background:#0866FF;border-radius:7px;box-shadow:none;}
+  .platform-action:hover{background:#075CE5;}
+  .platform-action.secondary{color:#0866FF;border-color:#DADDE1;border-radius:7px;}
+  .platform-stats{gap:12px;margin:16px 0 20px;}
+  .platform-stat,.platform-card{border:0;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .platform-stat{padding:16px 18px;}
+  .platform-stat span,.platform-card-head p,.platform-stat small{color:#65676B;}
+  .platform-stat strong,.platform-area-count{color:#0866FF;}
+  .platform-grid{gap:14px;}
+  .platform-area-row{border-color:#E4E6EB;border-radius:8px;color:#1C1E21;}
+  .platform-area-row:hover,.platform-area-row.active{background:#E7F3FF;border-color:#BBD7F5;}
+  .platform-area-number{background:#E4E6EB;color:#4B4F56;}
+  .platform-area-node.has-data polygon{fill:#0866FF;stroke:#075CE5;}
+  .platform-link.confirmed{stroke:#0866FF;}
+  .platform-note{background:#FFFDE1;border-radius:4px 8px 8px 4px;}
+  .connection-journey,.platform-card,.platform-stat{transition:box-shadow .15s ease,transform .15s ease;}
+  .connection-journey:hover,.platform-card:hover,.platform-stat:hover{box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .journey-mission{border-color:#E4E6EB;border-radius:8px;background:#F7F8FA;}
+  .journey-mission.done{background:#E7F3FF;border-color:#BBD7F5;}
+  .journey-check,.journey-mission.done .journey-check{background:#0866FF;color:#fff;}
+  .journey-progress span,.workforce-bar span{background:#0866FF;}
+  .auth-gate{background:#F0F2F5;}
+  .auth-card{border:0;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);}
+  .auth-brand{color:#0866FF;}
+  .auth-card h1{font-family:Arial,Helvetica,sans-serif;color:#1C1E21;font-weight:700;}
+  .auth-submit{background:#0866FF;border-radius:7px;}
+  .app#surveyWizard{border:0;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.15);}
+  #surveyWizard .rail{background:#0866FF;}
+  #surveyWizard .content{background:#fff;}
+  #surveyWizard .btn-primary,.survey-heading button{background:#0866FF;color:#fff;border-color:#0866FF;border-radius:7px;}
+  #surveyWizard .chip.checked{background:#0866FF;border-color:#0866FF;}
+  #surveyWizard input:focus,#surveyWizard textarea:focus,#surveyWizard select:focus{outline-color:#0866FF;border-color:#0866FF;}
+  @media(max-width:980px){.platform-topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:8px 16px}.platform-nav{height:48px;justify-content:flex-start;order:3;flex-basis:100%}.platform-nav button{height:48px;min-width:0;padding:0 12px}.platform-nav button.active::after{bottom:0}.platform-account{margin-left:auto}}
+  @media(max-width:640px){#platformContent{padding:16px 12px 36px}.platform-topbar{gap:4px}.platform-brand{min-width:150px}.platform-brand strong{font-size:20px}.platform-nav{overflow-x:auto}.platform-nav button{font-size:12px;padding:0 9px}.platform-account{font-size:10px}.platform-account button{width:26px;height:26px}.platform-stats{gap:8px}.platform-stat{padding:12px}.platform-stat strong{font-size:20px}.platform-card{padding:14px}.app#surveyWizard{margin:8px;border-radius:9px}}
 </style>
 </head>
 <body>
