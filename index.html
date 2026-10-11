@@ -988,7 +988,15 @@ function freshState(){
 }
 
 var state = loadState() || freshState();
-var sharedCompanies = [];
+// Catálogo inicial de organizações e soluções, compilado de páginas públicas.
+// São sugestões de busca; não representam relações comerciais confirmadas.
+var PUBLIC_COMPANY_CATALOG = [
+  {name:"Correios", aliases:["Empresa Brasileira de Correios e Telégrafos"], cnpj:"", city:"", areas:["Transportes/Logísticas"], offer:"envio de encomendas, logística para e-commerce e fulfillment Correios Log+", sourceUrl:"https://www.correios.com.br/logistica/logistica-para-e-commerce", sourceName:"Correios — logística para e-commerce", catalogSource:"public"},
+  {name:"TOTVS", aliases:["TOTVS S.A."], cnpj:"", city:"", areas:["Informações/Comunicações"], offer:"sistemas ERP, gestão empresarial, RH, cloud e soluções para diversos setores", sourceUrl:"https://www.totvs.com/gestao/", sourceName:"TOTVS — soluções de gestão", catalogSource:"public"},
+  {name:"Claro Empresas", aliases:["Claro S.A.","Claro"], cnpj:"", city:"", areas:["Informações/Comunicações"], offer:"internet e telefonia empresarial, conectividade, cloud, segurança digital e soluções de TI", sourceUrl:"https://www.claro.com.br/empresas", sourceName:"Claro Empresas — soluções empresariais", catalogSource:"public"},
+  {name:"Sebrae", aliases:["Serviço Brasileiro de Apoio às Micro e Pequenas Empresas"], cnpj:"", city:"", areas:["Políticas/Lideranças"], offer:"consultoria e orientação empresarial, gestão, finanças, marketing, inovação e tecnologia para pequenos negócios", sourceUrl:"https://go.loja.sebrae.com.br/consultoria", sourceName:"Sebrae — consultorias", catalogSource:"public"}
+];
+var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
 var sharedNetwork = null;
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
 var activeProgramSection = "overview";
@@ -2402,7 +2410,13 @@ function loadSharedOptions(){
   }
   window[callbackName]=function(response){
     if(!response||!response.ok||!response.options){done();return;}
-    sharedCompanies=Array.isArray(response.companies)?response.companies:[];
+    var learnedCompanies=Array.isArray(response.companies)?response.companies:[];
+    sharedCompanies=PUBLIC_COMPANY_CATALOG.slice();
+    learnedCompanies.forEach(function(company){
+      if(!company||!company.name)return;
+      var duplicate=sharedCompanies.some(function(item){return (company.cnpj&&item.cnpj===company.cnpj)||normName(item.name)===normName(company.name);});
+      if(!duplicate)sharedCompanies.push(company);
+    });
     sharedNetwork=response.network||null;
     sharedWorkforce=response.workforce||sharedWorkforce;
     state.contributedOptions=state.contributedOptions||{};
@@ -2629,7 +2643,7 @@ function renderConnectionJourney(){
     scopes.appendChild(h("span",{class:"journey-scale"},[item[0]+" · ",h("strong",{},[String(item[1])])]));
   });
   card.appendChild(scopes);
-  card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta apenas empresas com localização informada. Conexões não confirmadas não entram como relações realizadas."]));
+  card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta empresas com localização informada. Os vínculos são os que os participantes declararam."]));
   card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro"]));
   return card;
 }
@@ -2822,7 +2836,7 @@ function renderConversationReview(container){
       var missing=(sharedNetwork.areas||[]).filter(function(area){return !area.knownSupplierLinks;}).map(function(area){return area.name;});
       container.appendChild(h("div",{class:"review-section",style:"margin-top:16px;"},[
         h("h3",{},["Rede colaborativa até agora"]),
-        h("p",{class:"question-help"},[(sharedNetwork.companies||0)+" empresas identificadas e "+(sharedNetwork.relationships||0)+" relações registradas. A base encontrou "+(sharedNetwork.twoStepChains||0)+" cadeias com duas conexões; "+(sharedNetwork.confirmedClosures||0)+" já têm também a ligação direta registrada e "+(sharedNetwork.potentialConnections||0)+" são oportunidades para investigar com os participantes. Áreas sem fornecedor identificado: "+(missing.length?missing.join("; "):"nenhuma na base atual. A cobertura registrada não significa que todas as relações estejam confirmadas.")])
+        h("p",{class:"question-help"},[(sharedNetwork.companies||0)+" empresas identificadas e "+(sharedNetwork.relationships||0)+" relações registradas. A base encontrou "+(sharedNetwork.twoStepChains||0)+" caminhos que conectam dois negócios; "+(sharedNetwork.confirmedClosures||0)+" já têm também a ligação direta registrada e "+(sharedNetwork.potentialConnections||0)+" são oportunidades para investigar com os participantes. Setores sem fornecedor identificado: "+(missing.length?missing.join("; "):"nenhuma na base atual. A cobertura registrada não significa que todas as relações estejam confirmadas.")])
       ]));
     }
   }
@@ -2848,7 +2862,7 @@ function filterAllowedOptionMap(optionsByField){
 }
 function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
-  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"");
+  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+(company.catalogSource==="public"?" · sugestão pública":"");
 }
 function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
 function addAnswerControl(key){
@@ -2911,7 +2925,13 @@ function renderConversation(container){
       }
       if(q.kind==="companies"){
         var companyWrap=h("div",{});
+        companyWrap.appendChild(h("p",{class:"question-help"},["Sugestões públicas mostram empresas e soluções divulgadas por elas; isso não confirma uma relação comercial. Selecione uma empresa somente se ela realmente fornece para você ou compra de você. As fontes podem ser consultadas no catálogo inicial."]));
         companyWrap.appendChild(buildComboMulti({options:sharedCompanyOptions(),selectedArr:state.answers[q.key],placeholder:"Buscar ou digitar o nome de uma empresa...",allowFreeText:true,onChange:function(){syncConversationAnswers();saveState();renderCurrentStep();}}));
+        var publicSources=h("details",{class:"question-help",style:"margin-top:8px;"});
+        publicSources.appendChild(h("summary",{},["Ver fontes das sugestões públicas"]));
+        var sourceList=h("ul",{style:"margin:6px 0 0;padding-left:20px;"});
+        PUBLIC_COMPANY_CATALOG.forEach(function(company){var link=h("a",{href:company.sourceUrl,target:"_blank",rel:"noopener noreferrer"},[company.name+" — "+company.offer]);sourceList.appendChild(h("li",{},[link]));});
+        publicSources.appendChild(sourceList);companyWrap.appendChild(publicSources);
         var entityType=q.key==="clientesSelecionados"?"clientes":"fornecedores";
         state[entityType].lista.forEach(function(entity){
           var entityNameBeforeLookup=entity.empresa;
