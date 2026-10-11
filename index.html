@@ -699,6 +699,49 @@ function filterSegmentosProprios(fullList){
   return filtered.length ? filtered : fullList;
 }
 
+// Sugestões específicas para produtos e serviços oferecidos, conforme os CNAEs
+// principal e secundários do CNPJ. A lista completa continua acessível.
+function filterSegmentosPorCNAE(fullList){
+  var dados=state.business&&state.business.cnpjDados;
+  if(!dados) return filterSegmentosProprios(fullList);
+  var atividades=[dados.cnae||""];
+  (dados.cnaesSecundarios||[]).forEach(function(item){atividades.push(item.descricao||"");});
+  var texto=normalizeSearch(atividades.join(" "));
+  if(!texto.trim()) return filterSegmentosProprios(fullList);
+  var rules=[
+    [/padaria|panific|confeitaria/,["Padaria e confeitaria","Alimentos e bebidas (produção/venda)","Alimentação (restaurantes, lanchonetes, bares)"]],
+    [/agric|agropec|lavoura|cultivo|pecuaria|criacao de bovinos|producao florestal/,["Agropecuária e produção rural","Produção agrícola","Floricultura e jardinagem"]],
+    [/restaurante|lanchonete|servicos de alimentacao|fornecimento de alimentos/,["Alimentação (restaurantes, lanchonetes, bares)","Alimentos e bebidas (produção/venda)"]],
+    [/supermercado|mercearia|minimercado|armazem/,["Supermercado e mercearia","Comércio varejista em geral"]],
+    [/farmacia|medicamento|drogaria/,["Farmácia e produtos de saúde","Comércio varejista em geral"]],
+    [/construcao|obra|edificac|engenharia|arquitetura/,["Construção civil","Arquitetura e engenharia","Ferragens e materiais de construção"]],
+    [/transporte|frete|carga|logistica|entrega/,["Logística e transporte de cargas","Transporte de passageiros"]],
+    [/automov|veiculo|oficina|mecanica|motociclet/,["Automotivo (oficina e manutenção)","Automotivo (venda de veículos)"]],
+    [/software|informatica|programacao|tecnologia da informacao|desenvolvimento de programas/,["Tecnologia da informação (TI)","Eletrônicos e informática (venda)"]],
+    [/saude|medica|medico|clinica|odontolog|dentista|fisioterapia|psicolog/,["Saúde (clínicas e consultórios)","Odontologia","Farmácia e produtos de saúde"]],
+    [/educa|ensino|escola|treinamento|curso/,["Educação (escolas e cursos)"]],
+    [/contabil|contabilidade|auditoria|consultoria|advocacia|juridic/,["Contabilidade e finanças","Consultoria empresarial","Jurídico (advocacia)"]],
+    [/vestuario|roupa|confecc|textil|calcados|sapatos/,["Moda e vestuário","Varejo de roupas e acessórios","Calçados","Indústria têxtil"]],
+    [/beleza|cabeleire|estetica|manicure/,["Beleza e estética"]],
+    [/hotel|hospedagem|turismo|viagens|agencia de viagens/,["Hotelaria e hospedagem","Turismo e agência de viagens"]],
+    [/moveis|moveleira/,["Indústria moveleira","Móveis e decoração"]],
+    [/metalurg|metal|usinagem|serralheria/,["Indústria metalúrgica","Máquinas e equipamentos"]],
+    [/limpeza|conservacao|higienizacao|dedetizacao/,["Limpeza e conservação","Serviços domésticos"]],
+    [/floricultura|jardinagem|plantas ornamentais/,["Floricultura e jardinagem"]],
+    [/pet shop|veterin|animais/,["Pet shop e serviços veterinários"]],
+    [/publicidade|marketing|propaganda|design|comunicacao/,["Marketing digital","Design e publicidade"]],
+    [/grafica|impressao/,["Gráfica e impressão"]],
+    [/imobili|aluguel de imoveis|administracao de imoveis/,["Imobiliário"]],
+    [/energia|eletricidade|painel solar|combustivel/,["Energia e sustentabilidade"]]
+  ];
+  var relacionados=[];
+  rules.forEach(function(rule){if(rule[0].test(texto)) relacionados=relacionados.concat(rule[1]);});
+  relacionados=relacionados.filter(function(item,i,all){return all.indexOf(item)===i;});
+  if(!relacionados.length) return filterSegmentosProprios(fullList);
+  var selecionados=(state.answers.produtosSelecionados||[]).concat(state.answers.categoriasClientes||[]);
+  return fullList.filter(function(item){return item==="Outro"||relacionados.indexOf(item)>-1||selecionados.indexOf(item)>-1;});
+}
+
 // Filtro para campos sobre OUTRAS empresas/parceiros: por padrão prioriza Áreas
 // DIFERENTES da(s) do próprio negócio (o objetivo costuma ser mapear complementaridade/
 // interdependência entre áreas distintas, conforme a teoria). "Ver todas as opções"
@@ -853,6 +896,8 @@ function consultarCNPJPublico(cnpjDigits){
         uf: d.uf || "",
         situacao: d.descricao_situacao_cadastral || "",
         cnae: d.cnae_fiscal_descricao || "",
+        cnaeCodigo: d.cnae_fiscal || "",
+        cnaesSecundarios: (d.cnaes_secundarios || []).map(function(item){return {codigo:item.codigo||"",descricao:item.descricao||""};}),
         consultadoEm: new Date().toISOString()
       };
     });
@@ -1202,6 +1247,9 @@ function buildCNPJField(opts){
       var linha1 = dados.razaoSocial + (dados.nomeFantasia && dados.nomeFantasia!==dados.razaoSocial ? ' ("'+dados.nomeFantasia+'")' : "");
       statusEl.appendChild(h("div",{class:"cnpj-status-line cnpj-status-title"},["✓ "+linha1]));
       statusEl.appendChild(h("div",{class:"cnpj-status-line"},[(dados.municipio||"?")+" - "+(dados.uf||"?")+(dados.situacao?" · "+dados.situacao:"")]));
+      if(dados.cnae) statusEl.appendChild(h("div",{class:"cnpj-status-line"},["Atividade principal (CNAE): "+dados.cnae]));
+      var atividadesSecundarias=(dados.cnaesSecundarios||[]).map(function(item){return item.descricao;}).filter(Boolean);
+      if(atividadesSecundarias.length) statusEl.appendChild(h("div",{class:"cnpj-status-line"},["Atividades secundárias: "+atividadesSecundarias.join("; ")]));
       if(dados.situacao && dados.situacao.toUpperCase().indexOf("ATIVA")===-1){
         statusEl.appendChild(h("div",{class:"cnpj-status-line cnpj-status-alert"},["⚠ Situação cadastral diferente de ATIVA — confirme com a empresa."]));
       }
@@ -2767,10 +2815,12 @@ function renderConversation(container){
   container.appendChild(h("div",{class:"question-card"},[
     h("h2",{},[q.prompt]),
     q.help ? h("p",{class:"question-help"},[q.help]) : null,
+    ((q.key==="produtosSelecionados"||q.key==="categoriasClientes")&&state.business.cnpjDados&&state.business.cnpjDados.cnae) ? h("p",{class:"question-help"},["Sugestões priorizadas pelas atividades econômicas principal e secundárias do CNPJ. Use “Ver todas as opções” para consultar a lista completa."]) : null,
     (function(){
       if(q.kind==="multi"){
         var multiOptions=optionsWithContributions(q.key,q.options);
-        var multiField=buildComboMulti({options:multiOptions,selectedArr:state.answers[q.key],placeholder:"Escolha uma ou mais opções...",allowFreeText:false,onChange:function(){syncConversationAnswers();saveState();}});
+        var useCnaeFilter=q.key==="produtosSelecionados"||q.key==="categoriasClientes";
+        var multiField=buildComboMulti({options:multiOptions,selectedArr:state.answers[q.key],placeholder:"Escolha uma ou mais opções...",allowFreeText:false,filterFn:useCnaeFilter?filterSegmentosPorCNAE:null,onChange:function(){syncConversationAnswers();saveState();}});
         if(canAddAnswer(q.key)) multiField.appendChild(addAnswerControl(q.key));
         return multiField;
       }
