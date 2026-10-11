@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 67990)
-Total output lines: 2858
+Warning: truncated output (original token count: 68454)
+Total output lines: 2883
 
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -477,7 +477,80 @@ var MODELOS_QUE_USAM_SEGMENTOS = ["Negócio próprio (não franqueado)","Matriz"
    sustentar o sistema. Descrições resumidas em linguagem simples, para uso no formulário. */
 var AREAS_12 = [
   {num:1, nome:"Energias/Combustíveis", desc:"Geração, distribuição e uso de energia e combustíveis — elétrica, solar, eólica, gás, petróleo e derivados."},
-  {num:2, nome:"Transportes/Logísticas", desc:"Transporte de pessoas e cargas, embalagens, estoque, distrib…55990 tokens truncated…&&old.id ? old.id : id;
+  {num:2, nome:"Transportes/Logísticas", desc:"Transporte de pessoas e cargas, embalagens, estoque, distribuição, redes de instalação (fiação, encanamento)."},
+  {num:3, nome:"Habitações/Edificações", desc:"Construção, reforma, moradia, imóveis, arquitetura, engenharia civil, móveis e paisagismo."},
+  {num:4, nome:"Acompanhamentos/Assistências", desc:"Cuidado e acompanhamento de saúde física, mental ou emocional — médicos, terapeutas, veterinários, psicólogos."},
+  {num:5, nome:"Saneamentos/Eliminações", desc:"Limpeza, higiene, tratamento de resíduos e dejetos, serviços domésticos de conservação."},
+  {num:6, nome:"Educações/Pesquisas", desc:"Ensino, formação, treinamento, pesquisa e desenvolvimento de conhecimento em qualquer área."},
+  {num:7, nome:"Informações/Comunicações", desc:"Tecnologia da informação, telecomunicações, mídia, publicidade, dados e conteúdo."},
+  {num:8, nome:"Entretenimentos/Lazeres", desc:"Diversão, esporte, turismo de lazer, cultura, eventos, jogos e recreação."},
+  {num:9, nome:"Políticas/Lideranças", desc:"Gestão, liderança, direito, contabilidade, finanças, normas e organização institucional."},
+  {num:10, nome:"Seguranças/Confortos", desc:"Proteção, monitoramento, bem-estar, moda e vestuário, estética, seguros — tudo que garante segurança e conforto."},
+  {num:11, nome:"Matérias-primas/Reciclagens", desc:"Extração, produção e reciclagem de matérias-primas — metais, madeira, produtos químicos, reforma e reaproveitamento."},
+  {num:12, nome:"Alimentos/Medicamentos", desc:"Produção e comércio de alimentos, bebidas, produtos agrícolas e medicamentos."}
+];
+var AREA_NOMES = AREAS_12.map(function(a){ return a.nome; });
+
+// Mapeia cada segmento/nicho já usado no formulário para a área correspondente (1 a 12).
+// "Outro" não recebe área (tratado à parte, sem restringir o filtro em cascata).
+var SEGMENTO_AREA = {
+  "Agropecuária e produção rural":"Alimentos/Medicamentos","Alimentação (restaurantes, lanchonetes, bares)":"Alimentos/Medicamentos",
+  "Alimentos e bebidas (produção/venda)":"Alimentos/Medicamentos","Arquitetura e engenharia":"Habitações/Edificações",
+  "Artesanato":"Entretenimentos/Lazeres","Automotivo (oficina e manutenção)":"Transportes/Logísticas",
+  "Automotivo (venda de veículos)":"Transportes/Logísticas","Beleza e estética":"Seguranças/Confortos",
+  "Bem-estar e fitness":"Seguranças/Confortos","Brinquedos e artigos infantis":"Entretenimentos/Lazeres",
+  "Calçados":"Seguranças/Confortos","Comércio atacadista":"Transportes/Logísticas","Comércio varejista em geral":"Transportes/Logísticas",
+  "Construção civil":"Habitações/Edificações","Consultoria empresarial":"Políticas/Lideranças",
+  "Contabilidade e finanças":"Políticas/Lideranças","Cultura e entretenimento":"Entretenimentos/Lazeres",
+  "Design e publicidade":"Informações/Comunicações","Educação (escolas e cursos)":"Educações/Pesquisas",
+  "Eletrônicos e informática (venda)":"Informações/Comunicações","Energia e sustentabilidade":"Energias/Combustíveis",
+  "Eventos e festas":"Entretenimentos/Lazeres","Farmácia e produtos de saúde":"Alimentos/Medicamentos",
+  "Ferragens e materiais de construção":"Habitações/Edificações","Floricultura e jardinagem":"Habitações/Edificações",
+  "Fotografia e vídeo":"Informações/Comunicações","Gráfica e impressão":"Informações/Comunicações",
+  "Hotelaria e hospedagem":"Entretenimentos/Lazeres","Imobiliário":"Habitações/Edificações",
+  "Indústria alimentícia":"Alimentos/Medicamentos","Indústria metalúrgica":"Matérias-primas/Reciclagens",
+  "Indústria moveleira":"Habitações/Edificações","Indústria química":"Matérias-primas/Reciclagens",
+  "Indústria têxtil":"Seguranças/Confortos","Jurídico (advocacia)":"Políticas/Lideranças",
+  "Limpeza e conservação":"Saneamentos/Eliminações","Logística e transporte de cargas":"Transportes/Logísticas",
+  "Manutenção e reparos em geral":"Matérias-primas/Reciclagens","Marketing digital":"Informaçõe…54454 tokens truncated…tion inferAreaFromText(value){
+  var text = normalizeSearch(value);
+  if(!text) return "";
+  var learned=(state.contributions||[]).filter(function(item){return normalizeSearch(item.value)===text&&item.area;})[0];
+  if(learned) return learned.area;
+  var scores={}, best="", score=0;
+  Object.keys(SEGMENTO_AREA).forEach(function(segment){
+    var n=normalizeSearch(segment);
+    if(n.length>4 && text.indexOf(n)>-1){ var area=SEGMENTO_AREA[segment]; scores[area]=(scores[area]||0)+n.length*3; }
+  });
+  var keywords={
+    "Alimentos/Medicamentos":["comida","alimento","bebida","farinha","pao","bolo","remedio","medicamento","agro","hortifruti","carne"],
+    "Transportes/Logísticas":["frete","entrega","transporte","combustivel","embalagem","estoque","veiculo","logistica"],
+    "Habitações/Edificações":["obra","construcao","reforma","imovel","aluguel","moveis","pintura","arquitetura"],
+    "Acompanhamentos/Assistências":["medico","saude","terapia","dentista","veterinario","psicologo","consulta"],
+    "Saneamentos/Eliminações":["limpeza","higiene","residuo","lixo","saneamento","faxina"],
+    "Educações/Pesquisas":["curso","aula","ensino","escola","treinamento","pesquisa"],
+    "Informações/Comunicações":["internet","software","computador","publicidade","marketing","comunicacao","grafica"],
+    "Entretenimentos/Lazeres":["turismo","evento","festa","hotel","esporte","lazer","musica"],
+    "Políticas/Lideranças":["advogado","contabilidade","imposto","consultoria","gestao","financeiro","banco"],
+    "Seguranças/Confortos":["seguranca","roupa","vestuario","beleza","estetica","seguro","conforto"],
+    "Matérias-primas/Reciclagens":["materia prima","metal","madeira","reciclagem","maquina","quimico","reparo"],
+    "Energias/Combustíveis":["energia","eletricidade","eletrica","gas","solar","combustivel"]
+  };
+  Object.keys(keywords).forEach(function(area){
+    keywords[area].forEach(function(word){ if(text.indexOf(normalizeSearch(word))>-1) scores[area]=(scores[area]||0)+normalizeSearch(word).length; });
+  });
+  Object.keys(scores).forEach(function(area){if(scores[area]>score){best=area;score=scores[area];}});
+  return best;
+}
+
+function splitNames(value){
+  return String(value||"").split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
+}
+function reuseEntity(listType,name,id){
+  var list=state[listType].lista||[];
+  var old=list.filter(function(e){return normName(e.empresa)===normName(name);})[0];
+  var entity=Object.assign(newEntity(listType),old||{});
+  entity.id=old&&old.id ? old.id : id;
   entity.empresa=name;
   return entity;
 }
@@ -509,8 +582,16 @@ function syncConversationAnswers(){
     if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
     e.compra_de=true; return e;
   });
-  state.clientes.lista=splitNames(a.clientes).map(function(name,i){
-    var e=reuseEntity("clientes",name,"customer"+i); if(a.usoOferta) e.comoUtiliza=a.usoOferta; e.categorias=(a.categoriasClientes||[]).slice(); e.usa_minha_oferta=true; return e;
+  var selectedCustomerNames=(a.clientesSelecionados||[]).map(function(value){
+    var match=sharedCompanies.filter(function(company){return companyOptionLabel(company)===value;})[0];
+    return match ? match.name : value;
+  });
+  var customerNames=splitNames(a.clientes).concat(selectedCustomerNames).filter(function(name,i,all){return all.map(normName).indexOf(normName(name))===i;});
+  state.clientes.lista=customerNames.map(function(name,i){
+    var e=reuseEntity("clientes",name,"customer"+i); if(a.usoOferta) e.comoUtiliza=a.usoOferta; e.categorias=(a.categoriasClientes||[]).slice(); e.usa_minha_oferta=true;
+    var known=sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||company.aliases.some(function(alias){return normName(alias)===normName(name);});})[0];
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
+    return e;
   });
   var nomesComplementares=splitNames(a.complementares);
   var nomesIndicacao=splitNames(a.indicacoes);
@@ -637,7 +718,9 @@ function renderConversation(container){
       if(q.kind==="companies"){
         var companyWrap=h("div",{});
         companyWrap.appendChild(buildComboMulti({options:sharedCompanyOptions(),selectedArr:state.answers[q.key],placeholder:"Buscar ou digitar o nome de uma empresa...",allowFreeText:true,onChange:function(){syncConversationAnswers();saveState();renderCurrentStep();}}));
-        state.fornecedores.lista.forEach(function(entity){
+        var entityType=q.key==="clientesSelecionados"?"clientes":"fornecedores";
+        state[entityType].lista.forEach(function(entity){
+          var entityNameBeforeLookup=entity.empresa;
           var supplierCard=h("div",{class:"subfield"});
           supplierCard.appendChild(h("label",{class:"small"},[entity.empresa+" — CNPJ opcional"]));
           supplierCard.appendChild(buildCNPJField({
@@ -648,6 +731,13 @@ function renderConversation(container){
             onUseData:function(data){
               if(data.nomeFantasia||data.razaoSocial) entity.empresa=data.nomeFantasia||data.razaoSocial;
               if(data.municipio&&data.uf) entity.cidade=data.municipio+" - "+data.uf;
+              var company={name:entity.empresa,cnpj:entity.cnpj,city:entity.cidade,areas:entity.areaNecessidade?[entity.areaNecessidade]:[],aliases:[],count:1};
+              var existing=sharedCompanies.filter(function(item){return (company.cnpj&&item.cnpj===company.cnpj)||normName(item.name)===normName(company.name);})[0];
+              if(existing){company=existing;}
+              else sharedCompanies.push(company);
+              var selected=state.answers[q.key]||[];
+              var oldIndex=selected.indexOf(entityNameBeforeLookup);
+              if(oldIndex>-1) selected[oldIndex]=companyOptionLabel(company);
               saveState();renderCurrentStep();
             }
           }));
