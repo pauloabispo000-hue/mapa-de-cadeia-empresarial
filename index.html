@@ -382,7 +382,7 @@
   .rail-top,.steps,.map-label,.map-hint{display:none!important;}
   .app{max-width:1100px;min-height:100vh;align-items:stretch;}
   .rail{width:290px;flex:0 0 290px;justify-content:center;padding:24px 18px;}
-  .map-wrap{margin:0;padding:0;border:0;position:sticky;top:20px;align-self:center;width:100%;}
+  .map-wrap{margin:0;padding:12px 10px;border:1px solid #E3E8F2;border-radius:15px;background:#fff;box-shadow:0 4px 14px rgba(35,58,114,.08);position:sticky;top:20px;align-self:center;width:100%;}
   .content{padding-top:12vh;}
   .question-card{max-width:680px;min-height:45vh;display:flex;flex-direction:column;justify-content:center;}
   .question-card h2{font-size:clamp(25px,4vw,38px);line-height:1.2;margin-bottom:12px;}
@@ -404,7 +404,8 @@
     .rail{width:auto;flex:none;flex-direction:row;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 22px;}
     .rail-top{flex:1 1 100%;}
     .steps{display:none;}
-    .map-wrap{width:130px;margin:0;padding:0;border:none;flex:0 0 130px;}
+    .map-wrap{width:180px;max-width:52vw;margin:0;padding:8px 6px;border:1px solid #E3E8F2;flex:0 0 180px;}
+    #liveMap{width:100%;height:auto;}
     .map-label,.map-hint{display:none;}
     .content{padding:24px 20px 50px 20px;}
     .review-row{flex-direction:column;gap:2px;}
@@ -3143,7 +3144,9 @@ function renderMap(){
     parts.push('<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="1.4" '+(dashed?'stroke-dasharray="3,3"':'')+' opacity="0.8"/>');
   }
   function node(x,y,r,fill,stroke){
-    parts.push('<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/>');
+    if(r>20){parts.push('<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5"/>');return;}
+    var points=[];for(var side=0;side<6;side++){var angle=Math.PI*side/3-Math.PI/6;points.push((x+r*Math.cos(angle))+","+(y+r*Math.sin(angle)));}
+    parts.push('<polygon points="'+points.join(" ")+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/>');
   }
   function label(x,y,text,size,color,anchor){
     parts.push('<text x="'+x+'" y="'+y+'" font-size="'+size+'" fill="'+color+'" text-anchor="'+(anchor||"middle")+'" font-family="Arial, sans-serif">'+escapeXML(text)+'</text>');
@@ -3171,11 +3174,11 @@ function renderMap(){
     label(x,y-16,truncate(s.empresa,10),9,"#1D347B");
   });
   if(suppliers.length===0){
-    parts.push('<circle cx="130" cy="95" r="11" fill="none" stroke="#DCE5FF" stroke-width="1.2" stroke-dasharray="2,2"/>');
-    label(130,99,"+","12","#DCE5FF");
+    parts.push('<polygon points="130,83 140,89 140,101 130,107 120,101 120,89" fill="#fff" stroke="#2D55E8" stroke-width="1.4" stroke-dasharray="2,2"/>');
+    label(130,99,"+","12","#2D55E8");
   }
-  if(supMore>0){ label(130,25,"+"+supMore+" fornecedores",9,"#DCE5FF"); }
-  label(130,20,"Fornecedores",9,"#C8D5FF");
+  if(supMore>0){ label(130,25,"+"+supMore+" fornecedores",9,"#2D55E8"); }
+  label(130,20,"Fornecedores",9,"#1D347B");
 
   // customers (bottom)
   var botY0 = 320, botY1 = 430;
@@ -3187,11 +3190,11 @@ function renderMap(){
     label(x,y+20,truncate(c.empresa,10),9,"#1D347B");
   });
   if(customers.length===0){
-    parts.push('<circle cx="130" cy="375" r="11" fill="none" stroke="#DCE5FF" stroke-width="1.2" stroke-dasharray="2,2"/>');
-    label(130,379,"+","12","#DCE5FF");
+    parts.push('<polygon points="130,363 140,369 140,381 130,387 120,381 120,369" fill="#fff" stroke="#2D55E8" stroke-width="1.4" stroke-dasharray="2,2"/>');
+    label(130,379,"+","12","#2D55E8");
   }
-  if(custMore>0){ label(130,452,"+"+custMore+" clientes",9,"#DCE5FF"); }
-  label(130,448,"Clientes",9,"#C8D5FF");
+  if(custMore>0){ label(130,452,"+"+custMore+" clientes",9,"#2D55E8"); }
+  label(130,448,"Clientes",9,"#1D347B");
 
   // complementares (sides, dashed amber)
   var sideY0 = 170, sideY1 = 300;
@@ -3200,9 +3203,9 @@ function renderMap(){
     var x = i%2===0 ? 26 : 234;
     line(x,y,cx,cy,"#F4EA39",true);
     node(x,y,9,"#FFF8A9","#D0C812");
-    label(x, i%2===0? y-14 : y-14, truncate(cItem.empresa,9),8.5,"#FFF8A9", i%2===0?"start":"end");
+    label(x, y-14, truncate(cItem.empresa,9),8.5,"#8A5A12", i%2===0?"start":"end");
   });
-  if(compMore>0){ label(130,240,"+"+compMore+" complementares",8.5,"#FFF8A9"); }
+  if(compMore>0){ label(130,240,"+"+compMore+" complementares",8.5,"#8A5A12"); }
 
   svg.innerHTML = parts.join("");
 }
