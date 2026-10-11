@@ -2802,8 +2802,8 @@ function renderCompanyProfileHeader(){
   identity.appendChild(edit);
   profile.appendChild(identity);
   var tabs=h("nav",{class:"company-profile-tabs","aria-label":"Seções do perfil da empresa"});
-  [["overview","Publicações"],["network","Fornecedores e setores"],["workforce","Pessoas e trabalho"],["survey","Editar perfil"]].forEach(function(tab){
-    tabs.appendChild(h("button",{type:"button","data-program-section":tab[0],class:tab[0]==="overview"?"active":""},[tab[1]]));
+  [["overview","Visão geral"],["network","Fornecedores e setores"],["workforce","Pessoas e trabalho"],["survey","Editar perfil"]].forEach(function(tab){
+    tabs.appendChild(h("button",{type:"button","data-program-section":tab[0],class:tab[0]==="overview"?"active":"",onclick:function(){showProgramSection(tab[0]);}},[tab[1]]));
   });
   profile.appendChild(tabs);
 
