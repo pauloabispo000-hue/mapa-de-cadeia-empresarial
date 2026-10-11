@@ -29,7 +29,7 @@ function setup() {
 }
 
 function doGet(e) {
-  var data = { ok: true, options: readOptions_(), companies: readCompanies_(), network: summarizeNetwork_() };
+  var data = { ok: true, options: readOptions_(), companies: readCompanies_(), network: summarizeNetwork_(), workforce: summarizeWorkforce_() };
   var callback = e && e.parameter ? String(e.parameter.callback || "") : "";
   var json = JSON.stringify(data);
   if (callback) {
@@ -250,6 +250,27 @@ function summarizeNetwork_() {
     potentialConnections: Math.max(0, twoStepCount - closed),
     areas: AREAS_12.map(function(area) { return { name: area, knownSupplierLinks: areaCounts[area] }; })
   };
+}
+
+// Mantém somente totais agregados da mão de obra declarada por negócio.
+// Nenhum dado individual ou função/cargo é exposto pelo endpoint público.
+function summarizeWorkforce_() {
+  var ss = getSpreadsheet_();
+  var sheet = ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
+  var last = sheet.getLastRow(), active = 0, vacancies = 0, businessesReported = 0;
+  if (last > 1) sheet.getRange(2, 7, last - 1, 1).getValues().forEach(function(row) {
+    try {
+      var payload = JSON.parse(String(row[0] || "{}"));
+      var answers = payload.answers || {};
+      var hasActive = answers.workforceActive !== "" && answers.workforceActive !== null && answers.workforceActive !== undefined;
+      var hasVacancies = answers.workforceVacancies !== "" && answers.workforceVacancies !== null && answers.workforceVacancies !== undefined;
+      if (!hasActive && !hasVacancies) return;
+      active += Math.max(0, Number(answers.workforceActive) || 0);
+      vacancies += Math.max(0, Number(answers.workforceVacancies) || 0);
+      businessesReported++;
+    } catch (ignored) {}
+  });
+  return { active: active, vacancies: vacancies, businessesReported: businessesReported };
 }
 
 function nodeKey_(cnpj, name) {
