@@ -412,7 +412,7 @@
     .review-row .rk{flex:none;}
   }
 
-  /* Plataforma Coopera: painel permanente; pesquisa guiada é uma das seções. */
+  /* Plataforma Avante: painel permanente; pesquisa guiada é uma das seções. */
   body{background:#F3F5FA;color:#17223B;}
   .platform-topbar{min-height:72px;background:#2D55E8;color:#fff;display:flex;align-items:center;gap:28px;padding:0 clamp(18px,4vw,56px);box-shadow:0 3px 14px rgba(22,43,118,.18);}
   .platform-brand{display:flex;align-items:center;gap:10px;min-width:230px;color:#fff;text-decoration:none;border:0;background:none;padding:0;font:inherit;text-align:left;cursor:pointer;}
@@ -724,40 +724,40 @@ function filterSegmentosProprios(fullList){
   return filtered.length ? filtered : fullList;
 }
 
-// Sugestões específicas para produtos e serviços oferecidos, conforme os CNAEs
-// principal e secundários do CNPJ. A lista completa continua acessível.
+// Restringe as sugestões de ofertas às atividades declaradas no CNPJ consultado.
+// A lista completa continua disponível para negócios com atividades adicionais.
 function filterSegmentosPorCNAE(fullList){
-  var dados=state.business&&state.business.cnpjDados;
+  var dados=state.business && state.business.cnpjDados;
   if(!dados) return filterSegmentosProprios(fullList);
   var atividades=[dados.cnae||""];
   (dados.cnaesSecundarios||[]).forEach(function(item){atividades.push(item.descricao||"");});
   var texto=normalizeSearch(atividades.join(" "));
   if(!texto.trim()) return filterSegmentosProprios(fullList);
   var rules=[
-    [/padaria|panific|confeitaria/,["Padaria e confeitaria","Alimentos e bebidas (produção/venda)","Alimentação (restaurantes, lanchonetes, bares)"]],
-    [/agric|agropec|lavoura|cultivo|pecuaria|criacao de bovinos|producao florestal/,["Agropecuária e produção rural","Produção agrícola","Floricultura e jardinagem"]],
-    [/restaurante|lanchonete|servicos de alimentacao|fornecimento de alimentos/,["Alimentação (restaurantes, lanchonetes, bares)","Alimentos e bebidas (produção/venda)"]],
-    [/supermercado|mercearia|minimercado|armazem/,["Supermercado e mercearia","Comércio varejista em geral"]],
-    [/farmacia|medicamento|drogaria/,["Farmácia e produtos de saúde","Comércio varejista em geral"]],
-    [/construcao|obra|edificac|engenharia|arquitetura/,["Construção civil","Arquitetura e engenharia","Ferragens e materiais de construção"]],
-    [/transporte|frete|carga|logistica|entrega/,["Logística e transporte de cargas","Transporte de passageiros"]],
-    [/automov|veiculo|oficina|mecanica|motociclet/,["Automotivo (oficina e manutenção)","Automotivo (venda de veículos)"]],
-    [/software|informatica|programacao|tecnologia da informacao|desenvolvimento de programas/,["Tecnologia da informação (TI)","Eletrônicos e informática (venda)"]],
-    [/saude|medica|medico|clinica|odontolog|dentista|fisioterapia|psicolog/,["Saúde (clínicas e consultórios)","Odontologia","Farmácia e produtos de saúde"]],
-    [/educa|ensino|escola|treinamento|curso/,["Educação (escolas e cursos)"]],
-    [/contabil|contabilidade|auditoria|consultoria|advocacia|juridic/,["Contabilidade e finanças","Consultoria empresarial","Jurídico (advocacia)"]],
-    [/vestuario|roupa|confecc|textil|calcados|sapatos/,["Moda e vestuário","Varejo de roupas e acessórios","Calçados","Indústria têxtil"]],
-    [/beleza|cabeleire|estetica|manicure/,["Beleza e estética"]],
-    [/hotel|hospedagem|turismo|viagens|agencia de viagens/,["Hotelaria e hospedagem","Turismo e agência de viagens"]],
-    [/moveis|moveleira/,["Indústria moveleira","Móveis e decoração"]],
-    [/metalurg|metal|usinagem|serralheria/,["Indústria metalúrgica","Máquinas e equipamentos"]],
-    [/limpeza|conservacao|higienizacao|dedetizacao/,["Limpeza e conservação","Serviços domésticos"]],
-    [/floricultura|jardinagem|plantas ornamentais/,["Floricultura e jardinagem"]],
-    [/pet shop|veterin|animais/,["Pet shop e serviços veterinários"]],
-    [/publicidade|marketing|propaganda|design|comunicacao/,["Marketing digital","Design e publicidade"]],
-    [/grafica|impressao/,["Gráfica e impressão"]],
-    [/imobili|aluguel de imoveis|administracao de imoveis/,["Imobiliário"]],
-    [/energia|eletricidade|painel solar|combustivel/,["Energia e sustentabilidade"]]
+    [/padaria|panific|confeitaria/, ["Padaria e confeitaria","Alimentos e bebidas (produção/venda)","Alimentação (restaurantes, lanchonetes, bares)"]],
+    [/agric|agropec|lavoura|cultivo|pecuaria|criacao de bovinos|producao florestal/, ["Agropecuária e produção rural","Produção agrícola","Floricultura e jardinagem"]],
+    [/restaurante|lanchonete|servicos de alimentacao|fornecimento de alimentos/, ["Alimentação (restaurantes, lanchonetes, bares)","Alimentos e bebidas (produção/venda)"]],
+    [/supermercado|mercearia|minimercado|armazem/, ["Supermercado e mercearia","Comércio varejista em geral"]],
+    [/farmacia|medicamento|drogaria/, ["Farmácia e produtos de saúde","Comércio varejista em geral"]],
+    [/construcao|obra|edificac|engenharia|arquitetura/, ["Construção civil","Arquitetura e engenharia","Ferragens e materiais de construção"]],
+    [/transporte|frete|carga|logistica|entrega/, ["Logística e transporte de cargas","Transporte de passageiros"]],
+    [/automov|veiculo|oficina|mecanica|motociclet/, ["Automotivo (oficina e manutenção)","Automotivo (venda de veículos)"]],
+    [/software|informatica|programacao|tecnologia da informacao|desenvolvimento de programas/, ["Tecnologia da informação (TI)","Eletrônicos e informática (venda)"]],
+    [/saude|medica|medico|clinica|odontolog|dentista|fisioterapia|psicolog/, ["Saúde (clínicas e consultórios)","Odontologia","Farmácia e produtos de saúde"]],
+    [/educa|ensino|escola|treinamento|curso/, ["Educação (escolas e cursos)"]],
+    [/contabil|contabilidade|auditoria|consultoria|advocacia|juridic/, ["Contabilidade e finanças","Consultoria empresarial","Jurídico (advocacia)"]],
+    [/vestuario|roupa|confecc|textil|calcados|sapatos/, ["Moda e vestuário","Varejo de roupas e acessórios","Calçados","Indústria têxtil"]],
+    [/beleza|cabeleire|estetica|manicure/, ["Beleza e estética"]],
+    [/hotel|hospedagem|turismo|viagens|agencia de viagens/, ["Hotelaria e hospedagem","Turismo e agência de viagens"]],
+    [/moveis|moveleira/, ["Indústria moveleira","Móveis e decoração"]],
+    [/metalurg|metal|usinagem|serralheria/, ["Indústria metalúrgica","Máquinas e equipamentos"]],
+    [/limpeza|conservacao|higienizacao|dedetizacao/, ["Limpeza e conservação","Serviços domésticos"]],
+    [/floricultura|jardinagem|plantas ornamentais/, ["Floricultura e jardinagem"]],
+    [/pet shop|veterin|animais/, ["Pet shop e serviços veterinários"]],
+    [/publicidade|marketing|propaganda|design|comunicacao/, ["Marketing digital","Design e publicidade"]],
+    [/grafica|impressao/, ["Gráfica e impressão"]],
+    [/imobili|aluguel de imoveis|administracao de imoveis/, ["Imobiliário"]],
+    [/energia|eletricidade|painel solar|combustivel/, ["Energia e sustentabilidade"]]
   ];
   var relacionados=[];
   rules.forEach(function(rule){if(rule[0].test(texto)) relacionados=relacionados.concat(rule[1]);});
@@ -922,7 +922,9 @@ function consultarCNPJPublico(cnpjDigits){
         situacao: d.descricao_situacao_cadastral || "",
         cnae: d.cnae_fiscal_descricao || "",
         cnaeCodigo: d.cnae_fiscal || "",
-        cnaesSecundarios: (d.cnaes_secundarios || []).map(function(item){return {codigo:item.codigo||"",descricao:item.descricao||""};}),
+        cnaesSecundarios: (d.cnaes_secundarios || []).map(function(item){
+          return {codigo:item.codigo||"",descricao:item.descricao||""};
+        }),
         consultadoEm: new Date().toISOString()
       };
     });
@@ -1004,6 +1006,8 @@ var PUBLIC_COMPANY_CATALOG = [
   {name:"Mineração Jundu", aliases:["MINERACAO JUNDU LTDA","Jundu"], cnpj:"60628468000157", city:"Descalvado", areas:["Matérias-primas/Reciclagens","Entretenimentos/Lazeres"], offer:"areias quartzosas, sílica moída e areias resinadas para indústrias; areias especiais para quadras e campos esportivos", sourceUrl:"https://jundu.com.br/minerais/areia-quartzosa/", sourceName:"Jundu — minerais e areia quartzosa", catalogSource:"public"},
   {name:"Ipiranga Agroindustrial — unidade Descalvado", aliases:["IPIRANGA AGROINDUSTRIAL S.A."], cnpj:"07280328001804", city:"Descalvado", areas:["Alimentos/Medicamentos","Energias/Combustíveis"], offer:"açúcar (Alimentos/Medicamentos), etanol e energia elétrica de biomassa (Energias/Combustíveis)", sourceUrl:"https://www.ipirangaagroindustrial.com.br/", sourceName:"Ipiranga Agroindustrial — produtos e unidades", catalogSource:"public"}
 ];
+var municipalCompanies = [];
+var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
 var sharedNetwork = null;
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
@@ -2405,7 +2409,25 @@ function sendToSheet(payload){
   });
 }
 
+function loadMunicipalDirectory(){
+  fetch("./empresas-descalvado.json").then(function(response){if(!response.ok)throw new Error("Catálogo municipal indisponível");return response.json();}).then(function(directory){
+    return Promise.all((directory.shards||[]).map(function(shard){return fetch("./"+shard.file).then(function(response){if(!response.ok)throw new Error("Falha ao carregar "+shard.file);return response.json();});})).then(function(pages){
+      municipalCompanies=pages.reduce(function(all,page){return all.concat(page.companies||[]);},[]).map(function(record){return {name:record.name||record.legalName,aliases:record.legalName&&record.legalName!==record.name?[record.legalName]:[],cnpj:record.cnpj,city:directory.municipality,areas:[],offer:record.cnae||"atividade econômica não informada",catalogSource:"registry",status:record.status,cnae:record.cnae,secondaryCnaes:record.secondaryCnaes||[],sourceUrl:"https://api.radar-cnpj.com/empresas/cnpj/"+record.cnpj+"/index.json"};}).filter(function(company){return company.name&&company.cnpj;});
+      refreshSharedCompanies();
+      if(activeProgramSection==="survey")renderCurrentStep();
+    });
+  }).catch(function(error){console.warn("Catálogo de Descalvado não carregado:",error);});
+}
+function refreshSharedCompanies(){
+  sharedCompanies=PUBLIC_COMPANY_CATALOG.slice();
+  municipalCompanies.concat(learnedSharedCompanies).forEach(function(company){
+    if(!company||!company.name)return;
+    var duplicate=sharedCompanies.some(function(item){return (company.cnpj&&item.cnpj===company.cnpj)||normName(item.name)===normName(company.name);});
+    if(!duplicate)sharedCompanies.push(company);
+  });
+}
 function loadSharedOptions(){
+  loadMunicipalDirectory();
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf("COLE_AQUI_")===0) return;
   var callbackName="__mapaOptions_"+uid().replace(/[^a-zA-Z0-9_$]/g,"");
   var script=document.createElement("script");
@@ -2418,13 +2440,8 @@ function loadSharedOptions(){
   }
   window[callbackName]=function(response){
     if(!response||!response.ok||!response.options){done();return;}
-    var learnedCompanies=Array.isArray(response.companies)?response.companies:[];
-    sharedCompanies=PUBLIC_COMPANY_CATALOG.slice();
-    learnedCompanies.forEach(function(company){
-      if(!company||!company.name)return;
-      var duplicate=sharedCompanies.some(function(item){return (company.cnpj&&item.cnpj===company.cnpj)||normName(item.name)===normName(company.name);});
-      if(!duplicate)sharedCompanies.push(company);
-    });
+    learnedSharedCompanies=Array.isArray(response.companies)?response.companies:[];
+    refreshSharedCompanies();
     sharedNetwork=response.network||null;
     sharedWorkforce=response.workforce||sharedWorkforce;
     state.contributedOptions=state.contributedOptions||{};
@@ -2668,7 +2685,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
   actions.appendChild(h("button",{class:"platform-action secondary",type:"button",onclick:function(){showProgramSection("workforce");}},["Ver pessoas e trabalho"]));copy.appendChild(actions);
   page.appendChild(h("div",{class:"platform-hero"},[copy]));
   var stats=h("div",{class:"platform-stats"});
-  [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Total agregado da base colaborativa"])]));});page.appendChild(stats);
+  [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Total agregado da rede"])]));});page.appendChild(stats);
   if(isOverview) page.appendChild(renderConnectionJourney());
   var grid=h("div",{class:"platform-grid"}), mapCard=h("div",{class:"platform-card"}), side=h("aside",{class:"platform-card"});
   mapCard.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Fornecedores por setor"]),h("p",{},["Escolha um setor para ver as conexões informadas."])] )]));
@@ -2847,7 +2864,7 @@ function renderConversationReview(container){
       var missing=(sharedNetwork.areas||[]).filter(function(area){return !area.knownSupplierLinks;}).map(function(area){return area.name;});
       container.appendChild(h("div",{class:"review-section",style:"margin-top:16px;"},[
         h("h3",{},["Rede colaborativa até agora"]),
-        h("p",{class:"question-help"},[(sharedNetwork.companies||0)+" empresas identificadas e "+(sharedNetwork.relationships||0)+" relações registradas. A base encontrou "+(sharedNetwork.twoStepChains||0)+" caminhos que conectam dois negócios; "+(sharedNetwork.confirmedClosures||0)+" já têm também a ligação direta registrada e "+(sharedNetwork.potentialConnections||0)+" são oportunidades para investigar com os participantes. Setores sem fornecedor identificado: "+(missing.length?missing.join("; "):"nenhuma na base atual. A cobertura registrada não significa que todas as relações estejam confirmadas.")])
+        h("p",{class:"question-help"},[(sharedNetwork.companies||0)+" empresas identificadas e "+(sharedNetwork.relationships||0)+" relações registradas. A base encontrou "+(sharedNetwork.twoStepChains||0)+" caminhos que conectam dois negócios; "+(sharedNetwork.confirmedClosures||0)+" já têm também a ligação direta registrada e "+(sharedNetwork.potentialConnections||0)+" são oportunidades para investigar com os participantes. Setores sem fornecedor identificado: "+(missing.length?missing.join("; "):"nenhum na base atual. A cobertura registrada não significa que todas as relações estejam confirmadas.")])
       ]));
     }
   }
@@ -2863,6 +2880,8 @@ function optionsWithContributions(key, options){
   var additions=(state.contributedOptions||{})[key]||[];
   return (options||[]).concat(additions.filter(function(value){return (options||[]).indexOf(value)===-1;}));
 }
+// Country, state and city remain closed lists. Product, service and purchase
+// catalogs accept multi-item suggestions that can help future respondents.
 function canAddAnswer(key){ return ["produtosSelecionados","categoriasClientes","comprasSelecionadas"].indexOf(key)>-1; }
 function filterAllowedOptionMap(optionsByField){
   var filtered={};
@@ -2875,13 +2894,14 @@ function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
   var offer=String(company.offer||"");
   if(offer.length>64) offer=offer.slice(0,61)+"…";
-  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+(company.catalogSource==="public"?" · sugestão pública: "+offer:"");
+  var sourceHint=company.catalogSource==="public"?" · sugestão pública: "+offer:company.catalogSource==="registry"?" · CNPJ ativo · CNAE: "+offer:"";
+  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+sourceHint;
 }
 function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
 function addAnswerControl(key){
   if(!canAddAnswer(key)) return null;
-  var labels={produtosSelecionados:"produto ou serviço",categoriasClientes:"produto ou serviço",comprasSelecionadas:"item de compra"};
   var box=h("div",{class:"add-answer-box"});
+  var labels={produtosSelecionados:"produto ou serviço",categoriasClientes:"produto ou serviço",comprasSelecionadas:"item de compra"};
   var open=h("button",{type:"button",class:"btn-outline add-answer-open"},["＋ Adicionar "+labels[key]]);
   var form=h("div",{class:"add-answer-form"}); form.style.display="none";
   var input=h("textarea",{class:"add-answer-input",rows:"3",placeholder:"Digite um ou mais itens, separados por linha ou ponto e vírgula"});
@@ -2939,6 +2959,7 @@ function renderConversation(container){
       if(q.kind==="companies"){
         var companyWrap=h("div",{});
         companyWrap.appendChild(h("p",{class:"question-help"},["Sugestões públicas mostram empresas e soluções divulgadas por elas; isso não confirma uma relação comercial. Selecione uma empresa somente se ela realmente fornece para você ou compra de você. As fontes podem ser consultadas no catálogo inicial."]));
+        companyWrap.appendChild(h("p",{class:"question-help"},["O diretório público de Descalvado inclui 7.287 estabelecimentos com situação ativa na base de 02/10/2026, inclusive filiais. Situação cadastral não comprova operação atual nem oferta comercial. ",h("a",{href:"https://api.radar-cnpj.com/empresas/uf/SP/cidade/descalvado-f7e2f89fd1dcb5fa/index.json",target:"_blank",rel:"noopener noreferrer"},["Consultar fonte e data da base"])]));
         companyWrap.appendChild(buildComboMulti({options:sharedCompanyOptions(),selectedArr:state.answers[q.key],placeholder:"Buscar ou digitar o nome de uma empresa...",allowFreeText:true,onChange:function(){syncConversationAnswers();saveState();renderCurrentStep();}}));
         var publicSources=h("details",{class:"question-help",style:"margin-top:8px;"});
         publicSources.appendChild(h("summary",{},["Ver fontes das sugestões públicas"]));
@@ -3185,7 +3206,7 @@ function renderMap(){
     label(130,99,"+","12","#2D55E8");
   }
   if(supMore>0){ label(130,25,"+"+supMore+" fornecedores",9,"#2D55E8"); }
-  label(130,20,"Fornecedores",9,"#1D347B");
+    label(130,20,"Fornecedores",9,"#1D347B");
 
   // customers (bottom)
   var botY0 = 320, botY1 = 430;
