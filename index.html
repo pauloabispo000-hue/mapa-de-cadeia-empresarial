@@ -467,6 +467,22 @@
   .platform-area-name{font-size:11px;font-weight:650;flex:1;}
   .platform-area-count{font-size:11px;font-weight:800;color:#3154D2;}
   .platform-note{border-left:3px solid #E8D900;background:#FFFDE1;border-radius:0 10px 10px 0;padding:13px 15px;color:#55552B;font-size:12px;margin-top:14px;}
+  .connection-journey{margin:18px 0 22px;padding:20px 22px;}
+  .connection-journey-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .connection-journey-head p{margin:5px 0 0;color:#65718B;font-size:13px;max-width:700px;}
+  .journey-progress{height:8px;background:#EBEEF6;border-radius:99px;overflow:hidden;margin:16px 0 14px;}
+  .journey-progress span{display:block;height:100%;background:linear-gradient(90deg,#2D55E8,#7B91F2);border-radius:99px;transition:width .25s ease;}
+  .journey-missions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+  .journey-mission{border:1px solid #E3E8F2;border-radius:11px;background:#FAFBFF;padding:12px;min-height:90px;}
+  .journey-mission.done{background:#EEF4FF;border-color:#C8D5FF;}
+  .journey-mission strong{display:flex;align-items:center;gap:7px;color:#24314E;font-size:12px;}
+  .journey-mission p{margin:5px 0 0 24px;color:#65718B;font-size:11px;line-height:1.4;}
+  .journey-check{width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center;border-radius:50%;background:#E9EDF7;color:#64708A;font-size:11px;font-weight:800;}
+  .journey-mission.done .journey-check{background:#2D55E8;color:#fff;}
+  .journey-scales{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px;}
+  .journey-scale{border:1px solid #D9E1F2;border-radius:99px;padding:5px 10px;background:#fff;color:#56637D;font-size:11px;}
+  .journey-scale strong{color:#1D347B;}
+  .connection-journey .platform-action{margin-top:15px;}
   input[type=number]{width:100%;max-width:420px;border:1.5px solid #D8CDB3;background:#fff;border-radius:10px;padding:11px 13px;font-size:14.5px;font-family:inherit;color:#1C2B28;}
   .platform-empty{border:1px dashed #BBC6E1;background:#FAFBFF;color:#5C6881;border-radius:12px;padding:16px;font-size:13px;}
   .workforce-callout{background:#F4F6FF;border:1px solid #DDE4FA;border-radius:14px;padding:18px;margin-top:18px;}
@@ -509,7 +525,8 @@
   .survey-heading button{background:#fff;border:1px solid #D9E1F2;border-radius:9px;color:#2345C8;padding:8px 11px;cursor:pointer;font-weight:700;}
   .survey-heading button:hover{background:#F3F5FF;border-color:#B9C8FA;}
   @media(max-width:980px){.platform-topbar{flex-wrap:wrap;gap:8px;padding:10px 18px}.platform-brand{min-width:180px}.platform-nav{order:3;flex-basis:100%}.platform-nav button{padding:9px}.platform-account{margin-left:auto}.platform-grid{grid-template-columns:1fr}.platform-area-list{max-height:260px}.platform-hero-symbol{width:110px;height:110px;flex-basis:110px}.platform-hero-symbol svg{width:78px;height:78px}}
-  @media(max-width:640px){#platformContent{padding-top:20px}.platform-hero{align-items:flex-start}.platform-hero-symbol{display:none}.platform-stats,.workforce-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.platform-stat{padding:14px}.platform-stat strong{font-size:22px}.platform-card{padding:15px}.platform-map-wrap{margin:0 -4px}.app#surveyWizard{margin:10px;border-radius:13px}.survey-heading{align-items:flex-start}.platform-account{font-size:10px}}
+  @media(max-width:760px){.journey-missions{grid-template-columns:repeat(2,minmax(0,1fr))}.connection-journey-head{flex-direction:column}}
+  @media(max-width:640px){#platformContent{padding-top:20px}.platform-hero{align-items:flex-start}.platform-hero-symbol{display:none}.platform-stats,.workforce-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.platform-stat{padding:14px}.platform-stat strong{font-size:22px}.platform-card{padding:15px}.connection-journey{padding:16px}.platform-map-wrap{margin:0 -4px}.app#surveyWizard{margin:10px;border-radius:13px}.survey-heading{align-items:flex-start}.platform-account{font-size:10px}}
 </style>
 </head>
 <body>
@@ -2556,6 +2573,67 @@ function renderProgramSection(){
   renderNetworkPage(root,network,workforce,activeProgramSection==="overview");
 }
 
+function renderConnectionJourney(){
+  var name=String(state.business.nome||state.answers.negocioNome||"").trim();
+  var offers=(state.answers.produtosSelecionados||[]);
+  if(!offers.length) offers=state.business.produtoCategorias||[];
+  var hasOffer=offers.length>0||String(state.answers.produtos||state.business.produtoDetalhe||"").trim().length>0;
+  var suppliers=(state.fornecedores.lista||[]).filter(function(item){return String(item.empresa||"").trim();});
+  var customers=(state.clientes.lista||[]).filter(function(item){return String(item.empresa||"").trim();});
+  var supplierNames=suppliers.map(function(item){return normalizeSearch(item.empresa);});
+  var hasReturnLink=customers.some(function(item){return supplierNames.indexOf(normalizeSearch(item.empresa))>-1;});
+  var missions=[
+    {title:"Apresente sua oferta",detail:"Nome e pelo menos um produto ou serviço",done:!!name&&hasOffer},
+    {title:"Mapeie fornecedores",detail:"Inclua quem fornece para sua empresa",done:suppliers.length>0},
+    {title:"Identifique clientes",detail:"Inclua quem compra ou usa sua oferta",done:customers.length>0},
+    {title:"Feche um elo",detail:"Encontre uma empresa que seja cliente e fornecedora",done:hasReturnLink}
+  ];
+  var completed=missions.filter(function(item){return item.done;}).length;
+  var card=h("section",{class:"platform-card connection-journey","aria-labelledby":"connectionJourneyTitle"});
+  card.appendChild(h("div",{class:"connection-journey-head"},[
+    h("div",{},[
+      h("p",{class:"platform-eyebrow"},["SUA TRILHA NA REDE"]),
+      h("h2",{id:"connectionJourneyTitle"},["Missões de conexão"]),
+      h("p",{},["Cada passo aproxima quem compra, vende e fornece. Comece pelas relações reais do seu negócio e amplie o alcance quando isso for viável. O foco é utilidade e reciprocidade, não quantidade de cadastros."])
+    ]),
+    h("strong",{style:"color:#1D347B;font-size:13px;white-space:nowrap;"},[completed+" de "+missions.length+" etapas"])
+  ]));
+  var progress=h("div",{class:"journey-progress",role:"progressbar","aria-label":"Progresso das missões de conexão","aria-valuemin":"0","aria-valuemax":String(missions.length),"aria-valuenow":String(completed)});
+  progress.appendChild(h("span",{style:"width:"+(completed/missions.length*100)+"%;"}));
+  card.appendChild(progress);
+  var missionGrid=h("div",{class:"journey-missions"});
+  missions.forEach(function(item,index){
+    missionGrid.appendChild(h("div",{class:"journey-mission"+(item.done?" done":"")},[
+      h("strong",{},[h("span",{class:"journey-check","aria-hidden":"true"},[item.done?"✓":String(index+1)]),item.title]),
+      h("p",{},[item.detail])
+    ]));
+  });
+  card.appendChild(missionGrid);
+  var ownCity=String(state.business.cidade||state.answers.cidade||"");
+  function placeParts(value){
+    var match=String(value||"").match(/\s-\s([A-Z]{2})$/);
+    return {city:normalizeSearch(match?String(value).slice(0,match.index):value),uf:match?match[1]:""};
+  }
+  var ownPlace=placeParts(ownCity), scales={city:0,otherCities:0,otherStates:0,abroad:0};
+  suppliers.concat(customers).forEach(function(entity){
+    var country=normalizeSearch(entity.pais||"Brasil");
+    if(country&&country!=="brasil"){scales.abroad++;return;}
+    if(!entity.cidade) return;
+    var place=placeParts(entity.cidade);
+    if(ownPlace.city&&place.city===ownPlace.city) scales.city++;
+    else if(ownPlace.uf&&place.uf&&ownPlace.uf!==place.uf) scales.otherStates++;
+    else scales.otherCities++;
+  });
+  var scopes=h("div",{class:"journey-scales","aria-label":"Alcance geográfico das conexões informadas"});
+  [["Na sua cidade",scales.city],["Outras cidades",scales.otherCities],["Outros estados",scales.otherStates],["Exterior",scales.abroad]].forEach(function(item){
+    scopes.appendChild(h("span",{class:"journey-scale"},[item[0]+" · ",h("strong",{},[String(item[1])])]));
+  });
+  card.appendChild(scopes);
+  card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta apenas empresas com localização informada. Conexões não confirmadas não entram como relações realizadas."]));
+  card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro"]));
+  return card;
+}
+
 function renderNetworkPage(root,network,workforce,isOverview){
   var page=h("section",{class:"platform-page"});
   var copy=h("div",{class:"platform-hero-copy"},[
@@ -2569,6 +2647,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
   page.appendChild(h("div",{class:"platform-hero"},[copy]));
   var stats=h("div",{class:"platform-stats"});
   [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Total agregado da base colaborativa"])]));});page.appendChild(stats);
+  if(isOverview) page.appendChild(renderConnectionJourney());
   var grid=h("div",{class:"platform-grid"}), mapCard=h("div",{class:"platform-card"}), side=h("aside",{class:"platform-card"});
   mapCard.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Fornecedores por setor"]),h("p",{},["Escolha um setor para ver as conexões informadas."])] )]));
   var wrap=h("div",{class:"platform-map-wrap"}), svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("viewBox","0 0 660 490");svg.setAttribute("class","platform-network-svg");svg.setAttribute("role","img");svg.setAttribute("aria-label","Mapa de fornecedores por setor");
