@@ -414,10 +414,10 @@
   /* Plataforma Coopera: painel permanente; pesquisa guiada é uma das seções. */
   body{background:#F3F5FA;color:#17223B;}
   .platform-topbar{min-height:72px;background:#2D55E8;color:#fff;display:flex;align-items:center;gap:28px;padding:0 clamp(18px,4vw,56px);box-shadow:0 3px 14px rgba(22,43,118,.18);}
-  .platform-brand{display:flex;align-items:center;gap:11px;min-width:230px;color:#fff;}
-  .platform-mark{width:38px;height:38px;border:2px solid rgba(255,255,255,.9);border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px;}
-  .platform-brand strong{display:block;font-size:17px;letter-spacing:.1em;}
-  .platform-brand small{display:block;color:#DCE5FF;font-size:10px;letter-spacing:.04em;}
+  .platform-brand{display:flex;align-items:center;gap:9px;min-width:230px;color:#fff;text-decoration:none;border:0;background:none;padding:0;font:inherit;text-align:left;cursor:pointer;}
+  .platform-mark{width:43px;height:35px;flex:0 0 43px;display:block;color:#fff;}
+  .platform-brand strong{display:block;font-size:20px;font-style:italic;font-weight:750;letter-spacing:.06em;line-height:1.05;}
+  .platform-brand small{display:block;color:#DCE5FF;font-size:9px;letter-spacing:.04em;margin-top:3px;}
   .platform-nav{display:flex;align-items:center;gap:5px;flex:1;overflow-x:auto;}
   .platform-nav button{border:0;background:transparent;color:#E5EBFF;padding:12px 13px;border-radius:9px;white-space:nowrap;font-size:13px;font-weight:650;cursor:pointer;}
   .platform-nav button:hover,.platform-nav button.active{background:rgba(255,255,255,.16);color:#fff;}
@@ -514,7 +514,13 @@
 </head>
 <body>
 <header class="platform-topbar">
-  <div class="platform-brand"><span class="platform-mark">C</span><div><strong>COOPERA</strong><small>Cadeia de Interdependência</small></div></div>
+  <button type="button" class="platform-brand" data-program-section="overview" aria-label="COOPERA — voltar ao panorama">
+    <svg class="platform-mark" viewBox="0 0 48 36" role="img" aria-label="Símbolo espiralado da COOPERA" xmlns="http://www.w3.org/2000/svg">
+      <path d="M38 8.5C33.5 3.5 25.8 1.5 18.4 3.7 9.6 6.2 4.4 12.9 5.2 19.8c.8 7.1 7.9 12.2 16.2 12.2 7.8 0 14-4.3 15.3-10.1 1.1-4.9-2.7-9-7.9-9.6-5.4-.6-9.7 2.3-10 6.4-.2 2.6 1.7 4.6 4.5 4.7 2.1.1 3.8-.9 4.8-2.4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+      <path d="M39.5 14.2c2.6 4.7 1.4 10.5-2.8 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".78"/>
+    </svg>
+    <span><strong>COOPERA</strong><small>Cadeia de Interdependência</small></span>
+  </button>
   <nav class="platform-nav" aria-label="Navegação principal">
     <button type="button" data-program-section="overview">Panorama</button>
     <button type="button" data-program-section="network">Mapa da rede</button>
