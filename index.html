@@ -423,6 +423,20 @@
   .platform-nav button{border:0;background:transparent;color:#E5EBFF;padding:12px 13px;border-radius:9px;white-space:nowrap;font-size:13px;font-weight:650;cursor:pointer;}
   .platform-nav button:hover,.platform-nav button.active{background:rgba(255,255,255,.16);color:#fff;}
   .platform-account{font-size:12px;border:1px solid rgba(255,255,255,.35);padding:8px 12px;border-radius:99px;white-space:nowrap;color:#fff;}
+  .auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top right,#EAF0FF,transparent 42%),var(--paper)}
+  .auth-card{width:min(100%,440px);background:#fff;border:1px solid #E1E7F4;border-radius:20px;padding:30px;box-shadow:0 18px 48px rgba(35,58,114,.12)}
+  .auth-brand{color:#2D55E8;font-weight:900;letter-spacing:.14em;font-size:20px}
+  .auth-card h1{font-family:var(--sans);font-size:25px;color:#152449;margin:22px 0 6px}
+  .auth-card>p{color:#65718B;font-size:13px;margin:0 0 20px}
+  .auth-field{display:block;margin:14px 0;color:#24314E;font-size:13px;font-weight:700}
+  .auth-field input{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #CCD5E8;border-radius:9px;font:inherit;font-weight:400}
+  .auth-submit{width:100%;margin-top:8px;border:0;border-radius:9px;padding:12px;background:#2D55E8;color:#fff;font-weight:800;cursor:pointer}
+  .auth-error{color:#A5432F;font-size:13px;min-height:20px;margin-top:10px}
+  .auth-demo-note{margin-top:18px;padding:12px;border-radius:10px;background:#FFFDE1;color:#55552B;font-size:11px;line-height:1.45}
+  body:not(.authenticated)>:not(#loginScreen){display:none!important}
+  body.authenticated #loginScreen{display:none!important}
+  .platform-account{display:flex;align-items:center;gap:8px}
+  .platform-account button{border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;border-radius:7px;padding:5px 8px;cursor:pointer}
   #platformContent{max-width:1440px;margin:0 auto;padding:32px clamp(18px,4vw,56px) 60px;min-height:calc(100vh - 72px);}
   .platform-page{animation:platform-enter .2s ease-out;}
   @keyframes platform-enter{from{opacity:.6;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -531,6 +545,18 @@
 </style>
 </head>
 <body>
+<section id="loginScreen" class="auth-gate" aria-label="Acesso">
+  <form id="loginForm" class="auth-card">
+    <div class="auth-brand">AVANTE</div>
+    <h1>Entrar na plataforma</h1>
+    <p>Acesse o ambiente de demonstração do Avante.</p>
+    <label class="auth-field">Nome de usuário<input id="loginUsername" name="username" autocomplete="username" required></label>
+    <label class="auth-field">Senha<input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="auth-submit" type="submit">Entrar</button>
+    <div id="loginError" class="auth-error" role="alert"></div>
+    <div class="auth-demo-note">Esta é uma conta de demonstração vinculada a um registro público para testar a interface. Ela não autentica nem representa a empresa titular do CNPJ. A senha de teste é pública no código e não protege dados reais.</div>
+  </form>
+</section>
 <header class="platform-topbar">
   <button type="button" class="platform-brand" data-program-section="overview" aria-label="Avante — voltar ao panorama">
     <svg class="platform-mark" viewBox="0 0 48 48" role="img" aria-label="A angular do Avante" xmlns="http://www.w3.org/2000/svg">
@@ -546,7 +572,7 @@
     <button type="button" data-program-section="workforce">Pessoas e trabalho</button>
     <button type="button" data-program-section="survey">Cadastrar negócio</button>
   </nav>
-  <div class="platform-account">Base colaborativa</div>
+  <div class="platform-account"><span id="platformAccountLabel">Conta de demonstração</span><button type="button" id="logoutButton">Sair</button></div>
 </header>
 <div id="platformContent"></div>
 <div class="app" id="surveyWizard" style="display:none">
@@ -936,7 +962,9 @@ var PAISES_OPTS = ["Brasil","Argentina","Uruguai","Paraguai","Chile","Bolívia",
 
 var FREQUENCIA_OPTS = ["Diária","Semanal","Mensal","Sazonal (época específica)","Eventual/pontual","Não sei"];
 
-var STORAGE_KEY = "cadeia_produtiva_questionario_v1";
+var DEMO_LOGIN = {username:"teste.lubing",password:"Avante-demo-2026!",companyName:"Lubing do Brasil",cnpj:"03440124000186",city:"Descalvado"};
+var authSession = readDemoSession();
+var STORAGE_KEY = authSession ? "avante_demo_company_"+authSession.cnpj : "avante_no_session";
 var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRCNjGsputIJHI5aP-y8CZ53V5Kb3wc5l-WMT7X9EtT5mik00wsIsj2zcBpMeQ585kIw/exec";
 
 var STEPS = [
@@ -992,6 +1020,7 @@ function freshState(){
 }
 
 var state = loadState() || freshState();
+if(authSession) initializeDemoProfile();
 // Catálogo inicial de organizações e soluções, compilado de páginas públicas.
 // São sugestões de busca; não representam relações comerciais confirmadas.
 var PUBLIC_COMPANY_CATALOG = [
@@ -1091,6 +1120,34 @@ function backfillListItems(list, templateFn){
   });
 }
 
+function readDemoSession(){
+  try{
+    var saved=JSON.parse(sessionStorage.getItem("avante_demo_session")||"null");
+    return saved&&saved.demo===true&&saved.username===DEMO_LOGIN.username&&saved.cnpj===DEMO_LOGIN.cnpj?saved:null;
+  }catch(e){return null;}
+}
+function initializeDemoProfile(){
+  state.business.nome=state.business.nome||DEMO_LOGIN.companyName;
+  state.business.cnpj=state.business.cnpj||DEMO_LOGIN.cnpj;
+  state.business.cidade=state.business.cidade||DEMO_LOGIN.city;
+  state.answers.negocioNome=state.answers.negocioNome||DEMO_LOGIN.companyName;
+  state.answers.cnpj=state.answers.cnpj||DEMO_LOGIN.cnpj;
+  state.answers.cidade=state.answers.cidade||DEMO_LOGIN.city;
+}
+function enterDemoSession(){
+  authSession={demo:true,username:DEMO_LOGIN.username,cnpj:DEMO_LOGIN.cnpj};
+  sessionStorage.setItem("avante_demo_session",JSON.stringify(authSession));
+  STORAGE_KEY="avante_demo_company_"+authSession.cnpj;
+  state=loadState()||freshState();
+  initializeDemoProfile();
+  saveState();
+  document.body.classList.add("authenticated");
+  document.getElementById("platformAccountLabel").textContent=DEMO_LOGIN.companyName+" — demonstração";
+  showProgramSection("overview");
+}
+function validDemoCredentials(username,password){
+  return String(username||"").trim().toLowerCase()===DEMO_LOGIN.username&&String(password||"")===DEMO_LOGIN.password;
+}
 function loadState(){
   try{
     var raw = localStorage.getItem(STORAGE_KEY);
@@ -2395,6 +2452,7 @@ function toCSV(rels){
 }
 
 function sendToSheet(payload){
+  if(authSession&&authSession.demo) return Promise.reject(new Error("O modo de demonstração não envia respostas para a base compartilhada."));
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf("COLE_AQUI_")===0){
     return Promise.reject(new Error("Configure a URL da implantação do Apps Script antes de enviar."));
   }
@@ -3247,6 +3305,27 @@ document.addEventListener("click", function(evt){
   });
 });
 
+document.getElementById("loginForm").addEventListener("submit",function(event){
+  event.preventDefault();
+  var username=document.getElementById("loginUsername").value.trim().toLowerCase();
+  var password=document.getElementById("loginPassword").value;
+  if(validDemoCredentials(username,password)){
+    document.getElementById("loginError").textContent="";
+    enterDemoSession();
+  }else{
+    document.getElementById("loginError").textContent="Usuário ou senha incorretos.";
+  }
+});
+document.getElementById("logoutButton").addEventListener("click",function(){
+  sessionStorage.removeItem("avante_demo_session");
+  authSession=null;
+  document.body.classList.remove("authenticated");
+  document.getElementById("loginPassword").value="";
+});
+if(authSession){
+  document.body.classList.add("authenticated");
+  document.getElementById("platformAccountLabel").textContent=DEMO_LOGIN.companyName+" — demonstração";
+}
 renderCurrentStep(true);
 document.getElementById("surveyWizard").style.display="none";
 document.querySelectorAll("[data-program-section]").forEach(function(button){button.addEventListener("click",function(){showProgramSection(button.getAttribute("data-program-section"));});});
