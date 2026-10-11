@@ -2705,7 +2705,7 @@ function optionsWithContributions(key, options){
   var additions=(state.contributedOptions||{})[key]||[];
   return (options||[]).concat(additions.filter(function(value){return (options||[]).indexOf(value)===-1;}));
 }
-function canAddAnswer(key){ return key==="comprasSelecionadas"; }
+function canAddAnswer(key){ return ["produtosSelecionados","categoriasClientes","comprasSelecionadas"].indexOf(key)>-1; }
 function filterAllowedOptionMap(optionsByField){
   var filtered={};
   Object.keys(optionsByField||{}).forEach(function(key){
@@ -2717,39 +2717,48 @@ function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
   return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"");
 }
-function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
-function addAnswerControl(key){
+function sharedCompanyOptiofunction addAnswerControl(key){
   if(!canAddAnswer(key)) return null;
+  var labels={produtosSelecionados:"produto ou serviço",categoriasClientes:"produto ou serviço",comprasSelecionadas:"item de compra"};
   var box=h("div",{class:"add-answer-box"});
-  var open=h("button",{type:"button",class:"btn-outline add-answer-open"},["＋ Adicionar item de compra"]);
+  var open=h("button",{type:"button",class:"btn-outline add-answer-open"},["＋ Adicionar "+labels[key]]);
   var form=h("div",{class:"add-answer-form"}); form.style.display="none";
-  var input=h("input",{type:"text",class:"add-answer-input",placeholder:"Digite um item de compra que está faltando"});
-  var save=h("button",{type:"button",class:"btn-primary add-answer-save"},["Salvar resposta"]);
+  var input=h("textarea",{class:"add-answer-input",rows:"3",placeholder:"Digite um ou mais itens, separados por linha ou ponto e vírgula"});
+  var save=h("button",{type:"button",class:"btn-primary add-answer-save"},["Salvar opções"]);
   var message=h("p",{class:"add-answer-message"});
   open.addEventListener("click",function(){form.style.display="flex";open.style.display="none";input.focus();});
   save.addEventListener("click",function(){
-    var value=input.value.trim();
-    if(!value){message.textContent="Digite uma resposta.";return;}
+    var values=input.value.split(/[\n;]+/).map(function(value){return value.trim();}).filter(Boolean);
+    if(!values.length){message.textContent="Digite ao menos um item.";return;}
     var options=optionsWithContributions(key,[]);
-    if(options.some(function(item){return normalizeSearch(item)===normalizeSearch(value);})){message.textContent="Essa resposta já está na lista.";return;}
+    var added=0,duplicates=0;
     state.contributedOptions=state.contributedOptions||{};
     state.contributedOptions[key]=state.contributedOptions[key]||[];
-    state.contributedOptions[key].push(value);
     state.contributions=state.contributions||[];
-    var contribution={id:uid(),field:key,value:value,createdAt:new Date().toISOString(),area:inferAreaFromText(value)||""};
-    state.contributions.push(contribution);
-    if(key==="produtosSelecionados"||key==="categoriasClientes"||key==="complementaresSelecionados"||key==="faltaLocalSelecionado"||key==="oportunidadeSelecionada"){
-      if(contribution.area) SEGMENTO_AREA[value]=contribution.area;
-    }
-    if(key==="comprasSelecionadas"&&contribution.area) CATEGORIA_INSUMO_AREA[value]=contribution.area;
-    if(Array.isArray(state.answers[key])) state.answers[key].push(value);
-    else if(Object.prototype.hasOwnProperty.call(state.answers,key)) state.answers[key]=value;
+    values.forEach(function(value){
+      var normalized=normalizeSearch(value);
+      if(options.some(function(item){return normalizeSearch(item)===normalized;})||state.contributedOptions[key].some(function(item){return normalizeSearch(item)===normalized;})){duplicates++;return;}
+      state.contributedOptions[key].push(value);
+      var contribution={id:uid(),field:key,value:value,createdAt:new Date().toISOString(),area:inferAreaFromText(value)||""};
+      state.contributions.push(contribution);
+      if(key==="produtosSelecionados"||key==="categoriasClientes"){
+        if(contribution.area) SEGMENTO_AREA[value]=contribution.area;
+      }
+      if(key==="comprasSelecionadas"&&contribution.area) CATEGORIA_INSUMO_AREA[value]=contribution.area;
+      if(Array.isArray(state.answers[key])&&state.answers[key].indexOf(value)===-1) state.answers[key].push(value);
+      added++;
+    });
+    if(!added){message.textContent="Todas as opções digitadas já estão na lista.";return;}
     syncConversationAnswers();
     saveState();
+    if(duplicates) message.textContent=added+" opção(ões) adicionada(s); "+duplicates+" repetida(s) ignorada(s).";
     renderCurrentStep();
   });
   form.appendChild(input);form.appendChild(save);form.appendChild(message);
   box.appendChild(open);box.appendChild(form);
+  return box;
+}
+ppendChild(open);box.appendChild(form);
   return box;
 }
 
@@ -2992,51 +3001,51 @@ function renderMap(){
   var compMore = state.complementares.lista.filter(function(e){return e.empresa.trim();}).length - comp.length;
 
   // center node
-  node(cx,cy,32,"#E1962F","#B87418");
-  label(cx,cy+4,truncate(state.business.nome||"Seu negócio",12),11,"#3A2600");
+  node(cx,cy,32,"#F4EA39","#D0C812");
+  label(cx,cy+4,truncate(state.business.nome||"Seu negócio",12),11,"#18234A");
 
   // suppliers (top)
   var topY0 = 40, topY1 = 150;
   suppliers.forEach(function(s,i){
     var y = suppliers.length>1 ? topY0 + (topY1-topY0)*(i/(suppliers.length-1)) : (topY0+topY1)/2;
     var x = 70 + (i%2)*120;
-    line(x,y,cx,cy,"#CFE3DF",false);
-    node(x,y,11,"#0E5450","#EFF6F3");
-    label(x,y-16,truncate(s.empresa,10),9,"#0A3E3B");
+    line(x,y,cx,cy,"#AFC0F4",false);
+    node(x,y,11,"#2D55E8","#F4F6FF");
+    label(x,y-16,truncate(s.empresa,10),9,"#1D347B");
   });
   if(suppliers.length===0){
-    parts.push('<circle cx="130" cy="95" r="11" fill="none" stroke="#CFE3DF" stroke-width="1.2" stroke-dasharray="2,2"/>');
-    label(130,99,"+","12","#CFE3DF");
+    parts.push('<circle cx="130" cy="95" r="11" fill="none" stroke="#DCE5FF" stroke-width="1.2" stroke-dasharray="2,2"/>');
+    label(130,99,"+","12","#DCE5FF");
   }
-  if(supMore>0){ label(130,25,"+"+supMore+" fornecedores",9,"#CFE3DF"); }
-  label(130,20,"Fornecedores",9,"#9FC4BD");
+  if(supMore>0){ label(130,25,"+"+supMore+" fornecedores",9,"#DCE5FF"); }
+  label(130,20,"Fornecedores",9,"#C8D5FF");
 
   // customers (bottom)
   var botY0 = 320, botY1 = 430;
   customers.forEach(function(c,i){
     var y = customers.length>1 ? botY0 + (botY1-botY0)*(i/(customers.length-1)) : (botY0+botY1)/2;
     var x = 70 + (i%2)*120;
-    line(x,y,cx,cy,"#CFE3DF",false);
-    node(x,y,11,"#0E5450","#EFF6F3");
-    label(x,y+20,truncate(c.empresa,10),9,"#0A3E3B");
+    line(x,y,cx,cy,"#AFC0F4",false);
+    node(x,y,11,"#2D55E8","#F4F6FF");
+    label(x,y+20,truncate(c.empresa,10),9,"#1D347B");
   });
   if(customers.length===0){
-    parts.push('<circle cx="130" cy="375" r="11" fill="none" stroke="#CFE3DF" stroke-width="1.2" stroke-dasharray="2,2"/>');
-    label(130,379,"+","12","#CFE3DF");
+    parts.push('<circle cx="130" cy="375" r="11" fill="none" stroke="#DCE5FF" stroke-width="1.2" stroke-dasharray="2,2"/>');
+    label(130,379,"+","12","#DCE5FF");
   }
-  if(custMore>0){ label(130,452,"+"+custMore+" clientes",9,"#CFE3DF"); }
-  label(130,448,"Clientes",9,"#9FC4BD");
+  if(custMore>0){ label(130,452,"+"+custMore+" clientes",9,"#DCE5FF"); }
+  label(130,448,"Clientes",9,"#C8D5FF");
 
   // complementares (sides, dashed amber)
   var sideY0 = 170, sideY1 = 300;
   comp.forEach(function(cItem,i){
     var y = comp.length>1 ? sideY0 + (sideY1-sideY0)*(i/(comp.length-1)) : (sideY0+sideY1)/2;
     var x = i%2===0 ? 26 : 234;
-    line(x,y,cx,cy,"#E1962F",true);
-    node(x,y,9,"#F6DFB6","#B87418");
-    label(x, i%2===0? y-14 : y-14, truncate(cItem.empresa,9),8.5,"#B87418", i%2===0?"start":"end");
+    line(x,y,cx,cy,"#F4EA39",true);
+    node(x,y,9,"#FFF8A9","#D0C812");
+    label(x, i%2===0? y-14 : y-14, truncate(cItem.empresa,9),8.5,"#FFF8A9", i%2===0?"start":"end");
   });
-  if(compMore>0){ label(130,240,"+"+compMore+" complementares",8.5,"#F6DFB6"); }
+  if(compMore>0){ label(130,240,"+"+compMore+" complementares",8.5,"#FFF8A9"); }
 
   svg.innerHTML = parts.join("");
 }
