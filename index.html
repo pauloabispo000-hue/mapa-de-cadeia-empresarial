@@ -443,6 +443,7 @@
   .platform-eyebrow{color:#3557C7;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.13em;margin:0 0 7px;}
   .platform-page h1,.platform-page h2,.platform-page h3{font-family:var(--sans);color:#152449;}
   .platform-page h1{font-size:clamp(27px,3vw,39px);line-height:1.1;margin:0 0 10px;}
+  .platform-registered-heading{padding:8px 2px;margin:0 0 22px;}
   .platform-page h2{font-size:21px;margin:0 0 6px;}
   .platform-page h3{font-size:15px;margin:0 0 6px;}
   .platform-lead{color:#56637D;max-width:760px;margin:0;}
@@ -2656,8 +2657,14 @@ function showProgramSection(section){
   wizard.style.display=activeProgramSection==="survey"?"flex":"none";
   content.style.display=activeProgramSection==="survey"?"none":"block";
   document.querySelectorAll("[data-program-section]").forEach(function(button){button.classList.toggle("active",button.getAttribute("data-program-section")===activeProgramSection);});
+  var surveyNav=document.querySelector('[data-program-section="survey"]');
+  if(surveyNav) surveyNav.textContent=isBusinessRegistered()?"Atualizar conexões":"Cadastrar negócio";
   if(activeProgramSection!=="survey") renderProgramSection();
   window.scrollTo(0,0);
+}
+
+function isBusinessRegistered(){
+  return !!(state.meta&&state.meta.submittedAt) || !!(authSession&&authSession.demo);
 }
 
 function renderProgramSection(){
@@ -2727,21 +2734,31 @@ function renderConnectionJourney(){
   });
   card.appendChild(scopes);
   card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta empresas com localização informada. Os vínculos são os que os participantes declararam."]));
-  card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro"]));
+  var journeyAction=isBusinessRegistered()?"Atualizar minhas conexões":(completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro");
+  card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[journeyAction]));
   return card;
 }
 
 function renderNetworkPage(root,network,workforce,isOverview){
   var page=h("section",{class:"platform-page"});
-  var copy=h("div",{class:"platform-hero-copy"},[
-    h("p",{class:"platform-eyebrow"},[isOverview?"REDE LOCAL DE NEGÓCIOS":"BUSCA DE FORNECEDORES"]),
-    h("h1",{},[isOverview?"Encontre fornecedores, clientes e oportunidades para o seu negócio":"Descubra fornecedores por setor"]),
-    h("p",{class:"platform-lead"},["Apresente o que sua empresa oferece, encontre negócios que podem atender às suas necessidades e descubra novas possibilidades na sua região. Você decide se seus dados de contato empresarial podem ser sugeridos a outros participantes."])
-  ]);
-  var actions=h("div",{class:"platform-hero-actions"});
-  actions.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},["Cadastrar meu negócio"]));
-  actions.appendChild(h("button",{class:"platform-action secondary",type:"button",onclick:function(){showProgramSection("workforce");}},["Ver pessoas e trabalho"]));copy.appendChild(actions);
-  page.appendChild(h("div",{class:"platform-hero"},[copy]));
+  var registered=isBusinessRegistered();
+  if(registered){
+    page.appendChild(h("div",{class:"platform-registered-heading"},[
+      h("p",{class:"platform-eyebrow"},[isOverview?"PAINEL DO NEGÓCIO":"BUSCA DE FORNECEDORES"]),
+      h("h1",{},[isOverview?"Olá, "+(state.business.nome||state.answers.negocioNome||"seu negócio"):"Descubra fornecedores por setor"]),
+      h("p",{class:"platform-lead"},[isOverview?"Acompanhe suas conexões e oportunidades na rede local.":"Consulte as conexões informadas por setor."])
+    ]));
+  }else{
+    var copy=h("div",{class:"platform-hero-copy"},[
+      h("p",{class:"platform-eyebrow"},[isOverview?"REDE LOCAL DE NEGÓCIOS":"BUSCA DE FORNECEDORES"]),
+      h("h1",{},[isOverview?"Encontre fornecedores, clientes e oportunidades para o seu negócio":"Descubra fornecedores por setor"]),
+      h("p",{class:"platform-lead"},["Apresente o que sua empresa oferece, encontre negócios que podem atender às suas necessidades e descubra novas possibilidades na sua região. Você decide se seus dados de contato empresarial podem ser sugeridos a outros participantes."])
+    ]);
+    var actions=h("div",{class:"platform-hero-actions"});
+    actions.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},["Cadastrar meu negócio"]));
+    actions.appendChild(h("button",{class:"platform-action secondary",type:"button",onclick:function(){showProgramSection("workforce");}},["Ver pessoas e trabalho"]));copy.appendChild(actions);
+    page.appendChild(h("div",{class:"platform-hero"},[copy]));
+  }
   var stats=h("div",{class:"platform-stats"});
   [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Total agregado da rede"])]));});page.appendChild(stats);
   if(isOverview) page.appendChild(renderConnectionJourney());
@@ -2751,9 +2768,13 @@ function renderNetworkPage(root,network,workforce,isOverview){
   var pts=[];for(var i=0;i<12;i++){var angle=Math.PI*2*i/12-Math.PI/2;pts.push({x:330+220*Math.cos(angle),y:245+180*Math.sin(angle)});}
   pts.forEach(function(p,i){var n=pts[(i+1)%12],line=document.createElementNS(svg.namespaceURI,"line");line.setAttribute("x1",p.x);line.setAttribute("y1",p.y);line.setAttribute("x2",n.x);line.setAttribute("y2",n.y);line.setAttribute("class","platform-link");svg.appendChild(line);});
   var center=document.createElementNS(svg.namespaceURI,"polygon"),centerCoords=[];for(var centerSide=0;centerSide<6;centerSide++){var centerAngle=Math.PI*centerSide/3-Math.PI/6;centerCoords.push((330+58*Math.cos(centerAngle))+","+(245+50*Math.sin(centerAngle)));}center.setAttribute("points",centerCoords.join(" "));center.setAttribute("class","platform-map-center");svg.appendChild(center);var centerText=document.createElementNS(svg.namespaceURI,"text");centerText.setAttribute("x","330");centerText.setAttribute("y","251");centerText.setAttribute("class","platform-map-center-text");centerText.textContent=truncate(state.business.nome||state.answers.negocioNome||"Seu negócio",13);svg.appendChild(centerText);
-  var displayAreas=(network.areas||[]).slice();
-  if(displayAreas.length===12) displayAreas=[displayAreas[11]].concat(displayAreas.slice(0,11));
-  function areaNumber(area,index){var found=AREAS_12.filter(function(item){return item.nome===area.name;})[0];return found?found.num:index+1;}
+  var sourceAreas=network.areas||[];
+  var areaOrder=AREAS_12.slice().sort(function(a,b){if(a.num===12)return -1;if(b.num===12)return 1;return a.num-b.num;});
+  var displayAreas=areaOrder.map(function(definition){
+    var found=sourceAreas.filter(function(area){return area.name===definition.nome;})[0]||{};
+    return {name:definition.nome,knownSupplierLinks:found.knownSupplierLinks||0};
+  });
+  function areaNumber(area){var found=AREAS_12.filter(function(item){return item.nome===area.name;})[0];return found?found.num:0;}
   displayAreas.forEach(function(area,i){var p=pts[i];if(!p)return;var group=document.createElementNS(svg.namespaceURI,"g");group.setAttribute("class","platform-area-node"+((area.knownSupplierLinks||0)>0?" has-data":""));group.setAttribute("tabindex","0");group.setAttribute("role","button");var polygon=document.createElementNS(svg.namespaceURI,"polygon"),coords=[];for(var j=0;j<6;j++){var a=Math.PI*j/3-Math.PI/6;coords.push((p.x+45*Math.cos(a))+","+(p.y+38*Math.sin(a)));}polygon.setAttribute("points",coords.join(" "));group.appendChild(polygon);var label=document.createElementNS(svg.namespaceURI,"text");label.setAttribute("x",p.x);label.setAttribute("y",p.y+4);label.textContent=String(areaNumber(area,i)).padStart(2,"0");group.appendChild(label);group.addEventListener("click",function(){document.getElementById("selectedAreaTitle").textContent=area.name;document.getElementById("selectedAreaCount").textContent=(area.knownSupplierLinks||0)+" vínculos de fornecimento informados";});group.addEventListener("keydown",function(evt){if(evt.key==="Enter"||evt.key===" "){evt.preventDefault();group.click();}});svg.appendChild(group);});wrap.appendChild(svg);mapCard.appendChild(wrap);
   mapCard.appendChild(h("div",{class:"platform-note"},["Os vínculos refletem o que as empresas informaram. Possíveis conexões precisam ser confirmadas pelos participantes."]));
   var first=displayAreas[0]||{name:AREAS_12[11].nome,knownSupplierLinks:0};side.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Setores atendidos"]),h("p",{},["Empresas com fornecedores informados"])] )]));side.appendChild(h("div",{class:"platform-empty"},[h("strong",{id:"selectedAreaTitle"},[first.name]),h("div",{id:"selectedAreaCount",style:"margin-top:4px;"},[(first.knownSupplierLinks||0)+" conexões informadas"])]));
