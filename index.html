@@ -602,6 +602,35 @@
   #surveyWizard input:focus,#surveyWizard textarea:focus,#surveyWizard select:focus{outline-color:#0866FF;border-color:#0866FF;}
   @media(max-width:980px){.platform-topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:8px 16px}.platform-nav{height:48px;justify-content:flex-start;order:3;flex-basis:100%}.platform-nav button{height:48px;min-width:0;padding:0 12px}.platform-nav button.active::after{bottom:0}.platform-account{margin-left:auto}}
   @media(max-width:640px){#platformContent{padding:16px 12px 36px}.platform-topbar{gap:4px}.platform-brand{min-width:150px}.platform-brand strong{font-size:20px}.platform-nav{overflow-x:auto}.platform-nav button{font-size:12px;padding:0 9px}.platform-account{font-size:10px}.platform-account button{width:26px;height:26px}.platform-stats{gap:8px}.platform-stat{padding:12px}.platform-stat strong{font-size:20px}.platform-card{padding:14px}.app#surveyWizard{margin:8px;border-radius:9px}}
+.company-profile{overflow:hidden;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.12);margin-bottom:14px;}
+  .company-profile-cover{height:clamp(170px,25vw,300px);position:relative;overflow:hidden;background:linear-gradient(125deg,#0B2F66 0%,#0866FF 48%,#76A7FF 100%);}
+  .company-profile-cover::before,.company-profile-cover::after{content:"";position:absolute;border:1px solid rgba(255,255,255,.22);transform:rotate(30deg);}
+  .company-profile-cover::before{width:48vw;height:48vw;min-width:340px;min-height:340px;right:9%;top:-62%;border-radius:32%;box-shadow:0 0 0 34px rgba(255,255,255,.06),0 0 0 72px rgba(255,255,255,.045);}
+  .company-profile-cover::after{width:22vw;height:22vw;min-width:180px;min-height:180px;right:32%;bottom:-68%;border-radius:28%;background:rgba(244,234,57,.1);}
+  .company-cover-caption{position:absolute;right:20px;bottom:16px;color:rgba(255,255,255,.82);font-size:10px;font-weight:800;letter-spacing:.16em;}
+  .company-profile-identity{min-height:126px;display:flex;align-items:center;gap:18px;padding:0 24px 16px;position:relative;border-bottom:1px solid #E4E6EB;}
+  .company-profile-avatar{width:144px;height:144px;flex:0 0 144px;margin-top:-54px;border:5px solid #fff;border-radius:50%;background:linear-gradient(145deg,#DCEBFF,#8CB7FF);display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.2);position:relative;z-index:1;}
+  .company-avatar-letter{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#0866FF,#1744A5);color:#fff;font-size:58px;font-weight:800;line-height:1;text-shadow:0 2px 4px rgba(0,0,0,.18);}
+  .company-profile-summary{min-width:0;flex:1;padding-top:12px;}
+  .company-profile-summary h1{margin:0;font-size:clamp(25px,3vw,34px);font-weight:800;color:#1C1E21;overflow-wrap:anywhere;}
+  .company-profile-meta,.company-profile-description{margin:5px 0 0;color:#65676B;font-size:14px;}
+  .company-profile-description{max-width:760px;}
+  .company-profile-edit{align-self:center;white-space:nowrap;margin-top:12px;}
+  .company-profile-tabs{height:56px;display:flex;align-items:stretch;gap:4px;padding:0 20px;overflow-x:auto;}
+  .company-profile-tabs button{position:relative;border:0;background:transparent;color:#65676B;padding:0 15px;white-space:nowrap;font-size:14px;font-weight:700;cursor:pointer;}
+  .company-profile-tabs button:hover{background:#F2F3F5;border-radius:7px;color:#1C1E21;}
+  .company-profile-tabs button.active{color:#0866FF;}
+  .company-profile-tabs button.active::after{content:"";position:absolute;bottom:0;left:8px;right:8px;height:3px;background:#0866FF;border-radius:3px 3px 0 0;}
+  .company-profile-about{margin-bottom:16px;}
+  .company-profile-about h2{margin-bottom:12px;}
+  .company-profile-about h3{margin:16px 0 8px;color:#1C1E21;font-size:14px;}
+  .company-profile-facts{display:flex;flex-wrap:wrap;gap:10px 32px;}
+  .company-profile-fact{display:flex;flex-direction:column;gap:3px;min-width:150px;}
+  .company-profile-fact span{color:#65676B;font-size:12px;}
+  .company-profile-fact strong{color:#1C1E21;font-size:14px;}
+  .company-profile-offers{display:flex;flex-wrap:wrap;gap:7px;}
+  .company-profile-offer{background:#E7F3FF;color:#1C4D8F;border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;}
+  @media(max-width:640px){.company-profile-cover{height:150px}.company-cover-caption{right:12px;bottom:10px;font-size:9px}.company-profile-identity{align-items:flex-start;gap:10px;padding:0 14px 14px;min-height:0;flex-wrap:wrap}.company-profile-avatar{width:100px;height:100px;flex-basis:100px;margin-top:-38px;border-width:4px}.company-avatar-letter{font-size:42px}.company-profile-summary{padding-top:8px;flex-basis:calc(100% - 112px)}.company-profile-summary h1{font-size:23px}.company-profile-meta,.company-profile-description{font-size:12px}.company-profile-edit{margin:2px 0 0 auto}.company-profile-tabs{height:50px;padding:0 8px}.company-profile-tabs button{font-size:12px;padding:0 10px}.company-profile-about{padding:15px}.company-profile-facts{gap:12px}.company-profile-fact{min-width:120px;flex:1}}
 </style>
 </head>
 <body>
@@ -2741,6 +2770,62 @@ function renderProgramSection(){
   renderNetworkPage(root,network,workforce,activeProgramSection==="overview");
 }
 
+function renderCompanyProfileHeader(){
+  var name=String(state.business.nome||state.answers.negocioNome||"Seu negócio").trim();
+  var cnpj=String(state.business.cnpj||state.answers.cnpj||"").replace(/\D/g,"");
+  var profileCompany=PUBLIC_COMPANY_CATALOG.filter(function(company){
+    return (cnpj&&company.cnpj===cnpj)||normName(company.name)===normName(name)||company.aliases.some(function(alias){return normName(alias)===normName(name);});
+  })[0]||null;
+  var city=String(state.business.cidade||state.answers.cidade||"").trim();
+  var area=String(state.business.areaNecessidade||"").trim()||(profileCompany&&profileCompany.areas||[]).join(" · ");
+  var offers=(state.answers.produtosSelecionados||[]).slice();
+  if(!offers.length) offers=(state.business.produtoCategorias||[]).slice();
+  var description=String(state.business.produtoDetalhe||state.answers.produtos||"").trim();
+  if(!offers.length&&profileCompany) description=description||profileCompany.offer;
+
+  var profile=h("section",{class:"company-profile","aria-label":"Perfil público da empresa"});
+  profile.appendChild(h("div",{class:"company-profile-cover",role:"img","aria-label":"Imagem de capa do perfil de "+name},[
+    h("span",{class:"company-cover-caption"},["PERFIL DA EMPRESA"])
+  ]));
+  var identity=h("div",{class:"company-profile-identity"});
+  var avatar=h("div",{class:"company-profile-avatar",role:"img","aria-label":"Imagem de perfil da empresa "+name},[
+    h("span",{class:"company-avatar-letter","aria-hidden":"true"},[Array.from(name)[0]||"A"])
+  ]);
+  identity.appendChild(avatar);
+  var summary=h("div",{class:"company-profile-summary"},[
+    h("h1",{},[name]),
+    h("p",{class:"company-profile-meta"},[[city,area].filter(Boolean).join(" · ")||"Perfil empresarial no Avante"]),
+    h("p",{class:"company-profile-description"},[description||"Apresente os produtos e serviços oferecidos pelo seu negócio."])
+  ]);
+  identity.appendChild(summary);
+  var edit=h("button",{class:"platform-action company-profile-edit",type:"button",onclick:function(){showProgramSection("survey");}},["Editar perfil"]);
+  identity.appendChild(edit);
+  profile.appendChild(identity);
+  var tabs=h("nav",{class:"company-profile-tabs","aria-label":"Seções do perfil da empresa"});
+  [["overview","Publicações"],["network","Fornecedores e setores"],["workforce","Pessoas e trabalho"],["survey","Editar perfil"]].forEach(function(tab){
+    tabs.appendChild(h("button",{type:"button","data-program-section":tab[0],class:tab[0]==="overview"?"active":""},[tab[1]]));
+  });
+  profile.appendChild(tabs);
+
+  var about=h("section",{class:"platform-card company-profile-about","aria-label":"Sobre a empresa"});
+  about.appendChild(h("h2",{},["Sobre a empresa"]));
+  var facts=h("div",{class:"company-profile-facts"});
+  if(city) facts.appendChild(h("div",{class:"company-profile-fact"},[h("span",{},["Localização"]),h("strong",{},[city])]));
+  if(area) facts.appendChild(h("div",{class:"company-profile-fact"},[h("span",{},["Atuação"]),h("strong",{},[area])]));
+  about.appendChild(facts);
+  if(offers.length){
+    about.appendChild(h("h3",{},["Produtos e serviços"]));
+    var offerList=h("div",{class:"company-profile-offers"});
+    offers.forEach(function(offer){offerList.appendChild(h("span",{class:"company-profile-offer"},[offer]));});
+    about.appendChild(offerList);
+  }else if(description){
+    about.appendChild(h("h3",{},["O que fazemos"]));
+    about.appendChild(h("p",{class:"company-profile-description"},[description]));
+  }
+  return {profile:profile,about:about};
+}
+
+
 function renderConnectionJourney(){
   var name=String(state.business.nome||state.answers.negocioNome||"").trim();
   var offers=(state.answers.produtosSelecionados||[]);
@@ -2807,10 +2892,14 @@ function renderNetworkPage(root,network,workforce,isOverview){
   var page=h("section",{class:"platform-page"});
   var registered=isBusinessRegistered();
   if(registered){
-    page.appendChild(h("div",{class:"platform-registered-heading"},[
-      h("p",{class:"platform-eyebrow"},[isOverview?"PAINEL DO NEGÓCIO":"BUSCA DE FORNECEDORES"]),
-      h("h1",{},[isOverview?"Olá, "+(state.business.nome||state.answers.negocioNome||"seu negócio"):"Descubra fornecedores por setor"]),
-      h("p",{class:"platform-lead"},[isOverview?"Acompanhe suas conexões e oportunidades na rede local.":"Consulte as conexões informadas por setor."])
+    if(isOverview){
+      var companyProfile=renderCompanyProfileHeader();
+      page.appendChild(companyProfile.profile);
+      page.appendChild(companyProfile.about);
+    }else page.appendChild(h("div",{class:"platform-registered-heading"},[
+      h("p",{class:"platform-eyebrow"},["BUSCA DE FORNECEDORES"]),
+      h("h1",{},["Descubra fornecedores por setor"]),
+      h("p",{class:"platform-lead"},["Consulte as conexões informadas por setor."])
     ]));
   }else{
     var copy=h("div",{class:"platform-hero-copy"},[
@@ -2844,7 +2933,6 @@ function renderNetworkPage(root,network,workforce,isOverview){
   var first=displayAreas[0]||{name:AREAS_12[11].nome,knownSupplierLinks:0};side.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Setores atendidos"]),h("p",{},["Empresas com fornecedores informados"])] )]));side.appendChild(h("div",{class:"platform-empty"},[h("strong",{id:"selectedAreaTitle"},[first.name]),h("div",{id:"selectedAreaCount",style:"margin-top:4px;"},[(first.knownSupplierLinks||0)+" conexões informadas"])]));
   var list=h("div",{class:"platform-area-list",style:"margin-top:12px;"});displayAreas.forEach(function(area,i){var row=h("button",{type:"button",class:"platform-area-row"},[h("span",{class:"platform-area-number"},[String(areaNumber(area,i)).padStart(2,"0")]),h("span",{class:"platform-area-name"},[area.name]),h("span",{class:"platform-area-count"},[String(area.knownSupplierLinks||0)])]);row.addEventListener("click",function(){document.getElementById("selectedAreaTitle").textContent=area.name;document.getElementById("selectedAreaCount").textContent=(area.knownSupplierLinks||0)+" vínculos de fornecimento informados";});list.appendChild(row);});side.appendChild(list);grid.appendChild(mapCard);grid.appendChild(side);page.appendChild(grid);root.appendChild(page);
 }
-
 function renderWorkforcePage(root,workforce){
   var page=h("section",{class:"platform-page"});page.appendChild(h("p",{class:"platform-eyebrow"},["MERCADO DE TRABALHO LOCAL"]));page.appendChild(h("h1",{},["Pessoas e trabalho"]));page.appendChild(h("p",{class:"platform-lead"},["Acompanhe estimativas de pessoas trabalhando e vagas abertas nos negócios cadastrados na região."]));
   var kpis=h("div",{class:"workforce-kpis"});[["Pessoas ativas",workforce.active||0],["Vagas abertas",workforce.vacancies||0],["Negócios respondentes",workforce.businessesReported||0]].forEach(function(item){kpis.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Soma autodeclarada e agregada"])]));});page.appendChild(kpis);
