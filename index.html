@@ -2717,7 +2717,8 @@ function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
   return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"");
 }
-function sharedCompanyOptiofunction addAnswerControl(key){
+function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
+function addAnswerControl(key){
   if(!canAddAnswer(key)) return null;
   var labels={produtosSelecionados:"produto ou serviço",categoriasClientes:"produto ou serviço",comprasSelecionadas:"item de compra"};
   var box=h("div",{class:"add-answer-box"});
@@ -2756,9 +2757,6 @@ function sharedCompanyOptiofunction addAnswerControl(key){
   });
   form.appendChild(input);form.appendChild(save);form.appendChild(message);
   box.appendChild(open);box.appendChild(form);
-  return box;
-}
-ppendChild(open);box.appendChild(form);
   return box;
 }
 
