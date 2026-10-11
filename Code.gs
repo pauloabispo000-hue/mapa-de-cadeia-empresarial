@@ -132,7 +132,8 @@ function saveCompanies_(ss, payload, now) {
   ["suppliers", "customers", "complementary"].forEach(function(key) {
     var group = payload[key] || {};
     (Array.isArray(group.lista) ? group.lista : []).forEach(function(entity) {
-      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferArea_(entity.categorias || entity.itens));
+      var inferredArea = key === "suppliers" ? inferArea_(entity.categorias || entity.itens) : "";
+      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferredArea);
     });
   });
   var last = sheet.getLastRow(), existing = {};
@@ -189,7 +190,7 @@ function saveRelations_(ss, payload, responseId, now) {
       var name = String(entity.empresa || "").trim();
       if (!name) return;
       var areas = [];
-      (entity.categorias || []).forEach(function(value) {
+      if (relation === "fornecedor") (entity.categorias || []).forEach(function(value) {
         var area = inferArea_(value);
         if (area && areas.indexOf(area) < 0) areas.push(area);
       });
@@ -212,12 +213,12 @@ function summarizeNetwork_() {
   var last = rel.getLastRow(), areaCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
   AREAS_12.forEach(function(area) { areaCounts[area] = 0; });
   if (last > 1) rel.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
-    var from = normalize_(row[2]), to = normalize_(row[4]);
+    var from = nodeKey_(row[3], row[2]), to = nodeKey_(row[5], row[4]);
     if (from) nodes[from] = true;
     if (to) nodes[to] = true;
     if (from && to) {
       edgeKeys[from + "->" + to + ":" + row[6]] = true;
-      var sourceNode = nodeKey_(row[3], row[2]), relatedNode = nodeKey_(row[5], row[4]);
+      var sourceNode = from, relatedNode = to;
       var edgeFrom = row[6] === "fornecedor" ? relatedNode : sourceNode;
       var edgeTo = row[6] === "fornecedor" ? sourceNode : relatedNode;
       if (row[6] === "fornecedor" || row[6] === "cliente") {
