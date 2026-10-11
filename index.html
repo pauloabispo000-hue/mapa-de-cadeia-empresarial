@@ -2862,7 +2862,9 @@ function filterAllowedOptionMap(optionsByField){
 }
 function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
-  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+(company.catalogSource==="public"?" · sugestão pública":"");
+  var offer=String(company.offer||"");
+  if(offer.length>64) offer=offer.slice(0,61)+"…";
+  return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+(company.catalogSource==="public"?" · sugestão pública: "+offer:"");
 }
 function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
 function addAnswerControl(key){
