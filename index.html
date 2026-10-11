@@ -2244,8 +2244,8 @@ function buildExportObject(){
     complementary: state.complementares,
     opportunities: state.oportunidades,
     relationships: rels,
-    contributedOptions: state.contributedOptions || {},
-    contributions: state.contributions || []
+    contributedOptions: filterAllowedOptionMap(state.contributedOptions || {}),
+    contributions: (state.contributions || []).filter(function(item) { return item && canAddAnswer(item.field); })
   };
 }
 
@@ -2309,6 +2309,7 @@ function loadSharedOptions(){
     state.contributedOptions=state.contributedOptions||{};
     state.contributions=state.contributions||[];
     Object.keys(response.options).forEach(function(field){
+      if(!canAddAnswer(field)) return;
       state.contributedOptions[field]=state.contributedOptions[field]||[];
       response.options[field].forEach(function(item){
         var value=typeof item==="string"?item:String(item.value||"");
@@ -2672,8 +2673,17 @@ function renderConversationReview(container){
 }
 
 function optionsWithContributions(key, options){
+  if(!canAddAnswer(key)) return options||[];
   var additions=(state.contributedOptions||{})[key]||[];
   return (options||[]).concat(additions.filter(function(value){return (options||[]).indexOf(value)===-1;}));
+}
+function canAddAnswer(key){ return key==="comprasSelecionadas"; }
+function filterAllowedOptionMap(optionsByField){
+  var filtered={};
+  Object.keys(optionsByField||{}).forEach(function(key){
+    if(canAddAnswer(key)&&Array.isArray(optionsByField[key])) filtered[key]=optionsByField[key];
+  });
+  return filtered;
 }
 function companyOptionLabel(company){
   var cnpj=String(company.cnpj||"").replace(/\D/g,"");
@@ -2681,20 +2691,17 @@ function companyOptionLabel(company){
 }
 function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
 function addAnswerControl(key){
+  if(!canAddAnswer(key)) return null;
   var box=h("div",{class:"add-answer-box"});
-  var open=h("button",{type:"button",class:"btn-outline add-answer-open"},["＋ Adicionar resposta"]);
+  var open=h("button",{type:"button",class:"btn-outline add-answer-open"},["＋ Adicionar item de compra"]);
   var form=h("div",{class:"add-answer-form"}); form.style.display="none";
-  var input=h("input",{type:"text",class:"add-answer-input",placeholder:key.indexOf("cidade:")===0?"Digite o nome da cidade":"Digite uma opção que está faltando"});
+  var input=h("input",{type:"text",class:"add-answer-input",placeholder:"Digite um item de compra que está faltando"});
   var save=h("button",{type:"button",class:"btn-primary add-answer-save"},["Salvar resposta"]);
   var message=h("p",{class:"add-answer-message"});
   open.addEventListener("click",function(){form.style.display="flex";open.style.display="none";input.focus();});
   save.addEventListener("click",function(){
     var value=input.value.trim();
     if(!value){message.textContent="Digite uma resposta.";return;}
-    if(key.indexOf("cidade:")===0){
-      var uf=key.slice(7);
-      if(uf!=="*" && !/\s-\s[A-Z]{2}$/.test(value)) value += " - "+uf;
-    }
     var options=optionsWithContributions(key,[]);
     if(options.some(function(item){return normalizeSearch(item)===normalizeSearch(value);})){message.textContent="Essa resposta já está na lista.";return;}
     state.contributedOptions=state.contributedOptions||{};
@@ -2707,8 +2714,7 @@ function addAnswerControl(key){
       if(contribution.area) SEGMENTO_AREA[value]=contribution.area;
     }
     if(key==="comprasSelecionadas"&&contribution.area) CATEGORIA_INSUMO_AREA[value]=contribution.area;
-    if(key.indexOf("cidade:")===0) state.answers.cidade=value;
-    else if(Array.isArray(state.answers[key])) state.answers[key].push(value);
+    if(Array.isArray(state.answers[key])) state.answers[key].push(value);
     else if(Object.prototype.hasOwnProperty.call(state.answers,key)) state.answers[key]=value;
     syncConversationAnswers();
     saveState();
@@ -2730,7 +2736,7 @@ function renderConversation(container){
       if(q.kind==="multi"){
         var multiOptions=optionsWithContributions(q.key,q.options);
         var multiField=buildComboMulti({options:multiOptions,selectedArr:state.answers[q.key],placeholder:"Escolha uma ou mais opções...",allowFreeText:false,onChange:function(){syncConversationAnswers();saveState();}});
-        multiField.appendChild(addAnswerControl(q.key));
+        if(canAddAnswer(q.key)) multiField.appendChild(addAnswerControl(q.key));
         return multiField;
       }
       if(q.kind==="companies"){
@@ -2784,7 +2790,6 @@ function renderConversation(container){
       if(q.kind==="dropdown"){
         var options=q.options;
         if(q.key==="estado" && state.answers.pais!=="Brasil") options=["Não se aplica"];
-        options=optionsWithContributions(q.key,options);
         var dropdownWrap=h("div",{});
         dropdownWrap.appendChild(comboField(options,state.answers[q.key],q.placeholder||"Escolha uma opção...",function(v){
           state.answers[q.key]=v;
@@ -2792,16 +2797,13 @@ function renderConversation(container){
           if(q.key==="estado") state.answers.cidade="";
           syncConversationAnswers();saveState();
         }));
-        dropdownWrap.appendChild(addAnswerControl(q.key));
         return dropdownWrap;
       }
       if(q.kind==="city"){
         if(state.answers.pais!=="Brasil") return textInput(state.answers.cidade,"Digite o nome da cidade",function(v){state.answers.cidade=v;syncConversationAnswers();saveState();});
         var uf=String(state.answers.estado||"").slice(-2);
-        var cityKey="cidade:"+(uf||"*");
         var cities=uf ? CIDADES_BRASIL.filter(function(city){return city.slice(-2)===uf;}) : CIDADES_BRASIL;
-        cities=optionsWithContributions(cityKey,cities);
-        var cityWrap=h("div",{});cityWrap.appendChild(comboField(cities,state.answers.cidade,q.placeholder,function(v){state.answers.cidade=v;syncConversationAnswers();saveState();}));cityWrap.appendChild(addAnswerControl(cityKey));return cityWrap;
+        return comboField(cities,state.answers.cidade,q.placeholder,function(v){state.answers.cidade=v;syncConversationAnswers();saveState();});
       }
       return q.multiline ? textArea(state.answers[q.key],q.placeholder,function(v){state.answers[q.key]=v;syncConversationAnswers();saveState();}) : textInput(state.answers[q.key],q.placeholder,function(v){state.answers[q.key]=v;syncConversationAnswers();saveState();});
     })()
