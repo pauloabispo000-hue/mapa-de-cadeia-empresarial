@@ -12,6 +12,6 @@
 
 Ao substituir o `Code.gs` de uma implantação que já está em uso, salve o código e abra **Deploy → Manage deployments**. Edite a implantação ativa, escolha **New version** e clique em **Deploy**. A URL `/exec` permanece a mesma. A planilha existente será preservada; ao receber novas chamadas, o script cria as abas novas que estiverem faltando.
 
-Opcionalmente, execute `rebuildPrivateNetwork()` uma vez para reconstruir as conexões privadas a partir das respostas antigas já armazenadas. O script não publica empresas antigas no autocomplete porque as versões anteriores não registravam autorização para isso.
+Depois de publicar a nova versão, execute `rebuildPrivateNetwork()` uma vez no Apps Script para reconstruir as conexões privadas a partir das respostas antigas já armazenadas. O script não publica empresas antigas no autocomplete porque as versões anteriores não registravam autorização para isso. Novas respostas serão incorporadas automaticamente.
 
 O envio de respostas completas e relações serve à análise interna da rede. O endpoint público fornece apenas opções de resposta, nomes/CNPJs autorizados e contagens agregadas; não divulga quem compra de quem. Na revisão final, a pessoa pode autorizar o uso do nome/CNPJ do próprio negócio e das empresas que informou como sugestões para participantes futuros. Sem essa autorização, a pesquisa ainda entra na análise agregada. Guarde a planilha com acesso restrito e ofereça um canal para corrigir ou remover cadastros.
