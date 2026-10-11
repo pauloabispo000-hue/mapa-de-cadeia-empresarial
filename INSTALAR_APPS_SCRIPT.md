@@ -19,3 +19,9 @@ O envio de respostas completas e relações serve à análise interna da rede. O
 ## Limites do cadastro de mão de obra
 
 A página coleta apenas totais aproximados por empresa: pessoas atualmente ativas e posições abertas. CPF, currículo e classificação individual de produtividade não são coletados. O projeto atual não autentica trabalhadores nem separa permissões por organização; não use esta planilha pública para armazenar dados pessoais de trabalhadores. Um cadastro individual exigiria desenho próprio de finalidade, acesso, segurança, correção e contestação antes de ser ativado.
+
+## Sincronizar alterações com clasp
+
+O projeto pode ser sincronizado pela ferramenta oficial [clasp](https://github.com/google/clasp), após habilitar a API nas [configurações do Apps Script](https://script.google.com/home/usersettings) e autenticar uma conta que tenha acesso de edição ao projeto. Faça o clone em uma pasta separada, preserve o `appsscript.json` existente e confira os arquivos com `clasp status` antes de enviar, pois `clasp push` substitui o conteúdo de código do projeto pelos arquivos locais reconhecidos.
+
+O fluxo de atualização é: copiar o `Code.gs` atualizado para o arquivo `Code.js` do clone, revisar `clasp status`, executar `clasp push` e atualizar a implantação web existente com `clasp deploy --deploymentId ID_DA_IMPLANTACAO`. Use o ID da implantação cuja URL `/exec` está configurada no HTML, para preservar a URL. As credenciais OAuth do clasp ficam no computador autenticado; não as envie ao repositório nem compartilhe.
