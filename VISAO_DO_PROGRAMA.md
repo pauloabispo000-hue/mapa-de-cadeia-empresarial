@@ -23,6 +23,10 @@ Cada tela deve mostrar uma pergunta por vez, uma barra de progresso simples e o 
 
 Uma resposta nova deve poder ser proposta pelo participante. Ela entra como sugestão para ampliar a base, com origem e contexto registrados, e só vira opção consolidada depois de revisão ou confirmação suficiente. Assim, a colaboração aumenta a cobertura sem transformar um erro isolado em uma classificação automática definitiva.
 
+O programa deve aprender com todas as respostas recebidas para melhorar progressivamente as sugestões e as opções determinísticas. Por exemplo, quando um respondente informar o nome e o CNPJ de uma empresa fornecedora, o sistema pode vincular esses dados, reconhecer essa empresa em respostas futuras e oferecê-la como opção de fornecedor. O mesmo princípio pode ampliar outras listas e ajudar a identificar empresas repetidas mesmo quando seus nomes aparecem escritos de formas diferentes.
+
+O aprendizado deve separar o repositório interno das respostas da lista de opções exibida a outras pessoas. Antes de reutilizar ou mostrar dados identificáveis de um negócio — como nome associado ao CNPJ — a pesquisa deve explicar esse uso e permitir que a empresa ou o respondente corrija a associação ou peça sua remoção. Relações comerciais de cada respondente, respostas completas e outros dados privados não devem aparecer para os próximos participantes apenas porque foram usados para melhorar o sistema. Sugestões ainda não verificadas devem ser identificadas como tal e aceitar texto livre quando a empresa procurada não aparecer.
+
 ## Como o programa deve interpretar as respostas
 
 O programa pode sugerir uma ou mais áreas a partir da descrição de produtos, serviços e relações comerciais. Essa classificação deve ser interna, explicável e corrigível. Para cada sugestão, convém guardar o texto original, a classificação proposta, o nível de confiança, a origem da regra ou modelo e o histórico de correções. Casos ambíguos podem permanecer sem classificação até haver informação suficiente.
@@ -33,7 +37,7 @@ O mapa deve distinguir o que foi informado diretamente, o que foi inferido pelo 
 
 ### 1. Mapeador colaborativo de negócios
 
-Consolidar o cadastro de negócios, ofertas, compras, clientes, fornecedores, localização e conexões. Permitir respostas em texto livre e sugestões de novas opções. Guardar consentimento, origem dos dados, data de atualização e correções. Evitar duplicidades sem impedir que participantes informem nomes locais ou variações legítimas.
+Consolidar o cadastro de negócios, ofertas, compras, clientes, fornecedores, localização e conexões. Aprender com todas as respostas para melhorar sugestões e listas determinísticas compartilhadas. Vincular nome e CNPJ quando informados, manter variações de nome e apresentar empresas já identificadas como opções para novos respondentes. Permitir respostas em texto livre e sugestões de novas opções. Guardar consentimento, origem dos dados, data de atualização e correções. Evitar duplicidades sem impedir que participantes informem nomes locais ou variações legítimas, e separar o que é usado internamente para aprendizado do que pode ser exibido a outros participantes.
 
 ### 2. Mapa de dependências e lacunas
 
