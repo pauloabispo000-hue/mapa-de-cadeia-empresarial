@@ -467,6 +467,7 @@
   .platform-area-name{font-size:11px;font-weight:650;flex:1;}
   .platform-area-count{font-size:11px;font-weight:800;color:#3154D2;}
   .platform-note{border-left:3px solid #E8D900;background:#FFFDE1;border-radius:0 10px 10px 0;padding:13px 15px;color:#55552B;font-size:12px;margin-top:14px;}
+  input[type=number]{width:100%;max-width:420px;border:1.5px solid #D8CDB3;background:#fff;border-radius:10px;padding:11px 13px;font-size:14.5px;font-family:inherit;color:#1C2B28;}
   .platform-empty{border:1px dashed #BBC6E1;background:#FAFBFF;color:#5C6881;border-radius:12px;padding:16px;font-size:13px;}
   .workforce-callout{background:#F4F6FF;border:1px solid #DDE4FA;border-radius:14px;padding:18px;margin-top:18px;}
   .workforce-callout p{color:#596681;font-size:13px;margin:7px 0 0;}
@@ -2498,7 +2499,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
 }
 
 function renderWorkforcePage(root,workforce){
-  var page=h("section",{class:"platform-page"});page.appendChild(h("p",{class:"platform-eyebrow"},["Demanda e disponibilidade local"]));page.appendChild(h("h1",{},["Pessoas e trabalho"]));page.appendChild(h("p",{class:"platform-lead"},["A pesquisa reúne estimativas de mão de obra por negócio para acompanhar pessoas ativas e posições abertas no território."]));
+  var page=h("section",{class:"platform-page"});page.appendChild(h("p",{class:"platform-eyebrow"},["Demanda e disponibilidade local"]));page.appendChild(h("h1",{},["Pessoas e trabalho"]));page.appendChild(h("p",{class:"platform-lead"},["A pesquisa reúne estimativas de mão de obra por negócio para acompanhar pessoas ativas e posições abertas no território. A oferta de trabalhadores disponíveis ainda depende de um cadastro voluntário protegido, que não está habilitado nesta versão."]));
   var kpis=h("div",{class:"workforce-kpis"});[["Pessoas ativas",workforce.active||0],["Vagas abertas",workforce.vacancies||0],["Negócios respondentes",workforce.businessesReported||0]].forEach(function(item){kpis.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Soma autodeclarada e agregada"])]));});page.appendChild(kpis);
   var card=h("div",{class:"platform-card"});card.appendChild(h("h2",{},["Como os dados são usados"]));card.appendChild(h("p",{class:"platform-lead",style:"margin-top:8px;"},["Os totais ajudam a comparar demanda e oferta de trabalho sem identificar trabalhadores. A resposta sobre vagas é uma indicação geral e não substitui um cadastro de oportunidades."]));card.appendChild(h("div",{class:"workforce-callout"},[h("strong",{},["Cadastro individual ainda não habilitado"]),h("p",{},["CPF e classificações individuais de produtividade não são coletados. Antes dessa etapa, será necessário definir finalidade, critérios transparentes, acesso restrito, correção e contestação em um sistema protegido."])]));card.appendChild(h("button",{class:"platform-action",type:"button",style:"margin-top:16px;",onclick:function(){showProgramSection("survey");}},["Informar pessoas e vagas na pesquisa"]));page.appendChild(card);root.appendChild(page);
 }
