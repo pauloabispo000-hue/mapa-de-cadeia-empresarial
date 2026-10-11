@@ -3144,9 +3144,8 @@ function renderMap(){
     parts.push('<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="1.4" '+(dashed?'stroke-dasharray="3,3"':'')+' opacity="0.8"/>');
   }
   function node(x,y,r,fill,stroke){
-    if(r>20){parts.push('<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5"/>');return;}
     var points=[];for(var side=0;side<6;side++){var angle=Math.PI*side/3-Math.PI/6;points.push((x+r*Math.cos(angle))+","+(y+r*Math.sin(angle)));}
-    parts.push('<polygon points="'+points.join(" ")+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/>');
+    parts.push('<polygon points="'+points.join(" ")+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(r>20?"1.5":"1.2")+'"/>');
   }
   function label(x,y,text,size,color,anchor){
     parts.push('<text x="'+x+'" y="'+y+'" font-size="'+size+'" fill="'+color+'" text-anchor="'+(anchor||"middle")+'" font-family="Arial, sans-serif">'+escapeXML(text)+'</text>');
