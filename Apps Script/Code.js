@@ -543,7 +543,7 @@ function readCompanies_() {
     result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1) });
   });
   result.sort(function(a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
-  return result.slice(0, 2000);
+  return result;
 }
 
 function isCompanyDirectoryApproved_(cnpj) {
