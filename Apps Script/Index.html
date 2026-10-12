@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 92244)
-Total output lines: 3847
+Warning: truncated output (original token count: 91716)
+Total output lines: 3824
 
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -542,7 +542,26 @@ Total output lines: 3847
     color:var(--ink);
   }
   .app#surveyWizard{max-width:1100px;margin:24px auto 40px;min-height:calc(100vh - 120px);border:1px solid #D9E1F2;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(35,58,114,.08);}
-  #surveyWizard .rail{background:linear-gradient(180deg,#1D347B…76244 tokens truncated…
+  #surveyWizard .rail{background:linear-gradient(180deg,#1D347B…75716 tokens truncated…},[answer])
+      ]));
+    });
+    var disclosure=h("div",{class:"conditional show",style:"margin-top:18px;"},[
+      h("p",{style:"margin:0;font-size:13px;"},["Suas respostas ajudam a atualizar os indicadores e a encontrar conexões entre fornecedores e clientes. Para evitar cadastros falsos, nomes e CNPJs informados não entram automaticamente no diretório público; os perfis empresariais passam por validação manual."])
+    ]);
+    container.appendChild(disclosure);
+    var publicBox=h("div",{class:"conditional show public-profile-consent"},[h("h3",{},["Perfil público da empresa"]),h("p",{},["Com sua autorização, você solicita a publicação de nome, CNPJ, país, cidade, áreas de atuação, produtos e serviços e imagens. A publicação só ocorre após conferência manual da titularidade do CNPJ. Relações com fornecedores/clientes e dados de mão de obra não serão exibidos."])]);
+    var publicLabel=h("label",{style:"display:flex;gap:9px;align-items:flex-start;font-size:13px;cursor:pointer;"});
+    var publicConsent=h("input",{type:"checkbox",style:"margin-top:3px;"});publicConsent.checked=!!state.meta.sharePublicProfile;
+    publicConsent.addEventListener("change",function(){state.meta.sharePublicProfile=publicConsent.checked;saveState();});
+    publicLabel.appendChild(publicConsent);publicLabel.appendChild(document.createTextNode("Solicito a publicação do perfil empresarial após validação da titularidade do CNPJ. Se aprovado, o perfil e as imagens serão públicos por link."));publicBox.appendChild(publicLabel);
+    var uploadRow=h("div",{class:"profile-upload-row"});
+    [["Imagem de capa","profileCoverData"],["Foto ou logotipo","profileAvatarData"]].forEach(function(spec){
+      var label=h("label",{class:"profile-upload-label"},[spec[0]]);var input=h("input",{type:"file",accept:"image/jpeg,image/png,image/webp",disabled:!publicConsent.checked});
+      input.addEventListener("change",function(){var file=input.files&&input.files[0];if(!file)return;compressProfileImage(file).then(function(data){state.business[spec[1]]=data;saveState();}).catch(function(error){window.alert(error.message);input.value="";});});
+      publicConsent.addEventListener("change",function(){input.disabled=!publicConsent.checked;});label.appendChild(input);uploadRow.appendChild(label);
+    });
+    publicBox.appendChild(uploadRow);
+    if(state.meta.sharePublicProfile)publicBox.appendChild(h("p",{class:"question-help"},["O endereço do perfil será liberado após a aprovação manual da solicitação."]));
     container.appendChild(publicBox);
     if(sharedNetwork){
       var missing=(sharedNetwork.areas||[]).filter(function(area){return !area.knownSupplierLinks;}).map(function(area){return area.name;});
@@ -713,6 +732,7 @@ function renderConversation(container){
         companyWrap.appendChild(h("p",{class:"question-help"},["O diretório público de Descalvado inclui 7.287 estabelecimentos com situação ativa na base de 02/10/2026, inclusive filiais. Situação cadastral não comprova operação atual nem oferta comercial. ",h("a",{href:"https://api.radar-cnpj.com/empresas/uf/SP/cidade/descalvado-f7e2f89fd1dcb5fa/index.json",target:"_blank",rel:"noopener noreferrer"},["Consultar fonte e data da base"])]));
         companyWrap.appendChild(buildComboMulti({
           options:sharedCompanyOptions(),selectedArr:state.answers[q.key],placeholder:"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:true,
+          selectedLabel:selectedCompanyDisplay,
           onCnpjLookup:function(cnpj){return consultarCNPJPublico(cnpj);},
           onCnpjAdd:function(data,cnpj){
             var companyName=String(data.nomeFantasia||data.razaoSocial||"").trim();
@@ -732,39 +752,6 @@ function renderConversation(container){
         var sourceList=h("ul",{style:"margin:6px 0 0;padding-left:20px;"});
         PUBLIC_COMPANY_CATALOG.forEach(function(company){var link=h("a",{href:company.sourceUrl,target:"_blank",rel:"noopener noreferrer"},[company.name+" — "+company.offer]);sourceList.appendChild(h("li",{},[link]));});
         publicSources.appendChild(sourceList);companyWrap.appendChild(publicSources);
-        var entityType=q.key==="clientesSelecionados"?"clientes":"fornecedores";
-        state[entityType].lista.forEach(function(entity){
-          var entityNameBeforeLookup=entity.empresa;
-          var supplierCard=h("div",{class:"subfield"});
-          supplierCard.appendChild(h("label",{class:"small"},[entity.empresa+" — CNPJ opcional"]));
-          supplierCard.appendChild(buildCNPJField({
-            value:entity.cnpj,
-            dadosCache:entity.cnpjDados,
-            lookupByCnpj:function(digits){
-              var known=sharedCompanies.filter(function(item){return normalizarCNPJ(item.cnpj)===normalizarCNPJ(digits);})[0];
-              return known?{razaoSocial:known.name,nomeFantasia:known.aliases&&known.aliases[0]||"",municipio:String(known.city||"").split(" - ")[0],uf:String(known.city||"").split(" - ")[1]||"",situacao:known.status||"",cnae:known.cnae||known.offer||"",cnaesSecundarios:[],fonte:"Base local",consultadoEm:new Date().toISOString()}:null;
-            },
-            showUseDataButton:true,
-            useDataButtonText:q.key==="clientesSelecionados"?"Adicionar esta empresa como cliente":"Adicionar esta empresa como fornecedora",
-            onDigitsChange:function(digits){entity.cnpj=digits;saveState();},
-            onDadosChange:function(data){entity.cnpjDados=data;saveState();},
-            onUseData:function(data){
-              if(data.nomeFantasia||data.razaoSocial) entity.empresa=data.nomeFantasia||data.razaoSocial;
-              if(data.municipio&&data.uf) entity.cidade=data.municipio+" - "+data.uf;
-              var company={name:entity.empresa,cnpj:entity.cnpj,city:entity.cidade,areas:entity.areaNecessidade?[entity.areaNecessidade]:[],aliases:[],count:1};
-              var existing=sharedCompanies.filter(function(item){return (company.cnpj&&item.cnpj===company.cnpj)||normName(item.name)===normName(company.name);})[0];
-              if(existing){company=existing;}
-              else sharedCompanies.push(company);
-              var selected=state.answers[q.key]||[];
-              var oldIndex=selected.indexOf(entityNameBeforeLookup);
-              if(oldIndex<0)oldIndex=selected.findIndex(function(value){var found=findSharedCompanyBySelection(value);return found&&company.cnpj&&normalizarCNPJ(found.cnpj)===normalizarCNPJ(company.cnpj);});
-              if(oldIndex>-1) selected[oldIndex]=companyOptionLabel(company);
-              else selected.push(companyOptionLabel(company));
-              saveState();renderCurrentStep();
-            }
-          }));
-          companyWrap.appendChild(supplierCard);
-        });
         return companyWrap;
       }
       if(q.kind==="cnpj"){
