@@ -9,6 +9,14 @@ var RESPONSE_SHEET_NAME = "Respostas";
 var OPTIONS_SHEET_NAME = "Opcoes";
 var COMPANIES_SHEET_NAME = "Empresas";
 var RELATIONS_SHEET_NAME = "Relacoes";
+var PUBLIC_PROFILES_SHEET_NAME = "PerfisPublicos";
+var PENDING_PROFILES_SHEET_NAME = "PerfisPendentes";
+var PROFILE_MEDIA_FOLDER_NAME = "Avante - imagens de perfis públicos";
+var AVANTE_ADMIN_USER_PROPERTY = "AVANTE_ADMIN_USERNAME";
+var AVANTE_ADMIN_SALT_PROPERTY = "AVANTE_ADMIN_PASSWORD_SALT";
+var AVANTE_ADMIN_HASH_PROPERTY = "AVANTE_ADMIN_PASSWORD_HASH";
+var AVANTE_SESSION_VERSION_PROPERTY = "AVANTE_SESSION_VERSION";
+var AVANTE_USERS_SHEET_NAME = "ContasAvante";
 var AREAS_12 = [
   "Alimentos/Medicamentos", "Transportes/Logísticas", "Habitações/Edificações",
   "Acompanhamentos/Assistências", "Saneamentos/Eliminações", "Educações/Pesquisas",
@@ -25,11 +33,21 @@ function setup() {
   ensureSheet_(ss, OPTIONS_SHEET_NAME, ["Campo", "Resposta", "Chave normalizada", "Área inferida", "Adicionada em", "Ocorrências"]);
   ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
   ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
+  ensurePublicProfilesSheet_(ss);
+  ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
+  ensureAvanteUsersSheet_(ss);
   return ss.getUrl();
 }
 
 function doGet(e) {
-  var data = { ok: true, options: readOptions_(), companies: readCompanies_(), network: summarizeNetwork_(), workforce: summarizeWorkforce_() };
+  var params = e && e.parameter ? e.parameter : {};
+  if (String(params.app || "") === "1") {
+    return HtmlService.createHtmlOutputFromFile("Index")
+      .setTitle("Avante — conexões para o seu negócio")
+      .addMetaTag("viewport", "width=device-width, initial-scale=1");
+  }
+  var profileCnpj = normalizeCnpj_(params.perfil || params.profile || "");
+  var data = profileCnpj ? readPublicProfile_(profileCnpj) : { ok: true, options: readOptions_(), companies: readCompanies_(), network: summarizeNetwork_(), workforce: summarizeWorkforce_() };
   var callback = e && e.parameter ? String(e.parameter.callback || "") : "";
   var json = JSON.stringify(data);
   if (callback) {
@@ -42,33 +60,276 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** Consulta dados cadastrais públicos de CNPJ pela BrasilAPI, no servidor para evitar bloqueios do navegador. */
+function lookupCompanyCnpj(value) {
+  var cnpj = normalizeCnpj_(value);
+  if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores." };
+  try {
+    var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/" + encodeURIComponent(cnpj), {
+      method: "get", muteHttpExceptions: true, followRedirects: true,
+      headers: { "Accept": "application/json" }
+    });
+    var status = response.getResponseCode();
+    if (status < 200 || status >= 300) {
+      var detail = "";
+      try { detail = String(JSON.parse(response.getContentText()).message || ""); } catch (ignored) {}
+      return { ok: false, error: status === 404 ? "CNPJ não encontrado na base pública." : "A consulta pública falhou (HTTP " + status + "). " + detail };
+    }
+    var data = JSON.parse(response.getContentText());
+    return { ok: true, dados: {
+      razaoSocial: data.razao_social || "", nomeFantasia: data.nome_fantasia || "",
+      municipio: data.municipio || "", uf: data.uf || "",
+      situacao: data.descricao_situacao_cadastral || "", cnae: data.cnae_fiscal_descricao || "",
+      cnaeCodigo: data.cnae_fiscal || "",
+      cnaesSecundarios: (data.cnaes_secundarios || []).map(function(item) { return { codigo: item.codigo || "", descricao: item.descricao || "" }; }),
+      fonte: "BrasilAPI (Dados Abertos do CNPJ)", consultadoEm: new Date().toISOString()
+    } };
+  } catch (error) {
+    return { ok: false, error: "Não foi possível acessar a consulta pública agora. " + String(error && error.message || error) };
+  }
+}
+
 function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     var payload = JSON.parse(e && e.postData && e.postData.contents || "{}");
+    if (!validateAvanteSession_(String(payload.authToken || ""))) {
+      return jsonOutput_({ ok: false, error: "Acesso expirado. Entre novamente no Avante." });
+    }
     var ss = getSpreadsheet_();
     ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
     ensureSheet_(ss, OPTIONS_SHEET_NAME, ["Campo", "Resposta", "Chave normalizada", "Área inferida", "Adicionada em", "Ocorrências"]);
     ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
     ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
+    ensurePublicProfilesSheet_(ss);
+    ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
 
     var responseId = Utilities.getUuid();
     var now = new Date();
     var b = payload.business || {};
+    var storedPayload = JSON.parse(JSON.stringify(payload));
+    delete storedPayload.authToken;
+    if (storedPayload.publicProfile) { delete storedPayload.publicProfile.coverData; delete storedPayload.publicProfile.avatarData; }
     ss.getSheetByName(RESPONSE_SHEET_NAME).appendRow([
       now, responseId, safeCell_(b.nome), safeCell_(b.cnpj), safeCell_(b.cidade), safeCell_(b.areaNecessidade),
-      safeCell_(JSON.stringify(payload))
+      safeCell_(JSON.stringify(storedPayload))
     ]);
     saveContributions_(ss, extractContributions_(payload));
     saveRelations_(ss, payload, responseId, now);
-    if (payload.meta && payload.meta.shareDirectory === true) saveCompanies_(ss, payload, now);
+    // Guarda candidatos para a análise privada; readCompanies_ só expõe pares nome/CNPJ aprovados pelo administrador.
+    saveCompanies_(ss, payload, now);
+    savePendingPublicProfile_(ss, payload, responseId, now);
     return jsonOutput_({ ok: true, responseId: responseId });
   } catch (err) {
     return jsonOutput_({ ok: false, error: String(err && err.message || err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Executar manualmente no editor Apps Script uma única vez para criar o acesso inicial. */
+function initializeAvanteAdmin() {
+  assertAvanteOwner_();
+  var props = PropertiesService.getScriptProperties();
+  if (getAvanteAdminProperty_(AVANTE_ADMIN_HASH_PROPERTY, "AVANTE_ADMIN_HASH_PROPERTY")) {
+    throw new Error("O acesso inicial já foi criado. Para trocar a senha, use resetAvanteAdminPassword no editor.");
+  }
+  var username = "admin.avante";
+  var password = generateAvantePassword_();
+  var salt = Utilities.getUuid() + Utilities.getUuid();
+  var hash = hashAvantePassword_(salt, password), version = Utilities.getUuid();
+  props.setProperty(AVANTE_ADMIN_USER_PROPERTY, username);
+  props.setProperty(AVANTE_ADMIN_SALT_PROPERTY, salt);
+  props.setProperty(AVANTE_ADMIN_HASH_PROPERTY, hash);
+  props.setProperty(AVANTE_SESSION_VERSION_PROPERTY, version);
+  var users = ensureAvanteUsersSheet_(getSpreadsheet_());
+  if (!findAvanteUser_(users, username)) users.appendRow([username, salt, hash, version, new Date(), new Date()]);
+  var credentials = { username: username, password: password, message: "Copie a senha agora. Ela não será exibida novamente." };
+  console.log("Credenciais iniciais do Avante (copie agora e não compartilhe): " + JSON.stringify(credentials));
+  return credentials;
+}
+
+/** Executar manualmente no editor Apps Script para invalidar acessos e gerar uma senha nova. */
+function resetAvanteAdminPassword() {
+  assertAvanteOwner_();
+  var props = PropertiesService.getScriptProperties();
+  if (!getAvanteAdminProperty_(AVANTE_ADMIN_HASH_PROPERTY, "AVANTE_ADMIN_HASH_PROPERTY")) throw new Error("O acesso inicial ainda não existe. Execute initializeAvanteAdmin.");
+  var password = generateAvantePassword_();
+  var salt = Utilities.getUuid() + Utilities.getUuid();
+  var hash = hashAvantePassword_(salt, password), version = Utilities.getUuid();
+  props.setProperty(AVANTE_ADMIN_SALT_PROPERTY, salt);
+  props.setProperty(AVANTE_ADMIN_HASH_PROPERTY, hash);
+  props.setProperty(AVANTE_SESSION_VERSION_PROPERTY, version);
+  var adminUser = getAvanteAdminProperty_(AVANTE_ADMIN_USER_PROPERTY, "AVANTE_ADMIN_USER_PROPERTY") || "admin.avante";
+  var users = ensureAvanteUsersSheet_(getSpreadsheet_()), row = findAvanteUser_(users, adminUser);
+  if (row) users.getRange(row.row, 2, 1, 5).setValues([[salt, hash, version, row.createdAt || new Date(), new Date()]]);
+  else users.appendRow([adminUser, salt, hash, version, new Date(), new Date()]);
+  var credentials = { username: adminUser, password: password, message: "Copie a senha agora e não compartilhe." };
+  console.log("Nova senha administrativa do Avante (copie agora e não compartilhe): " + JSON.stringify(credentials));
+  return credentials;
+}
+
+/** Recuperação administrativa de conta quando a pessoa perdeu a senha. */
+function resetAvanteUserPassword(username) {
+  assertAvanteOwner_();
+  var user = String(username || "").trim().toLowerCase();
+  if (!user) throw new Error("Informe o nome da conta Avante.");
+  var users = ensureAvanteUsersSheet_(getSpreadsheet_()), account = findAvanteUser_(users, user);
+  if (!account) throw new Error("Conta Avante não encontrada.");
+  var password = generateAvantePassword_(), salt = Utilities.getUuid() + Utilities.getUuid(), version = Utilities.getUuid();
+  var hash = hashAvantePassword_(salt, password);
+  users.getRange(account.row, 2, 1, 5).setValues([[salt, hash, version, account.createdAt || new Date(), new Date()]]);
+  if (user === getAvanteAdminProperty_(AVANTE_ADMIN_USER_PROPERTY, "AVANTE_ADMIN_USER_PROPERTY")) {
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty(AVANTE_ADMIN_SALT_PROPERTY, salt);
+    props.setProperty(AVANTE_ADMIN_HASH_PROPERTY, hash);
+    props.setProperty(AVANTE_SESSION_VERSION_PROPERTY, version);
+  }
+  var credentials = { username: user, password: password, message: "Entregue a senha por canal privado e peça à pessoa para alterá-la ao entrar." };
+  console.log("Senha temporária da conta Avante " + user + ": " + password);
+  return credentials;
+}
+
+function assertAvanteOwner_() {
+  var activeEmail = String(Session.getActiveUser().getEmail() || "").trim();
+  var effectiveEmail = String(Session.getEffectiveUser().getEmail() || "").trim();
+  if (!activeEmail || activeEmail !== effectiveEmail) throw new Error("Execute esta função manualmente no editor Apps Script, conectado à conta proprietária do projeto.");
+}
+
+function loginAvante(username, password) {
+  var props = PropertiesService.getScriptProperties();
+  var user = String(username || "").trim().toLowerCase();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var cache = CacheService.getScriptCache();
+    var attemptsKey = "avante-login-attempts-" + hashAvanteToken_(user).slice(0, 32);
+    var attempts = Number(cache.get(attemptsKey) || 0);
+    if (attempts >= 8) return { ok: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+    var users = ensureAvanteUsersSheet_(getSpreadsheet_());
+    var account = findAvanteUser_(users, user);
+    // Migra a conta administrativa legada para o cadastro de contas na primeira entrada.
+    var legacyUser = getAvanteAdminProperty_(AVANTE_ADMIN_USER_PROPERTY, "AVANTE_ADMIN_USER_PROPERTY");
+    var legacySalt = getAvanteAdminProperty_(AVANTE_ADMIN_SALT_PROPERTY, "AVANTE_ADMIN_SALT_PROPERTY");
+    var legacyHash = getAvanteAdminProperty_(AVANTE_ADMIN_HASH_PROPERTY, "AVANTE_ADMIN_HASH_PROPERTY");
+    if (!account && user && user === legacyUser && legacyHash && hashAvantePassword_(legacySalt, String(password || "")) === legacyHash) {
+      var legacyVersion = String(props.getProperty(AVANTE_SESSION_VERSION_PROPERTY) || Utilities.getUuid());
+      users.appendRow([legacyUser, legacySalt, legacyHash, legacyVersion, new Date(), new Date()]);
+      account = findAvanteUser_(users, user);
+    }
+    if (!account || hashAvantePassword_(account.salt, String(password || "")) !== account.hash) {
+      cache.put(attemptsKey, String(attempts + 1), 600);
+      return { ok: false, error: "Usuário ou senha incorretos." };
+    }
+    cache.remove(attemptsKey);
+    return createAvanteSession_(account.username, account.version);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function registerAvanteUser(username, password) {
+  var user = String(username || "").trim().toLowerCase(), pass = String(password || "");
+  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(user)) return { ok: false, error: "Use um nome de usuário de 3 a 32 caracteres: letras sem acento, números, ponto, hífen ou sublinhado." };
+  if (user === "admin.avante") return { ok: false, error: "Esse nome de usuário é reservado." };
+  if (pass.length < 12 || pass.length > 128) return { ok: false, error: "A senha precisa ter entre 12 e 128 caracteres." };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var users = ensureAvanteUsersSheet_(getSpreadsheet_());
+    if (findAvanteUser_(users, user)) return { ok: false, error: "Esse nome de usuário já está em uso." };
+    var salt = Utilities.getUuid() + Utilities.getUuid(), version = Utilities.getUuid();
+    users.appendRow([user, salt, hashAvantePassword_(salt, pass), version, new Date(), new Date()]);
+    return createAvanteSession_(user, version);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function changeAvantePassword(token, currentPassword, newPassword) {
+  var user = getAvanteSessionUser_(String(token || ""));
+  if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
+  var oldPass = String(currentPassword || ""), newPass = String(newPassword || "");
+  if (newPass.length < 12 || newPass.length > 128) return { ok: false, error: "A nova senha precisa ter entre 12 e 128 caracteres." };
+  if (oldPass === newPass) return { ok: false, error: "Escolha uma senha diferente da atual." };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var users = ensureAvanteUsersSheet_(getSpreadsheet_()), account = findAvanteUser_(users, user);
+    if (!account || hashAvantePassword_(account.salt, oldPass) !== account.hash) return { ok: false, error: "A senha atual está incorreta." };
+    var salt = Utilities.getUuid() + Utilities.getUuid(), version = Utilities.getUuid();
+    users.getRange(account.row, 2, 1, 5).setValues([[salt, hashAvantePassword_(salt, newPass), version, account.createdAt || new Date(), new Date()]]);
+    if (user === getAvanteAdminProperty_(AVANTE_ADMIN_USER_PROPERTY, "AVANTE_ADMIN_USER_PROPERTY")) {
+      var props = PropertiesService.getScriptProperties();
+      props.setProperty(AVANTE_ADMIN_SALT_PROPERTY, salt);
+      props.setProperty(AVANTE_ADMIN_HASH_PROPERTY, hashAvantePassword_(salt, newPass));
+      props.setProperty(AVANTE_SESSION_VERSION_PROPERTY, version);
+    }
+    return createAvanteSession_(user, version);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function validateAvanteSession(token) {
+  var valid = validateAvanteSession_(String(token || ""));
+  return { ok: valid };
+}
+
+function logoutAvante(token) {
+  if (token) CacheService.getScriptCache().remove("avante-session-" + hashAvanteToken_(String(token)));
+  return { ok: true };
+}
+
+function validateAvanteSession_(token) {
+  if (!token || token.length < 50) return false;
+  return !!getAvanteSessionUser_(token);
+}
+
+function createAvanteSession_(username, version) {
+  var token = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid();
+  CacheService.getScriptCache().put("avante-session-" + hashAvanteToken_(token), username + "|" + version, 21600);
+  return { ok: true, username: username, token: token, expiresIn: 21600 };
+}
+
+function getAvanteSessionUser_(token) {
+  if (!token || token.length < 50) return "";
+  var cached = CacheService.getScriptCache().get("avante-session-" + hashAvanteToken_(token));
+  if (!cached) return "";
+  var parts = cached.split("|"), users = ensureAvanteUsersSheet_(getSpreadsheet_()), account = findAvanteUser_(users, parts[0]);
+  return account && account.version === parts[1] ? account.username : "";
+}
+
+function ensureAvanteUsersSheet_(ss) {
+  return ensureSheet_(ss, AVANTE_USERS_SHEET_NAME, ["Usuário", "Sal", "Hash da senha", "Versão de sessão", "Criada em", "Atualizada em"]);
+}
+
+function getAvanteAdminProperty_(key, legacyKey) {
+  var props = PropertiesService.getScriptProperties();
+  return String(props.getProperty(key) || props.getProperty(legacyKey) || "");
+}
+
+function findAvanteUser_(sheet, username) {
+  var last = sheet.getLastRow(), normalized = String(username || "").trim().toLowerCase();
+  if (last < 2) return null;
+  var rows = sheet.getRange(2, 1, last - 1, 6).getValues();
+  for (var i = 0; i < rows.length; i++) if (String(rows[i][0] || "").trim().toLowerCase() === normalized) {
+    return { row: i + 2, username: String(rows[i][0]), salt: String(rows[i][1]), hash: String(rows[i][2]), version: String(rows[i][3]), createdAt: rows[i][4] };
+  }
+  return null;
+}
+
+function hashAvantePassword_(salt, password) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + "|" + password, Utilities.Charset.UTF_8));
+}
+
+function hashAvanteToken_(token) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8));
+}
+
+function generateAvantePassword_() {
+  return (Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "")).slice(0, 24);
 }
 
 function extractContributions_(payload) {
@@ -158,9 +419,101 @@ function saveCompanies_(ss, payload, now) {
   });
 }
 
+function readPublicProfile_(cnpj) {
+  if (!validCnpj_(cnpj)) return { ok: false, error: "Perfil não encontrado." };
+  var sheet = ensurePublicProfilesSheet_(getSpreadsheet_());
+  var last = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: "Perfil não encontrado." };
+  var rows = sheet.getRange(2, 1, last - 1, 11).getValues();
+  for (var i = 0; i < rows.length; i++) if (normalizeCnpj_(rows[i][0]) === cnpj && String(rows[i][10] || "").indexOf("APROVADO") === 0) {
+    return { ok: true, profile: { cnpj: cnpj, name: String(rows[i][1] || ""), country: String(rows[i][2] || ""), city: String(rows[i][3] || ""), areas: parseJsonArray_(rows[i][4]), offers: parseJsonArray_(rows[i][5]), description: String(rows[i][6] || ""), coverUrl: String(rows[i][7] || ""), avatarUrl: String(rows[i][8] || "") } };
+  }
+  return { ok: false, error: "Perfil não encontrado." };
+}
+
+function ensurePublicProfilesSheet_(ss) {
+  var headers = ["CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "Capa URL", "Avatar URL", "Atualizado em", "Validação administrativa"];
+  var sheet = ensureSheet_(ss, PUBLIC_PROFILES_SHEET_NAME, headers);
+  if (sheet.getMaxColumns() < headers.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  sheet.getRange(1, 11).setValue(headers[10]);
+  return sheet;
+}
+
+function savePendingPublicProfile_(ss, payload, responseId, now) {
+  var input = payload.publicProfile || {}, b = payload.business || {};
+  var sheet = ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
+  var cnpj = normalizeCnpj_(b.cnpj);
+  if (input.consent !== true || !validCnpj_(cnpj) || !String(b.nome || "").trim()) return;
+  var coverId = input.coverData ? saveProfileImage_(input.coverData, cnpj + "-capa") : "";
+  var avatarId = input.avatarData ? saveProfileImage_(input.avatarData, cnpj + "-perfil") : "";
+  var offers = (payload.answers && payload.answers.produtosSelecionados) || b.produtoCategorias || [];
+  offers = Array.isArray(offers) ? offers.map(function(value) { return String(value).trim(); }).filter(Boolean).slice(0, 80) : [];
+  var areas = String(b.areaNecessidade || "").split(/[·,]/).map(function(value) { return value.trim(); }).filter(function(value) { return AREAS_12.indexOf(value) >= 0; });
+  sheet.appendRow([now, cnpj, safeCell_(String(b.nome).trim().slice(0, 160)), safeCell_(String(b.pais || "").slice(0, 80)), safeCell_(String(b.cidade || "").slice(0, 120)), JSON.stringify(areas), JSON.stringify(offers), safeCell_(String(b.produtoDetalhe || "").slice(0, 1500)), coverId, avatarId, responseId, "AGUARDANDO REVISÃO"]);
+}
+
+function saveProfileImage_(dataUrl, filename) {
+  var match = String(dataUrl || "").match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match || match[2].length > 1400000) throw new Error("Imagem inválida ou maior que 1 MB. Reduza a imagem e tente novamente.");
+  var folder = getProfileMediaFolder_();
+  var mime = "image/" + match[1];
+  var blob = Utilities.newBlob(Utilities.base64Decode(match[2]), mime, filename + "." + match[1]);
+  var file = folder.createFile(blob);
+  return file.getId();
+}
+
+// Aprovação deliberada pelo administrador no editor Apps Script, após conferir a titularidade.
+// Esta função não é chamada por doGet/doPost e não existe uma operação pública para aprovar.
+function approvePublicProfile(cnpj) {
+  cnpj = normalizeCnpj_(cnpj);
+  if (!validCnpj_(cnpj)) throw new Error("Informe um CNPJ válido.");
+  var ss = getSpreadsheet_();
+  var pending = ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
+  var pendingRows = pending.getLastRow() > 1 ? pending.getRange(2, 1, pending.getLastRow() - 1, 12).getValues() : [];
+  var selected = null, selectedRow = 0;
+  for (var i = pendingRows.length - 1; i >= 0; i--) if (normalizeCnpj_(pendingRows[i][1]) === cnpj && String(pendingRows[i][11]) === "AGUARDANDO REVISÃO") { selected = pendingRows[i]; selectedRow = i + 2; break; }
+  if (!selected) throw new Error("Não há solicitação pendente para este CNPJ.");
+  var coverUrl = publishProfileImage_(selected[8]), avatarUrl = publishProfileImage_(selected[9]);
+  var profiles = ensurePublicProfilesSheet_(ss);
+  var profileRow = 0, oldRows = profiles.getLastRow() > 1 ? profiles.getRange(2, 1, profiles.getLastRow() - 1, 11).getValues() : [];
+  for (var j = 0; j < oldRows.length; j++) if (normalizeCnpj_(oldRows[j][0]) === cnpj) { profileRow = j + 2; break; }
+  var publicRow = [cnpj, selected[2], selected[3], selected[4], selected[5], selected[6], selected[7], coverUrl, avatarUrl, new Date(), "APROVADO — " + new Date().toISOString()];
+  if (profileRow) profiles.getRange(profileRow, 1, 1, 11).setValues([publicRow]); else profiles.appendRow(publicRow);
+  pending.getRange(selectedRow, 12).setValue("APROVADO — " + new Date().toISOString());
+  return "Perfil publicado para CNPJ " + cnpj + ".";
+}
+
+function publishProfileImage_(fileId) {
+  fileId = String(fileId || "").trim();
+  if (!fileId) return "";
+  var file = DriveApp.getFileById(fileId);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w1600";
+}
+
+function unpublishPublicProfile(cnpj) {
+  cnpj = normalizeCnpj_(cnpj);
+  if (!validCnpj_(cnpj)) throw new Error("Informe um CNPJ válido.");
+  var sheet = ensurePublicProfilesSheet_(getSpreadsheet_());
+  if (sheet.getLastRow() < 2) return "Nenhum perfil publicado.";
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
+  for (var i = rows.length - 1; i >= 0; i--) if (normalizeCnpj_(rows[i][0]) === cnpj) {
+    [rows[i][7], rows[i][8]].forEach(function(url) { var match = String(url || "").match(/[?&]id=([\w-]+)/); if (match) try { DriveApp.getFileById(match[1]).setTrashed(true); } catch (ignored) {} });
+    sheet.deleteRow(i + 2); return "Perfil despublicado para CNPJ " + cnpj + ".";
+  }
+  return "Perfil não encontrado.";
+}
+
+function getProfileMediaFolder_() {
+  var folders = DriveApp.getFoldersByName(PROFILE_MEDIA_FOLDER_NAME);
+  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(PROFILE_MEDIA_FOLDER_NAME);
+  folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
+  return folder;
+}
+
 function addCompanyCandidate_(rows, name, cnpj, city, area) {
   name = String(name || "").trim();
-  cnpj = String(cnpj || "").replace(/\D/g, "");
+  cnpj = normalizeCnpj_(cnpj);
   if (!name) return;
   if (!validCnpj_(cnpj)) cnpj = "";
   var key = cnpj.length === 14 ? "cnpj:" + cnpj : "name:" + normalize_(name) + "|" + normalize_(city || "");
@@ -176,10 +529,40 @@ function readCompanies_() {
   if (last < 2) return result;
   sheet.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
     if (!row[1]) return;
-    result.push({ name: String(row[1]), cnpj: String(row[2] || ""), aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1) });
+    var cnpj = normalizeCnpj_(row[2]);
+    if (!validCnpj_(cnpj) || !isCompanyDirectoryApproved_(cnpj)) return;
+    result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1) });
   });
   result.sort(function(a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
   return result.slice(0, 2000);
+}
+
+function isCompanyDirectoryApproved_(cnpj) {
+  var list = PropertiesService.getScriptProperties().getProperty("MAPA_NEGOCIOS_VERIFIED_PUBLIC_CNPJS") || "[]";
+  try { return JSON.parse(list).indexOf(String(cnpj)) >= 0; } catch (ignored) { return false; }
+}
+
+// Admin-only curation: call after checking the official name/CNPJ pair in a reliable registry.
+function approveCompanyDirectoryEntry(cnpj) {
+  cnpj = normalizeCnpj_(cnpj);
+  if (!validCnpj_(cnpj)) throw new Error("Informe um CNPJ válido.");
+  var sheet = ensureSheet_(getSpreadsheet_(), COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+  var last = sheet.getLastRow(), found = false;
+  if (last > 1) sheet.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) { if (normalizeCnpj_(row[2]) === cnpj && row[1]) found = true; });
+  if (!found) throw new Error("CNPJ não encontrado na aba Empresas.");
+  var props = PropertiesService.getScriptProperties(), key = "MAPA_NEGOCIOS_VERIFIED_PUBLIC_CNPJS", list = [];
+  try { list = JSON.parse(props.getProperty(key) || "[]"); } catch (ignored) {}
+  if (list.indexOf(cnpj) < 0) list.push(cnpj);
+  props.setProperty(key, JSON.stringify(list));
+  return "Par nome/CNPJ autorizado para o diretório público: " + cnpj;
+}
+
+function removeCompanyDirectoryEntry(cnpj) {
+  cnpj = normalizeCnpj_(cnpj);
+  var props = PropertiesService.getScriptProperties(), key = "MAPA_NEGOCIOS_VERIFIED_PUBLIC_CNPJS", list = [];
+  try { list = JSON.parse(props.getProperty(key) || "[]"); } catch (ignored) {}
+  props.setProperty(key, JSON.stringify(list.filter(function(value) { return value !== cnpj; })));
+  return "CNPJ removido do diretório público: " + cnpj;
 }
 
 function saveRelations_(ss, payload, responseId, now) {
@@ -274,17 +657,19 @@ function summarizeWorkforce_() {
 }
 
 function nodeKey_(cnpj, name) {
-  var digits = String(cnpj || "").replace(/\D/g, "");
+  var digits = normalizeCnpj_(cnpj);
   if (validCnpj_(digits)) return "cnpj:" + digits;
   return "name:" + normalize_(name);
 }
 
+function normalizeCnpj_(value) { return String(value || "").toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 14); }
+
 function validCnpj_(value) {
-  var s = String(value || "").replace(/\D/g, "");
-  if (s.length !== 14 || /^(\d)\1{13}$/.test(s)) return false;
+  var s = normalizeCnpj_(value);
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(s) || /^(.)\1{13}$/.test(s)) return false;
   function digit(base, weights) {
     var sum = 0;
-    for (var i = 0; i < weights.length; i++) sum += Number(base.charAt(i)) * weights[i];
+    for (var i = 0; i < weights.length; i++) sum += (base.charCodeAt(i) - 48) * weights[i];
     var rest = sum % 11;
     return rest < 2 ? 0 : 11 - rest;
   }
@@ -316,16 +701,44 @@ function inferArea_(values) {
 
 /** Reprocessa relações de respostas antigas sem expor essas empresas no autocomplete. */
 function rebuildPrivateNetwork() {
-  var ss = getSpreadsheet_();
-  var response = ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
-  var rel = ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
-  if (rel.getLastRow() > 1) rel.deleteRows(2, rel.getLastRow() - 1);
-  var last = response.getLastRow();
-  if (last < 2) return "Nenhuma resposta para reprocessar.";
-  response.getRange(2, 1, last - 1, 7).getValues().forEach(function(row) {
-    try { saveRelations_(ss, JSON.parse(row[6] || "{}"), row[1], row[0]); } catch (e) {}
-  });
-  return "Relações antigas reprocessadas. Empresas antigas não foram publicadas no autocomplete sem autorização registrada.";
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = getSpreadsheet_();
+    var response = ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
+    var rel = ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
+    var last = response.getLastRow();
+    if (last < 2) return "Nenhuma resposta para reprocessar; a aba Relacoes não foi alterada.";
+
+    // Valida todos os registros antes de tocar nas relações existentes.
+    var responses = response.getRange(2, 1, last - 1, 7).getValues().map(function(row, index) {
+      var payload;
+      try { payload = JSON.parse(String(row[6] || "{}")); }
+      catch (e) { throw new Error("Resposta na linha " + (index + 2) + " contém JSON inválido. Nenhuma relação foi alterada."); }
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new Error("Resposta na linha " + (index + 2) + " não contém um objeto JSON. Nenhuma relação foi alterada.");
+      }
+      return { payload: payload, id: row[1], receivedAt: row[0] };
+    });
+
+    // Guarda uma cópia da aba antes da reconstrução, caso seja preciso restaurar.
+    var backupName = "";
+    if (rel.getLastRow() > 1) {
+      var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss");
+      backupName = "Relacoes_backup_" + stamp;
+      var suffix = 2;
+      while (ss.getSheetByName(backupName)) backupName = "Relacoes_backup_" + stamp + "_" + suffix++;
+      rel.copyTo(ss).setName(backupName);
+    }
+
+    if (rel.getLastRow() > 1) rel.getRange(2, 1, rel.getLastRow() - 1, 9).clearContent();
+    responses.forEach(function(item) { saveRelations_(ss, item.payload, item.id, item.receivedAt); });
+    return "Relações reconstruídas a partir de " + responses.length + " respostas." +
+      (backupName ? " Cópia anterior preservada na aba " + backupName + "." : "") +
+      " Empresas antigas não foram publicadas no autocomplete sem autorização registrada.";
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function parseJsonArray_(value) {
