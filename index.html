@@ -3638,6 +3638,13 @@ function filterSupplierPurchaseOptions(supplier,fullList){
   });
   codes=codes.filter(function(code,index,all){return code.length>=2&&all.indexOf(code)===index;});
   if(!codes.length)return [];
+  // CNAE de divisão é amplo. Use descrições das atividades, nome e oferta
+  // conhecidos para restringir segmentos com sortimento previsível.
+  var activities=[data.cnae||supplier.cnae||data.cnaeDescricao||supplier.cnaeDescricao||supplier.empresa||supplier.name||""];
+  (data.cnaesSecundarios||supplier.cnaesSecundarios||supplier.secondaryCnaes||[]).forEach(function(item){
+    if(item&&typeof item==="object")activities.push(item.descricao||item.description||"");
+  });
+  var segmentText=normalizeSearch(activities.concat([supplier.offer||supplier.oferta||""]).join(" "));
   // CNAE 2.0: códigos de divisão e subclasses de 7 dígitos. Cada faixa associa
   // atividades oficiais às categorias de compra existentes no questionário.
   var rules=[
@@ -3678,7 +3685,22 @@ function filterSupplierPurchaseOptions(supplier,fullList){
   var patterns=[];
   codes.forEach(function(code){rules.forEach(function(rule){if(rule[0].test(code))patterns.push(rule[1]);});});
   if(!patterns.length)return [];
-  return fullList.filter(function(item){var normalized=normalizeSearch(item);return patterns.some(function(pattern){return pattern.test(normalized);});});
+  var segmentRules=[
+    [/\b(padaria|panific|confeitaria|pao e bolo|produtos de panificacao)\b/,/^(pao|cafe|leite|queijo|manteiga\/margarina|iogurte|ovos|acucar|trigo\/farinha de trigo|embalagens|fretes e transporte|bebidas para revenda)$/],
+    [/\b(acougue|frigorifico|abate de animais|comercio de carnes)\b/,/^(carne bovina|carne suina|carne de frango|embalagens|fretes e transporte)$/],
+    [/\b(hortifruti|frutas e verduras|comercio de frutas|comercio de verduras|cultivo de hortalicas)\b/,/^(frutas e verduras em geral|batata|mandioca|cebola|tomate|embalagens|fretes e transporte|insumos agricolas|fertilizantes e racoes)$/],
+    [/\b(farmacia|drogaria|medicamentos|comercio varejista de produtos farmaceuticos)\b/,/^(analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas e suplementos|equipamentos e insumos medicos)$/],
+    [/\b(posto de combustivel|combustiveis|gasolina|diesel|etanol)\b/,/^(combustiveis \(gasolina, diesel, etanol\)|oleo de cozinha|lubrificantes|pecas de reposicao|fretes e transporte)$/],
+    [/\b(material de construcao|construcao e acabamento|loja de materiais de construcao)\b/,/^(materiais de construcao|madeira e derivados|metais e ligas|produtos quimicos industriais|ferramentas|pecas de reposicao|fretes e transporte)$/],
+    [/\b(autopecas|pecas e acessorios para veiculos|comercio de pecas automotivas)\b/,/^(pecas de reposicao|veiculos e frota propria|combustiveis \(gasolina, diesel, etanol\)|manutencao e reparo de equipamentos)$/],
+    [/\b(supermercado|hipermercado|mercearia|minimercado|armazem|comercio varejista de mercadorias em geral)\b/,/^(arroz|feijao|milho|trigo\/farinha de trigo|batata|mandioca|cebola|tomate|frutas e verduras em geral|carne bovina|carne suina|carne de frango|peixe e frutos do mar|leite|queijo|manteiga\/margarina|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas para revenda|embalagens|fretes e transporte)$/]
+  ];
+  var segmentPattern=null;
+  for(var i=0;i<segmentRules.length;i++)if(segmentRules[i][0].test(segmentText)){segmentPattern=segmentRules[i][1];break;}
+  return fullList.filter(function(item){
+    var normalized=normalizeSearch(item);
+    return patterns.some(function(pattern){return pattern.test(normalized);})&&(!segmentPattern||segmentPattern.test(normalized));
+  });
 }
 
 function renderSupplierPurchases(q){
