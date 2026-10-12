@@ -1188,6 +1188,7 @@ var municipalCompanies = [];
 var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
 var cnaeRefreshInFlight = {};
+var cnaeRefreshStatus = {};
 var sharedNetwork = null;
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
 var activeProgramSection = "overview";
@@ -3343,23 +3344,50 @@ function relatedCompanyEntries(manualNames,selectedValues){
     return true;
   });
 }
+function supplierCnaeCode(supplier){
+  var data=supplier&&supplier.cnpjDados||{};
+  return String(data.cnaeCodigo||supplier&&supplier.cnaeCodigo||"").replace(/\D/g,"");
+}
+function updateSupplierCnaeData(supplier,data){
+  var cnpj=normalizarCNPJ(supplier.cnpj);
+  supplier.cnae=data.cnae||supplier.cnae||"";supplier.cnaeCodigo=data.cnaeCodigo||supplier.cnaeCodigo||"";
+  supplier.cnaesSecundarios=data.cnaesSecundarios||supplier.cnaesSecundarios||[];supplier.cnpjDados=data;
+  sharedCompanies.concat(learnedSharedCompanies).forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=supplier.cnae;item.cnaeCodigo=supplier.cnaeCodigo;item.cnaesSecundarios=supplier.cnaesSecundarios;item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=data;}});
+  (state.fornecedores.lista||[]).forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=supplier.cnae;item.cnaeCodigo=supplier.cnaeCodigo;item.cnaesSecundarios=supplier.cnaesSecundarios;item.cnpjDados=data;}});
+  refreshSharedCompanies();saveState();
+}
+function refreshSupplierCnaeForFiltering(supplier,attempt){
+  var cnpj=normalizarCNPJ(supplier&&supplier.cnpj),tries=Number(attempt||0);
+  if(supplierCnaeCode(supplier)||!cnpj||cnaeRefreshInFlight[cnpj]||String(cnaeRefreshStatus[cnpj]||"").indexOf("error:")===0||!isAppsScriptApp()||!authSession||!authSession.token)return;
+  cnaeRefreshInFlight[cnpj]=true;cnaeRefreshStatus[cnpj]="loading";
+  google.script.run.withSuccessHandler(function(result){
+    delete cnaeRefreshInFlight[cnpj];
+    if(result&&result.ok&&result.dados&&String(result.dados.cnaeCodigo||"").replace(/\D/g,"").length>=2){
+      updateSupplierCnaeData(supplier,result.dados);cnaeRefreshStatus[cnpj]="ready";
+      var activeQuestion=activeConversationQuestions()[currentStepIndex];
+      if(activeProgramSection==="survey"&&activeQuestion&&activeQuestion.key==="comprasSelecionadas")renderCurrentStep();
+      return;
+    }
+    retryOrFinish(result&&result.error||"A consulta não retornou um CNAE.");
+  }).withFailureHandler(function(error){delete cnaeRefreshInFlight[cnpj];retryOrFinish(error&&error.message||"Falha na consulta pública.");})
+    .refreshSupplierCnae(authSession.token,supplier.empresa,cnpj);
+  function retryOrFinish(reason){
+    if(tries<2){cnaeRefreshStatus[cnpj]="retrying";setTimeout(function(){refreshSupplierCnaeForFiltering(supplier,tries+1);},1500*(tries+1));}
+    else{
+      cnaeRefreshStatus[cnpj]="error:"+String(reason||"");
+      var activeQuestion=activeConversationQuestions()[currentStepIndex];
+      if(activeProgramSection==="survey"&&activeQuestion&&activeQuestion.key==="comprasSelecionadas")renderCurrentStep();
+      setTimeout(function(){
+        if(!supplierCnaeCode(supplier)){delete cnaeRefreshStatus[cnpj];var current=activeConversationQuestions()[currentStepIndex];if(activeProgramSection==="survey"&&current&&current.key==="comprasSelecionadas")renderCurrentStep();}
+      },60000);
+    }
+  }
+}
 function refreshSelectedSupplierCnaes(){
   if(!isAppsScriptApp()||!authSession||!authSession.token||!google.script||!google.script.run)return;
   (state.answers.fornecedoresSelecionados||[]).forEach(function(value){
-    var company=findSharedCompanyBySelection(value),cnpj=company?normalizarCNPJ(company.cnpj):"";
-    if(!cnpj||company.cnae&&company.cnaeCodigo||company.cnpjDados&&company.cnpjDados.cnae&&company.cnpjDados.cnaeCodigo||cnaeRefreshInFlight[cnpj])return;
-    cnaeRefreshInFlight[cnpj]=true;
-    google.script.run.withSuccessHandler(function(result){
-      delete cnaeRefreshInFlight[cnpj];
-      if(!result||!result.ok||!result.dados)return;
-      sharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
-      learnedSharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
-      (state.fornecedores.lista||[]).forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae;item.cnaeCodigo=result.dados.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||[];item.cnpjDados=result.dados;}});
-      refreshSharedCompanies();
-      saveState();
-      var activeQuestion=activeConversationQuestions()[currentStepIndex];
-      if(activeProgramSection==="survey"&&activeQuestion&&activeQuestion.key==="comprasSelecionadas")renderCurrentStep();
-    }).withFailureHandler(function(){delete cnaeRefreshInFlight[cnpj];}).refreshSupplierCnae(authSession.token,company.name,cnpj);
+    var company=findSharedCompanyBySelection(value);
+    if(company&&normalizarCNPJ(company.cnpj)&&!supplierCnaeCode(company))refreshSupplierCnaeForFiltering(company,0);
   });
 }
 function reuseEntity(listType,name,id,cnpj){
@@ -3658,9 +3686,16 @@ function renderSupplierPurchases(q){
   var options=optionsWithContributions("comprasSelecionadas",q.options);
   suppliers.forEach(function(supplier){
     if(!Array.isArray(supplier.categorias))supplier.categorias=[];
+    var supplierCnpj=normalizarCNPJ(supplier.cnpj),cnaeCode=supplierCnaeCode(supplier);
+    if(!cnaeCode&&supplierCnpj)refreshSupplierCnaeForFiltering(supplier,0);
     var card=h("section",{class:"platform-card supplier-purchases-card",style:"margin-bottom:14px;"});
     card.appendChild(h("h3",{},[supplier.empresa]));
     if(supplier.cnpj)card.appendChild(h("p",{class:"company-profile-meta"},["CNPJ "+formatarCNPJ(supplier.cnpj)]));
+    if(!cnaeCode){
+      var status=cnaeRefreshStatus[supplierCnpj]||"";
+      var statusText=!supplierCnpj?"O cadastro desta empresa não tem CNPJ para consultar o CNAE.":status.indexOf("error:")===0?"A consulta pública falhou temporariamente. A plataforma tentará novamente automaticamente.":"A plataforma está consultando e atualizando o CNAE desta empresa pelo CNPJ…";
+      card.appendChild(h("p",{class:"question-help supplier-cnae-status","aria-live":"polite"},[statusText]));
+    }
     card.appendChild(buildComboMulti({
       options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
       strictFilter:true,noResultsText:(supplier.cnpjDados&&supplier.cnpjDados.cnaeCodigo)||supplier.cnaeCodigo?"O CNAE cadastrado não corresponde a nenhuma categoria disponível.":"CNAE indisponível para este fornecedor. Atualize os dados cadastrais pelo CNPJ.",
