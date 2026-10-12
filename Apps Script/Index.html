@@ -1969,7 +1969,7 @@ function buildComboMulti(opts){
   var panel = h("div",{class:"combo-panel"});
   panel.style.display = "none";
   var toggleAllBtn = null;
-  if(filterFn){
+  if(filterFn&&!opts.strictFilter){
     toggleAllBtn = h("button",{type:"button", class:"combo-toggle-all"});
     panel.appendChild(toggleAllBtn);
   }
@@ -1980,6 +1980,7 @@ function buildComboMulti(opts){
   function baseOptions(){
     if(filterFn && !showAll){
       var f = filterFn(options);
+      if(opts.strictFilter)return Array.isArray(f)?f:[];
       return (f && f.length) ? f : options;
     }
     return options;
@@ -2037,7 +2038,9 @@ function buildComboMulti(opts){
     if(filtered.length>visibleOptionLimit){
       list.appendChild(h("li",{class:"combo-empty combo-more-options"},["Role para carregar mais opções ("+visibleOptionLimit+" de "+filtered.length+")"]));
     }
-    if(!filtered.length&&term&&term.trim()&&!(opts.onCnpjLookup&&validCnpjSearch)&&opts.noResultsText){
+    if(!filtered.length&&opts.strictFilter){
+      list.appendChild(h("li",{class:"combo-empty"},[opts.noResultsText||"Nenhuma opção compatível com o CNAE cadastrado desta empresa."]));
+    }else if(!filtered.length&&term&&term.trim()&&!(opts.onCnpjLookup&&validCnpjSearch)&&opts.noResultsText){
       list.appendChild(h("li",{class:"combo-empty"},[opts.noResultsText]));
     }
     if(allowFreeText && !(opts.onCnpjLookup&&validCnpjSearch) && term && term.trim() && options.indexOf(term.trim())===-1 && selected.indexOf(term.trim())===-1){
@@ -3351,7 +3354,11 @@ function refreshSelectedSupplierCnaes(){
       if(!result||!result.ok||!result.dados)return;
       sharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
       learnedSharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
+      (state.fornecedores.lista||[]).forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae;item.cnaeCodigo=result.dados.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||[];item.cnpjDados=result.dados;}});
       refreshSharedCompanies();
+      saveState();
+      var activeQuestion=activeConversationQuestions()[currentStepIndex];
+      if(activeProgramSection==="survey"&&activeQuestion&&activeQuestion.key==="comprasSelecionadas")renderCurrentStep();
     }).withFailureHandler(function(){delete cnaeRefreshInFlight[cnpj];}).refreshSupplierCnae(authSession.token,company.name,cnpj);
   });
 }
@@ -3581,28 +3588,56 @@ function buildProductServicePicker(opts){
 }
 
 function filterSupplierPurchaseOptions(supplier,fullList){
-  var data=supplier.cnpjDados||{},activities=[data.cnae||supplier.cnae||""];
-  (data.cnaesSecundarios||supplier.cnaesSecundarios||supplier.secondaryCnaes||[]).forEach(function(item){activities.push(typeof item==="string"?item:(item.descricao||item.description||""));});
-  var text=normalizeSearch(activities.join(" "));
-  if(!text.trim())return fullList;
-  var matches=[];
+  var data=supplier.cnpjDados||{}, codes=[];
+  var primary=data.cnaeCodigo||supplier.cnaeCodigo||"";
+  if(primary)codes.push(String(primary).replace(/\D/g,""));
+  (data.cnaesSecundarios||supplier.cnaesSecundarios||supplier.secondaryCnaes||[]).forEach(function(item){
+    var code=typeof item==="string"?item:(item.codigo||item.code||"");
+    code=String(code).replace(/\D/g,"");if(code)codes.push(code);
+  });
+  codes=codes.filter(function(code,index,all){return code.length>=2&&all.indexOf(code)===index;});
+  if(!codes.length)return [];
+  // CNAE 2.0: códigos de divisão e subclasses de 7 dígitos. Cada faixa associa
+  // atividades oficiais às categorias de compra existentes no questionário.
   var rules=[
-    [/correio|postal|courier|entrega/,/correios e postagem|servicos de entrega|fretes e transporte|embalagens|armazenagem/],
-    [/transporte|logistica|frete|carga|rodoviari|aereo|aquaviari/,/fretes e transporte|aluguel de veiculos|armazenagem|servicos de entrega|veiculos e frota|combustiveis|embalagens/],
-    [/padaria|panific|confeitaria|alimento|bebida|latic|frigor|acougue|agric|agropec|cultivo|pecuaria/,/arroz|feijao|milho|trigo|farinha|batata|mandioca|cebola|tomate|frutas|carne|peixe|leite|queijo|manteiga|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas|insumos agricolas|fertilizantes|racoes|embalagens|energia eletrica|fretes/],
-    [/farmacia|medicamento|drogaria|saude/,/analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas|equipamentos e insumos medicos/],
-    [/construcao|edificac|material de construcao|engenharia|arquitetura/,/materiais de construcao|projetos de arquitetura|reformas e manutencao|pintura predial|serralheria|vidracaria|paisagismo/],
-    [/software|informatica|programacao|tecnologia da informacao|telecomunic|internet|comunicacao/,/tecnologia e software|sistemas de gestao|internet e telefonia|suporte tecnico de ti|hospedagem de sites|impressao grafica|material de escritorio/],
-    [/contabil|contabilidade|auditoria|advocacia|juridic|consultoria|recursos humanos/,/contabilidade|servicos juridicos|consultoria empresarial|auditoria e compliance|recursos humanos|assessoria em licencas/],
-    [/vestuario|roupa|confecc|textil|calcado/,/uniformes|vestuario corporativo|embalagens|materia-prima industrial/],
-    [/metalurg|metal|usinagem|maquina|equipamento industrial/,/metais e ligas|equipamentos e maquinario|pecas de reposicao|manutencao e reparo|materia-prima industrial|produtos quimicos industriais/],
-    [/limpeza|conservacao|higienizacao|dedetizacao/,/produtos de limpeza|servicos de limpeza|descarte|controle de pragas|higienizacao/],
-    [/energia|eletricidade|combustivel|gas|solar/,/energia eletrica|combustiveis|gas de cozinha|gas natural|energia solar|energia eolica|geradores|instalacao e manutencao eletrica/],
-    [/hotel|hospedagem|turismo|viagens/,/pacotes de viagem|servicos de limpeza|aluguel de imovel|internet e telefonia|servicos de entrega/]
+    [/^(01|02|03)/,/insumos agricolas|fertilizantes e racoes|assistencia tecnica agronomica/],
+    [/^(05|06|07|08|09)/,/materia-prima industrial|metais e ligas|madeira e derivados|produtos quimicos industriais|equipamentos e maquinario|pecas de reposicao/],
+    [/^(10|11|12)/,/arroz|feijao|milho|trigo|farinha|batata|mandioca|cebola|tomate|frutas|carne|peixe|leite|queijo|manteiga|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas para revenda|embalagens|fretes e transporte/],
+    [/^(13|14|15)/,/uniformes|vestuario corporativo|materia-prima industrial|embalagens|lavagem de veiculos e uniformes/],
+    [/^(16|17|18)/,/madeira e derivados|embalagens|material de escritorio e papelaria|impressao grafica|materiais institucionais|fretes e transporte/],
+    [/^19/,/combustiveis|energia eletrica|gas natural|pecas de reposicao/],
+    [/^20/,/produtos quimicos industriais|produtos de limpeza|fertilizantes e racoes|embalagens|pecas de reposicao/],
+    [/^21/,/analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas|equipamentos e insumos medicos/],
+    [/^22/,/embalagens|materia-prima industrial|pecas de reposicao/],
+    [/^23/,/materiais de construcao|vidracaria|materia-prima industrial|pecas de reposicao/],
+    [/^(24|25)/,/metais e ligas|materia-prima industrial|equipamentos e maquinario|pecas de reposicao|manutencao e reparo|materiais de construcao/],
+    [/^(26|27|28)/,/tecnologia e software|sistemas de gestao|internet e telefonia|suporte tecnico de ti|hospedagem de sites|equipamentos e insumos medicos|equipamentos e maquinario|pecas de reposicao|instalacao e manutencao eletrica/],
+    [/^(29|30)/,/veiculos e frota|pecas de reposicao|manutencao e reparo|combustiveis|fretes e transporte/],
+    [/^(31|32|33)/,/moveis e mobiliario|materia-prima industrial|pecas de reposicao|manutencao e reparo|instalacao e manutencao eletrica/],
+    [/^35/,/energia eletrica|combustiveis|gas de cozinha|gas natural|energia solar|energia eolica|geradores|instalacao e manutencao eletrica/],
+    [/^(36|37|38|39)/,/tratamento de agua e esgoto|descarte e destinacao de residuos|coleta de reciclaveis|reciclagem de materiais|produtos de limpeza|pecas de reposicao/],
+    [/^(41|42|43)/,/materiais de construcao|reformas e manutencao|projetos de arquitetura|pintura predial|serralheria|paisagismo|vidracaria|aluguel de imovel/],
+    [/^45/,/veiculos e frota|pecas de reposicao|manutencao e reparo|combustiveis/],
+    [/^(46|47)/,/arroz|feijao|milho|trigo|farinha|frutas|carne|leite|bebidas para revenda|material de escritorio|tecnologia e software|materiais de construcao|uniformes|moveis e mobiliario|equipamentos e maquinario|pecas de reposicao|embalagens/],
+    [/^(49|50|51)/,/fretes e transporte|aluguel de veiculos|armazenagem e estoque|servicos de entrega|veiculos e frota|combustiveis|embalagens/],
+    [/^52/,/armazenagem e estoque|fretes e transporte|servicos de entrega|embalagens|veiculos e frota/],
+    [/^53/,/correios e postagem|servicos de entrega|fretes e transporte|embalagens|armazenagem e estoque/],
+    [/^55/,/aluguel de imovel|servicos de limpeza|lavagem de veiculos e uniformes|internet e telefonia|servicos de entrega/],
+    [/^56/,/arroz|feijao|carne|peixe|leite|queijo|ovos|pao|cafe|bebidas para revenda|embalagens|fretes e transporte/],
+    [/^(58|59|60|61|62|63)/,/tecnologia e software|sistemas de gestao|internet e telefonia|suporte tecnico de ti|hospedagem de sites|marketing e publicidade|producao de fotos e videos|impressao grafica|material de escritorio/],
+    [/^(64|65|66)/,/seguros|consultoria empresarial|contabilidade|servicos juridicos|auditoria e compliance|sistemas de gestao|internet e telefonia/],
+    [/^68/,/aluguel de imovel|projetos de arquitetura|reformas e manutencao|limpeza|internet e telefonia/],
+    [/^(69|70|71|72|73|74|75)/,/consultoria empresarial|servicos juridicos|contabilidade|recursos humanos|auditoria e compliance|projetos de arquitetura|consultoria em saude|marketing e publicidade|producao de fotos e videos|internet e telefonia|material de escritorio/],
+    [/^(77|78|79|80|81|82)/,/aluguel de veiculos|aluguel de imovel|maquinas e equipamentos|recursos humanos|pacotes de viagem|seguranca patrimonial|servicos de limpeza|controle de pragas|descarte e destinacao|estrutura para eventos|internet e telefonia|material de escritorio/],
+    [/^85/,/material didatico|treinamentos e capacitacao|cursos e workshops|material de escritorio|internet e telefonia|limpeza/],
+    [/^(86|87|88)/,/equipamentos e insumos medicos|plano de saude|consultas medicas|servicos veterinarios|terapias|fisioterapia|assistencia tecnica especializada|produtos de limpeza/],
+    [/^(90|91|92|93)/,/estrutura para eventos|contratacao de artistas|decoracao para eventos|som e iluminacao|pacotes de viagem|marketing e publicidade|producao de fotos e videos|limpeza/],
+    [/^(94|95|96)/,/servicos juridicos|contabilidade|servicos de limpeza|manutencao e reparo|internet e telefonia|material de escritorio|uniformes/]
   ];
-  rules.forEach(function(rule){if(rule[0].test(text))matches=matches.concat(fullList.filter(function(item){return rule[1].test(normalizeSearch(item));}));});
-  if(!matches.length)return fullList;
-  return fullList.filter(function(item){return matches.indexOf(item)>-1||/^Outro \(/.test(item);});
+  var patterns=[];
+  codes.forEach(function(code){rules.forEach(function(rule){if(rule[0].test(code))patterns.push(rule[1]);});});
+  if(!patterns.length)return [];
+  return fullList.filter(function(item){var normalized=normalizeSearch(item);return patterns.some(function(pattern){return pattern.test(normalized);});});
 }
 
 function renderSupplierPurchases(q){
@@ -3628,6 +3663,7 @@ function renderSupplierPurchases(q){
     if(supplier.cnpj)card.appendChild(h("p",{class:"company-profile-meta"},["CNPJ "+formatarCNPJ(supplier.cnpj)]));
     card.appendChild(buildComboMulti({
       options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
+      strictFilter:true,noResultsText:(supplier.cnpjDados&&supplier.cnpjDados.cnaeCodigo)||supplier.cnaeCodigo?"O CNAE cadastrado não corresponde a nenhuma categoria disponível.":"CNAE indisponível para este fornecedor. Atualize os dados cadastrais pelo CNPJ.",
       filterFn:function(fullList){return filterSupplierPurchaseOptions(supplier,fullList);},
       onChange:function(){
         supplier.itens=supplier.categorias.join(", ");
