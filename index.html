@@ -2466,6 +2466,16 @@ function renderFornecedores(container){
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Seus fornecedores"]));
   container.appendChild(h("p",{class:"step-sub"},["Os fornecedores nomeados acima já aparecem aqui. Complete com CNPJ, cidade e frequência, ou adicione outro fornecedor que não veio de uma categoria específica."]));
   renderEntityList(container, "fornecedores", f.lista, function(card, entity){
+    var typeField=h("div",{class:"subfield"});
+    typeField.appendChild(h("label",{class:"small"},["Qual o tipo de negócio? (opcional)"]));
+    typeField.appendChild(comboField(SEGMENTOS_OPTS,entity.tipoEmpresa||"","Selecione o tipo de negócio...",function(value){entity.tipoEmpresa=value;if(value!=="Outro")entity.tipoEmpresaOutro="";saveState();}));
+    card.appendChild(typeField);
+    if(entity.tipoEmpresa==="Outro"){
+      var typeOther=h("div",{class:"subfield"});
+      typeOther.appendChild(h("label",{class:"small"},["Descreva o tipo de negócio"]));
+      typeOther.appendChild(textInput(entity.tipoEmpresaOutro||"","Ex.: loja de instrumentos musicais",function(value){entity.tipoEmpresaOutro=value;saveState();}));
+      card.appendChild(typeOther);
+    }
     var sf1 = h("div",{class:"subfield"});
     sf1.appendChild(h("label",{class:"small"},["O que você compra desta empresa"]));
     sf1.appendChild(groupedChipPicker(entity.id+"-categorias", CATEGORIAS_INSUMOS_POR_AREA, entity.categorias, function(){ saveState(); }));
@@ -3645,7 +3655,8 @@ function filterSupplierPurchaseOptions(supplier,fullList){
   (data.cnaesSecundarios||supplier.cnaesSecundarios||supplier.secondaryCnaes||[]).forEach(function(item){
     if(item&&typeof item==="object")activities.push(item.descricao||item.description||"");
   });
-  var segmentText=normalizeSearch(activities.concat([supplier.offer||supplier.oferta||"",supplier.tipoEmpresa||"",supplier.tipoEmpresaOutro||""]).join(" "));
+  var segmentText=normalizeSearch(activities.concat([supplier.offer||supplier.oferta||""]).join(" "));
+  var declaredSegment=normalizeSearch([supplier.tipoEmpresa||"",supplier.tipoEmpresaOutro||""].join(" "));
   // CNAE 2.0: códigos de divisão e subclasses de 7 dígitos. Cada faixa associa
   // atividades oficiais às categorias de compra existentes no questionário.
   var rules=[
@@ -3698,9 +3709,14 @@ function filterSupplierPurchaseOptions(supplier,fullList){
     [/\b(eletronicos e informatica|tecnologia da informacao|loja de informatica)\b/,/^(tecnologia e software|sistemas de gestao \(erp\/crm\)|material de escritorio e papelaria|equipamentos e maquinario|pecas de reposicao|suporte tecnico de ti|internet e telefonia|instalacao e manutencao eletrica|fretes e transporte)$/],
     [/\b(moveis e decoracao|industria moveleira|loja de moveis)\b/,/^(moveis e mobiliario|madeira e derivados|materia-prima industrial|pecas de reposicao|manutencao e reparo de equipamentos|fretes e transporte)$/]
   ];
-  var segmentPattern=null;
-  for(var i=0;i<segmentRules.length;i++)if(segmentRules[i][0].test(segmentText)){segmentPattern=segmentRules[i][1];break;}
-  var segmentArea=SEGMENTO_AREA[supplier.tipoEmpresa]||inferAreaFromText(supplier.tipoEmpresaOutro||"");
+  function patternForSegment(text){
+    for(var i=0;i<segmentRules.length;i++)if(segmentRules[i][0].test(text))return segmentRules[i][1];
+    return null;
+  }
+  // O tipo escolhido pelo usuário é a informação mais específica; evita que
+  // um nome fantasia ou uma atividade secundária ampla sobreponha essa resposta.
+  var segmentPattern=declaredSegment?patternForSegment(declaredSegment):patternForSegment(segmentText);
+  var segmentArea=declaredSegment&&!segmentPattern?(SEGMENTO_AREA[supplier.tipoEmpresa]||inferAreaFromText(supplier.tipoEmpresaOutro||"")):"";
   return fullList.filter(function(item){
     var normalized=normalizeSearch(item);
     var matchesSpecificSegment=!!segmentPattern&&segmentPattern.test(normalized);
@@ -3734,7 +3750,7 @@ function renderSupplierPurchases(q){
     var card=h("section",{class:"platform-card supplier-purchases-card",style:"margin-bottom:14px;"});
     card.appendChild(h("h3",{},[supplier.empresa]));
     if(supplier.cnpj)card.appendChild(h("p",{class:"company-profile-meta"},["CNPJ "+formatarCNPJ(supplier.cnpj)]));
-    card.appendChild(fieldWrap("Qual é o tipo desta empresa?",null,comboField(SEGMENTOS_OPTS,supplier.tipoEmpresa||"","Selecione o segmento do fornecedor...",function(value){supplier.tipoEmpresa=value;if(value!=="Outro")supplier.tipoEmpresaOutro="";saveState();})));
+    card.appendChild(fieldWrap("Qual o tipo de negócio?",null,comboField(SEGMENTOS_OPTS,supplier.tipoEmpresa||"","Selecione o tipo do fornecedor...",function(value){supplier.tipoEmpresa=value;if(value!=="Outro")supplier.tipoEmpresaOutro="";saveState();})));
     if(supplier.tipoEmpresa==="Outro")card.appendChild(fieldWrap("Descreva o tipo de empresa",null,textInput(supplier.tipoEmpresaOutro||"","Ex.: loja de instrumentos musicais",function(value){supplier.tipoEmpresaOutro=value;saveState();})));
     if(!cnaeCode){
       var status=cnaeRefreshStatus[supplierCnpj]||"";
