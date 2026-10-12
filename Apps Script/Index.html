@@ -691,7 +691,7 @@
     <button type="button" data-program-section="workforce" aria-label="Pessoas e trabalho" title="Pessoas e trabalho"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.2"/><path d="M3 20v-1.3A5.7 5.7 0 0 1 8.7 13h.6a5.7 5.7 0 0 1 5.7 5.7V20zM16 4.9a3.2 3.2 0 0 1 0 6.2M17 14h.3a4.7 4.7 0 0 1 4.7 4.7V20h-4"/></svg></button>
     <button type="button" data-program-section="survey" aria-label="Cadastrar negócio" title="Cadastrar negócio"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6V4h8v2m-4 4v6m-3-3h6"/></svg></button>
   </nav>
-  <div class="platform-account" aria-label="Conta e sessão"><span id="platformAccountLabel" class="sr-only">Conta do Avante</span><span class="platform-account-avatar" id="platformAccountAvatar" aria-hidden="true">A</span><button type="button" class="change-password-button" id="changePasswordButton" aria-label="Alterar senha" title="Alterar senha">Senha</button><button type="button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5m4-4 4-4-4-4m4 4H9"/></svg></button></div>
+  <div class="platform-account" aria-label="Conta e sessão"><span id="platformAccountLabel" class="sr-only">Conta do Avante</span><span class="platform-account-avatar" id="platformAccountAvatar" aria-hidden="true">A</span><button type="button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5m4-4 4-4-4-4m4 4H9"/></svg></button></div>
 </header>
 <dialog id="passwordChangeDialog" class="password-dialog" aria-labelledby="passwordChangeTitle">
   <form id="passwordChangeForm">
@@ -722,6 +722,7 @@
 
   <main class="content">
     <div class="survey-heading"><div><p class="platform-eyebrow">AVANTE</p><strong>Cadastro do seu negócio</strong></div><button type="button" id="backToPlatform">Voltar ao início</button></div>
+    <section id="accountSettingsSecurity" class="platform-card" style="max-width:760px;margin:0 0 20px;" hidden><h2>Segurança da conta</h2><p>Atualize a senha usada para entrar no Avante.</p><button type="button" class="platform-action" id="settingsPasswordButton">Alterar senha</button></section>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div id="stepContent" class="step-content"></div>
     <p class="error-msg" id="errorMsg"></p>
@@ -3012,6 +3013,7 @@ function showProgramSection(section){
   var surveyNav=document.querySelector('[data-program-section="survey"]');
   if(surveyNav){var surveyLabel=isBusinessRegistered()?"Atualizar conexões":"Cadastrar negócio";surveyNav.setAttribute("aria-label",surveyLabel);surveyNav.title=surveyLabel;}
   if(editingWizard){
+    document.getElementById("accountSettingsSecurity").hidden=activeProgramSection!=="settings";
     currentStepIndex=0;
     document.querySelector(".survey-heading strong").textContent=activeProgramSection==="settings"?"Configurações do perfil":"Cadastro do seu negócio";
     document.getElementById("backToPlatform").textContent=activeProgramSection==="settings"?"Voltar ao perfil":"Voltar ao início";
@@ -3883,7 +3885,8 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
   }else submitAvanteLogin(username,password);
 });
 document.getElementById("loginModeToggle").addEventListener("click",function(){setAvanteLoginMode(loginMode==="login"?"register":"login");});
-document.getElementById("changePasswordButton").addEventListener("click",function(){document.getElementById("passwordChangeMessage").textContent="";document.getElementById("passwordChangeMessage").style.color="#B42318";document.getElementById("passwordChangeDialog").showModal();});
+function openPasswordChangeDialog(){document.getElementById("passwordChangeMessage").textContent="";document.getElementById("passwordChangeMessage").style.color="#B42318";document.getElementById("passwordChangeDialog").showModal();}
+document.getElementById("settingsPasswordButton").addEventListener("click",openPasswordChangeDialog);
 document.getElementById("passwordChangeCancel").addEventListener("click",function(){document.getElementById("passwordChangeDialog").close();});
 document.getElementById("passwordChangeForm").addEventListener("submit",function(event){event.preventDefault();submitAvantePasswordChange();});
 if(isAppsScriptApp())document.getElementById("secureAppLinkButton").hidden=true;
