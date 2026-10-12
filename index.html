@@ -2045,8 +2045,9 @@ function buildComboMulti(opts){
       list.appendChild(h("li",{class:"combo-empty"},[opts.noResultsText]));
     }
     if(allowFreeText && !(opts.onCnpjLookup&&validCnpjSearch) && term && term.trim() && options.indexOf(term.trim())===-1 && selected.indexOf(term.trim())===-1){
-      var liFree = h("li",{class:"combo-option combo-freetext"},['Adicionar "'+term.trim()+'"']);
-      liFree.addEventListener("mousedown", function(ev){ ev.preventDefault(); toggleOption(term.trim()); searchInput.value=""; renderList(""); });
+      var freeTextLabel=opts.freeTextLabel?opts.freeTextLabel(term.trim()):'Adicionar "'+term.trim()+'"';
+      var liFree = h("li",{class:"combo-option combo-freetext"},[freeTextLabel]);
+      liFree.addEventListener("mousedown", function(ev){ ev.preventDefault(); if(opts.onFreeTextAdd)opts.onFreeTextAdd(term.trim());else toggleOption(term.trim()); searchInput.value=""; renderList(""); });
       list.appendChild(liFree);
     }
     if(opts.onCnpjLookup&&validCnpjSearch){
@@ -3711,7 +3712,25 @@ function renderSupplierPurchases(q){
       card.appendChild(h("p",{class:"question-help supplier-cnae-status","aria-live":"polite"},[statusText]));
     }
     card.appendChild(buildComboMulti({
-      options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
+      options:options,selectedArr:supplier.categorias,placeholder:"Buscar ou adicionar produto ou serviço...",allowFreeText:true,
+      freeTextLabel:function(value){return "＋ Adicionar produto ou serviço: \""+value+"\"";},
+      onFreeTextAdd:function(rawValue){
+        var value=String(rawValue||"").trim();if(!value||value.length>160)return;
+        var normalized=normalizeSearch(value);
+        if(supplier.categorias.some(function(item){return normalizeSearch(item)===normalized;}))return;
+        var existing=options.filter(function(item){return normalizeSearch(item)===normalized;})[0];
+        var chosen=existing||value;
+        if(!existing){
+          state.contributedOptions=state.contributedOptions||{};state.contributedOptions.comprasSelecionadas=state.contributedOptions.comprasSelecionadas||[];
+          state.contributions=state.contributions||[];
+          if(!state.contributedOptions.comprasSelecionadas.some(function(item){return normalizeSearch(item)===normalized;}))state.contributedOptions.comprasSelecionadas.push(value);
+          var contribution={id:uid(),field:"comprasSelecionadas",value:value,createdAt:new Date().toISOString(),area:inferAreaFromText(value)||""};
+          state.contributions.push(contribution);if(contribution.area)CATEGORIA_INSUMO_AREA[value]=contribution.area;
+        }
+        supplier.categorias.push(chosen);supplier.itens=supplier.categorias.join(", ");
+        state.answers.comprasSelecionadas=suppliers.reduce(function(all,item){return all.concat(item.categorias||[]);},[]).filter(function(item,index,all){return all.indexOf(item)===index;});
+        syncConversationAnswers();saveState();renderCurrentStep();
+      },
       strictFilter:true,noResultsText:(supplier.cnpjDados&&supplier.cnpjDados.cnaeCodigo)||supplier.cnaeCodigo?"O CNAE desta empresa não corresponde a uma categoria de compra cadastrada.":"A plataforma está consultando ou atualizando o CNAE para carregar as opções compatíveis…",
       filterFn:function(fullList){return filterSupplierPurchaseOptions(supplier,fullList);},
       onChange:function(){
@@ -3720,7 +3739,6 @@ function renderSupplierPurchases(q){
         syncConversationAnswers();saveState();
       }
     }));
-    card.appendChild(addAnswerControl("comprasSelecionadas",supplier));
     wrap.appendChild(card);
   });
   return wrap;
