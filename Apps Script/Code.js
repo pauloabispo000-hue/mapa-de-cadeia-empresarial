@@ -89,6 +89,15 @@ function lookupCompanyCnpj(value) {
   }
 }
 
+/** Executar uma vez no editor para o proprietário autorizar consultas externas da BrasilAPI. */
+function authorizePublicCnpjLookup() {
+  var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/19131243000197", {
+    method: "get", muteHttpExceptions: true, followRedirects: true,
+    headers: { "Accept": "application/json" }
+  });
+  return "Permissão de consulta externa autorizada. Resposta da BrasilAPI: HTTP " + response.getResponseCode() + ".";
+}
+
 function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
