@@ -3364,13 +3364,25 @@ function refreshSupplierCnaeForFiltering(supplier,attempt){
     delete cnaeRefreshInFlight[cnpj];
     if(result&&result.ok&&result.dados&&String(result.dados.cnaeCodigo||"").replace(/\D/g,"").length>=2){
       updateSupplierCnaeData(supplier,result.dados);cnaeRefreshStatus[cnpj]="ready";
+      persistSupplierCnaeLookup(supplier,result.dados,0);
       var activeQuestion=activeConversationQuestions()[currentStepIndex];
       if(activeProgramSection==="survey"&&activeQuestion&&activeQuestion.key==="comprasSelecionadas")renderCurrentStep();
       return;
     }
     retryOrFinish(result&&result.error||"A consulta não retornou um CNAE.");
   }).withFailureHandler(function(error){delete cnaeRefreshInFlight[cnpj];retryOrFinish(error&&error.message||"Falha na consulta pública.");})
-    .refreshSupplierCnae(authSession.token,supplier.empresa,cnpj);
+    .lookupCompanyCnpj(cnpj);
+  function persistSupplierCnaeLookup(target,data,persistAttempt){
+    google.script.run.withSuccessHandler(function(result){
+      if(result&&result.ok)return;
+      retryPersist(result&&result.error||"Não foi possível salvar o cadastro.");
+    }).withFailureHandler(function(error){retryPersist(error&&error.message||"Falha ao salvar o cadastro.");})
+      .persistSupplierCnaeLookup(authSession.token,target.empresa||target.name,cnpj);
+    function retryPersist(reason){
+      if(persistAttempt>=2){console.warn("A consulta do CNAE foi concluída, mas a gravação será repetida na próxima consulta.",reason);return;}
+      setTimeout(function(){persistSupplierCnaeLookup(target,data,persistAttempt+1);},3000*(persistAttempt+1));
+    }
+  }
   function retryOrFinish(reason){
     if(tries<2){cnaeRefreshStatus[cnpj]="retrying";setTimeout(function(){refreshSupplierCnaeForFiltering(supplier,tries+1);},1500*(tries+1));}
     else{
@@ -3686,6 +3698,8 @@ function renderSupplierPurchases(q){
   var options=optionsWithContributions("comprasSelecionadas",q.options);
   suppliers.forEach(function(supplier){
     if(!Array.isArray(supplier.categorias))supplier.categorias=[];
+    var linkedCompany=findSharedCompanyBySelection(supplier.empresa);
+    if(!normalizarCNPJ(supplier.cnpj)&&linkedCompany){supplier.cnpj=normalizarCNPJ(linkedCompany.cnpj);if(linkedCompany.cnpjDados)supplier.cnpjDados=linkedCompany.cnpjDados;}
     var supplierCnpj=normalizarCNPJ(supplier.cnpj),cnaeCode=supplierCnaeCode(supplier);
     if(!cnaeCode&&supplierCnpj)refreshSupplierCnaeForFiltering(supplier,0);
     var card=h("section",{class:"platform-card supplier-purchases-card",style:"margin-bottom:14px;"});
@@ -3698,7 +3712,7 @@ function renderSupplierPurchases(q){
     }
     card.appendChild(buildComboMulti({
       options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
-      strictFilter:true,noResultsText:(supplier.cnpjDados&&supplier.cnpjDados.cnaeCodigo)||supplier.cnaeCodigo?"O CNAE cadastrado não corresponde a nenhuma categoria disponível.":"CNAE indisponível para este fornecedor. Atualize os dados cadastrais pelo CNPJ.",
+      strictFilter:true,noResultsText:(supplier.cnpjDados&&supplier.cnpjDados.cnaeCodigo)||supplier.cnaeCodigo?"O CNAE desta empresa não corresponde a uma categoria de compra cadastrada.":"A plataforma está consultando ou atualizando o CNAE para carregar as opções compatíveis…",
       filterFn:function(fullList){return filterSupplierPurchaseOptions(supplier,fullList);},
       onChange:function(){
         supplier.itens=supplier.categorias.join(", ");
