@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 91723)
-Total output lines: 3824
+Warning: truncated output (original token count: 92062)
+Total output lines: 3849
 
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -542,7 +542,212 @@ Total output lines: 3824
     color:var(--ink);
   }
   .app#surveyWizard{max-width:1100px;margin:24px auto 40px;min-height:calc(100vh - 120px);border:1px solid #D9E1F2;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(35,58,114,.08);}
-  #surveyWizard .rail{background:linear-gradient(180deg,#1D347B…75723 tokens truncated…},[answer])
+  #surveyWizard .rail{background:linear-gradient(180deg,#1D347B,#2D55E8 75%);color:#F4F6FF;}
+  #surveyWizard .rail-top .eyebrow{color:#FFF8A9;}
+  #surveyWizard .rail-top p.tag,#surveyWizard .map-label{color:#DCE5FF;}
+  #surveyWizard .steps li{color:#DCE5FF;border-left-color:rgba(255,255,255,.2);}
+  #surveyWizard .steps li .num{border-color:#DCE5FF;}
+  #surveyWizard .steps li.active{color:#fff;border-left-color:#F4EA39;}
+  #surveyWizard .steps li.active .num{background:#F4EA39;border-color:#F4EA39;color:#18234A;}
+  #surveyWizard .steps li.done .num{background:#fff;border-color:#fff;color:#1D347B;}
+  #surveyWizard .map-wrap{border-top-color:rgba(255,255,255,.2);}
+  #surveyWizard .map-hint{color:#C8D5FF;}
+  #surveyWizard .radio-row .chip.checked{color:#252900;}
+  .app#surveyWizard .content{padding:32px clamp(20px,4vw,44px) 42px;background:#fff;}
+  .survey-heading{display:flex;justify-content:space-between;align-items:center;gap:15px;max-width:760px;margin-bottom:24px;}
+  .survey-heading strong{font-size:13px;color:#1D347B;}
+  .survey-heading button{background:#fff;border:1px solid #D9E1F2;border-radius:9px;color:#2345C8;padding:8px 11px;cursor:pointer;font-weight:700;}
+  .survey-heading button:hover{background:#F3F5FF;border-color:#B9C8FA;}
+  @media(max-width:980px){.platform-topbar{flex-wrap:wrap;gap:8px;padding:10px 18px}.platform-brand{min-width:180px}.platform-nav{order:3;flex-basis:100%}.platform-nav button{padding:9px}.platform-account{margin-left:auto}.platform-grid{grid-template-columns:1fr}.platform-area-list{max-height:260px}.platform-hero-symbol{width:110px;height:110px;flex-basis:110px}.platform-hero-symbol svg{width:78px;height:78px}}
+  @media(max-width:760px){.journey-missions{grid-template-columns:repeat(2,minmax(0,1fr))}.connection-journey-head{flex-direction:column}}
+  @media(max-width:640px){#platformContent{padding-top:20px}.platform-hero{align-items:flex-start}.platform-hero-symbol{display:none}.platform-stats,.workforce-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.platform-stat{padding:14px}.platform-stat strong{font-size:22px}.platform-card{padding:15px}.connection-journey{padding:16px}.platform-map-wrap{margin:0 -4px}.app#surveyWizard{margin:10px;border-radius:13px}.survey-heading{align-items:flex-start}.platform-account{font-size:10px}}
+
+  /* Camada visual inspirada na arquitetura social do Facebook. Mantém os mesmos
+     componentes, conteúdo e eventos; altera apenas cores, alinhamento e superfícies. */
+  body{background:#F0F2F5;color:#1C1E21;font-family:Arial,Helvetica,sans-serif;}
+  .platform-topbar{position:sticky;top:0;z-index:100;min-height:64px;height:64px;flex-wrap:nowrap;gap:24px;padding:0 clamp(16px,3vw,44px);background:#242526;color:#E4E6EB;box-shadow:0 1px 2px rgba(0,0,0,.28);}
+  .platform-brand{min-width:190px;}
+  .platform-mark{color:#0866FF;filter:none;}
+  .platform-brand strong{color:#0866FF;text-shadow:none;letter-spacing:.08em;}
+  .platform-brand small{color:#65676B;}
+  .platform-nav{height:64px;justify-content:center;gap:8px;max-width:640px;}
+  .platform-nav button{position:relative;height:64px;min-width:72px;flex:1;padding:0 14px;border-radius:0;color:#B0B3B8;display:grid;place-items:center;}
+  .platform-nav button svg{width:25px;height:25px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .platform-nav button:hover{background:#303132;color:#E4E6EB;border-radius:8px;}
+  .platform-nav button.active{background:transparent;color:#2D88FF;}
+  .platform-nav button.active::after{position:absolute;content:"";height:3px;left:8px;right:8px;bottom:0;border-radius:3px 3px 0 0;background:#2D88FF;}
+  .platform-account{border:0;color:#E4E6EB;background:transparent;padding:4px;border-radius:999px;font-weight:600;}
+  .platform-account-avatar{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:#3A3B3C;color:#E4E6EB;font-size:15px;font-weight:800;}
+  .platform-account button{border:0;background:#3A3B3C;color:#E4E6EB;border-radius:50%;width:38px;height:38px;padding:9px;display:grid;place-items:center;}
+  .platform-account .change-password-button{width:auto;height:auto;padding:8px 11px;border-radius:7px;background:#3A3B3C;color:#E4E6EB;font-size:12px;font-weight:700;}
+  .platform-account button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}
+  #platformContent{max-width:1100px;padding:0 0 56px;min-height:calc(100vh - 64px);}
+  .platform-page{animation:platform-enter .16s ease-out;}
+  .platform-page h1,.platform-page h2,.platform-page h3{font-family:Arial,Helvetica,sans-serif;color:#1C1E21;letter-spacing:-.02em;}
+  .platform-page h1{font-size:clamp(26px,2.7vw,34px);font-weight:750;}
+  .platform-page h2{font-size:20px;font-weight:700;}
+  .platform-page h3{font-size:15px;font-weight:700;}
+  .platform-eyebrow{color:#65676B;letter-spacing:.08em;}
+  .platform-lead{color:#65676B;}
+  .platform-hero{background:#fff;border:0;border-radius:10px;padding:clamp(22px,3.3vw,36px);box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .platform-hero-actions{margin-top:20px;}
+  .platform-action{background:#0866FF;border-radius:7px;box-shadow:none;}
+  .platform-action:hover{background:#075CE5;}
+  .platform-action.secondary{color:#0866FF;border-color:#DADDE1;border-radius:7px;}
+  .platform-stats{gap:12px;margin:16px 0 20px;}
+  .platform-stat,.platform-card{border:0;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .platform-stat{padding:16px 18px;}
+  .platform-stat span,.platform-card-head p,.platform-stat small{color:#65676B;}
+  .platform-stat strong,.platform-area-count{color:#0866FF;}
+  .platform-grid{gap:14px;}
+  .platform-area-row{border-color:#E4E6EB;border-radius:8px;color:#1C1E21;}
+  .platform-area-row:hover,.platform-area-row.active{background:#E7F3FF;border-color:#BBD7F5;}
+  .platform-area-number{background:#E4E6EB;color:#4B4F56;}
+  .platform-area-node.has-data polygon{fill:#0866FF;stroke:#075CE5;}
+  .platform-link.confirmed{stroke:#0866FF;}
+  .platform-note{background:#FFFDE1;border-radius:4px 8px 8px 4px;}
+  .connection-journey,.platform-card,.platform-stat{transition:box-shadow .15s ease,transform .15s ease;}
+  .connection-journey:hover,.platform-card:hover,.platform-stat:hover{box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .journey-mission{border-color:#E4E6EB;border-radius:8px;background:#F7F8FA;}
+  .journey-mission.done{background:#E7F3FF;border-color:#BBD7F5;}
+  .journey-check,.journey-mission.done .journey-check{background:#0866FF;color:#fff;}
+  .journey-progress span,.workforce-bar span{background:#0866FF;}
+  .auth-gate{background:#F0F2F5;}
+  .auth-card{border:0;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);}
+  .auth-brand{color:#0866FF;}
+  .auth-card h1{font-family:Arial,Helvetica,sans-serif;color:#1C1E21;font-weight:700;}
+  .auth-submit{background:#0866FF;border-radius:7px;}
+  a.auth-submit{display:block;text-align:center;text-decoration:none;margin-top:10px}
+  .app#surveyWizard{border:0;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.15);}
+  #surveyWizard .rail{background:#0866FF;}
+  #surveyWizard .content{background:#fff;}
+  #surveyWizard .btn-primary,.survey-heading button{background:#0866FF;color:#fff;border-color:#0866FF;border-radius:7px;}
+  #surveyWizard .chip.checked{background:#0866FF;border-color:#0866FF;}
+  #surveyWizard input:focus,#surveyWizard textarea:focus,#surveyWizard select:focus{outline-color:#0866FF;border-color:#0866FF;}
+  @media(max-width:980px){.platform-topbar{height:64px;min-height:64px;flex-wrap:nowrap;gap:12px;padding:0 16px}.platform-nav{height:64px;justify-content:center;order:0;flex-basis:auto}.platform-nav button{height:64px;min-width:56px;padding:0 10px}.platform-nav button.active::after{bottom:0}.platform-account{margin-left:auto}}
+  @media(max-width:640px){#p…72062 tokens truncated…es":["internet","software","computador","publicidade","marketing","comunicacao","grafica"],
+    "Entretenimentos/Lazeres":["turismo","evento","festa","hotel","esporte","lazer","musica"],
+    "Políticas/Lideranças":["advogado","contabilidade","imposto","consultoria","gestao","financeiro","banco"],
+    "Seguranças/Confortos":["seguranca","roupa","vestuario","beleza","estetica","seguro","conforto"],
+    "Matérias-primas/Reciclagens":["materia prima","metal","madeira","reciclagem","maquina","quimico","reparo"],
+    "Energias/Combustíveis":["energia","eletricidade","eletrica","gas","solar","combustivel"]
+  };
+  Object.keys(keywords).forEach(function(area){
+    keywords[area].forEach(function(word){ if(text.indexOf(normalizeSearch(word))>-1) scores[area]=(scores[area]||0)+normalizeSearch(word).length; });
+  });
+  Object.keys(scores).forEach(function(area){if(scores[area]>score){best=area;score=scores[area];}});
+  return best;
+}
+
+function splitNames(value){
+  return String(value||"").split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
+}
+function findSharedCompanyBySelection(value){
+  var selected=String(value||"").trim(), cnpjMatch=selected.match(/CNPJ\s+([0-9A-Z./-]+)/i);
+  var digits=normalizarCNPJ(cnpjMatch?cnpjMatch[1]:selected);
+  return sharedCompanies.filter(function(company){
+    if(companyOptionLabel(company)===selected)return true;
+    if(/^[0-9A-Z]{12}[0-9]{2}$/.test(digits)&&normalizarCNPJ(company.cnpj)===digits)return true;
+    var name=selected.split(/\s+[—–-]\s+CNPJ\s+/i)[0].split(/\s+·\s+/)[0];
+    return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));
+  })[0]||null;
+}
+function selectedCompanyDisplay(value){
+  var company=findSharedCompanyBySelection(value);
+  if(company){
+    var cnpj=normalizarCNPJ(company.cnpj);
+    return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"");
+  }
+  var match=String(value||"").match(/^(.*?)\s+[—–-]\s+CNPJ\s+([0-9A-Z./-]+)/i);
+  return match?match[1].trim()+" — CNPJ "+formatarCNPJ(match[2]):String(value||"");
+}
+function relatedCompanyEntries(manualNames,selectedValues){
+  var entries=(manualNames||[]).concat(selectedValues||[]).map(function(value){
+    var company=findSharedCompanyBySelection(value);
+    return {name:company?company.name:String(value||"").trim(),company:company,cnpj:company?normalizarCNPJ(company.cnpj):""};
+  }).filter(function(entry){return !!entry.name;});
+  var seen={};
+  return entries.filter(function(entry){
+    var key=entry.cnpj?"cnpj:"+entry.cnpj:"name:"+normName(entry.name);
+    if(seen[key])return false;
+    seen[key]=true;
+    return true;
+  });
+}
+function reuseEntity(listType,name,id,cnpj){
+  var list=state[listType].lista||[];
+  var normalizedCnpj=normalizarCNPJ(cnpj);
+  var old=list.filter(function(e){return normalizedCnpj?normalizarCNPJ(e.cnpj)===normalizedCnpj:normName(e.empresa)===normName(name);})[0];
+  var entity=Object.assign(newEntity(listType),old||{});
+  entity.id=old&&old.id ? old.id : id;
+  entity.empresa=name;
+  return entity;
+}
+function syncConversationAnswers(){
+  var a=state.answers, b=state.business;
+  b.nome=a.negocioNome.trim(); b.cnpj=normalizarCNPJ(a.cnpj); b.pais=a.pais||"Brasil"; b.cidade=a.cidade.trim();
+  var selecionados=a.produtosSelecionados||[];
+  b.produtoDetalhe=a.produtos.trim();
+  b.segmento=selecionados[0]||"Outro"; b.segmentoOutro=a.produtos.trim();
+  b.produtoCategorias=selecionados.slice();
+  b.perfilClientes=Array.isArray(a.tipoClientes)?a.tipoClientes.slice():[];
+  b.areaNecessidade=selecionados.map(function(s){return SEGMENTO_AREA[s]||inferAreaFromText(s);}).filter(Boolean)[0]||inferAreaFromText(a.produtos);
+  a.produtosClassificados=selecionados.map(function(item){return {item:item,area:SEGMENTO_AREA[item]||inferAreaFromText(item)||"Não identificado automaticamente"};});
+  if(a.produtos.trim()) a.produtosClassificados.push({item:a.produtos.trim(),area:inferAreaFromText(a.produtos)||"Não identificado automaticamente"});
+  var area=b.areaNecessidade;
+  if(!b.produtoCategorias.length && a.produtos.trim()) b.produtoCategorias=["Outro"];
+  var compras=(a.comprasSelecionadas||[]).slice();
+  var comprasTexto=compras.concat(a.comprasFornecedores?[a.comprasFornecedores]:[]).join(", ");
+  var supplierEntries=relatedCompanyEntries(splitNames(a.fornecedores),a.fornecedoresSelecionados);
+  state.fornecedores.lista=supplierEntries.map(function(entry,i){
+    var name=entry.name,e=reuseEntity("fornecedores",name,"supplier"+i,entry.cnpj); if(comprasTexto) e.itens=comprasTexto;
+    e.categorias=compras.slice();
+    var inferred=compras.map(function(item){return CATEGORIA_INSUMO_AREA[item];}).filter(Boolean)[0]||inferAreaFromText(comprasTexto); if(inferred) e.areaNecessidade=inferred;
+    var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
+    e.compra_de=true; return e;
+  });
+  var customerEntries=relatedCompanyEntries(splitNames(a.clientes),a.clientesSelecionados);
+  state.clientes.lista=customerEntries.map(function(entry,i){
+    var name=entry.name,e=reuseEntity("clientes",name,"customer"+i,entry.cnpj); if(a.usoOferta) e.comoUtiliza=a.usoOferta; e.categorias=(a.categoriasClientes||[]).slice(); e.usa_minha_oferta=true;
+    var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
+    return e;
+  });
+  var nomesComplementares=splitNames(a.complementares);
+  var nomesIndicacao=splitNames(a.indicacoes);
+  state.complementares.lista=nomesComplementares.map(function(name,i){
+    var e=reuseEntity("complementares",name,"complementary"+i); e.clientes_em_comum=true; return e;
+  });
+  nomesIndicacao.forEach(function(name,i){
+    var e=reuseEntity("complementares",name,"referral"+i); e.indico=true; e.meIndica=true;
+    if(!state.complementares.lista.some(function(x){return normName(x.empresa)===normName(name);})) state.complementares.lista.push(e);
+  });
+  state.complementares.negociosQueClientesProcuramCategorias=(a.complementaresSelecionados||[]).slice();
+  state.complementares.outrosProdutosClientesPrecisamDetalhe=a.complementares;
+  state.complementares.indicaQuandoNaoTem=a.indicacoes ? "Sim" : "";
+  state.complementares.jaFezVendaConjunta=a.vendaConjunta ? (normalizeSearch(a.vendaConjunta)==="nao" ? "Não" : "Sim") : "";
+  state.oportunidades.buscaForaMunicipioCategorias=(a.faltaLocalSelecionado||[]).slice();
+  state.oportunidades.parceirosDesejadosCategorias=(a.oportunidadeSelecionada||[]).slice();
+}
+
+function renderConversationReview(container){
+  if(state.meta.submittedAt){
+    container.appendChild(h("div",{class:"success-box"},[
+      h("h2",{},["Pronto, suas respostas foram enviadas."]),
+      h("p",{},["Obrigado por ajudar a mostrar como os negócios se conectam na sua cidade."])
+    ]));
+  } else {
+    container.appendChild(h("div",{class:"question-card"},[
+      h("h2",{},["Confira suas respostas"]),
+      h("p",{class:"question-help"},["Você pode voltar para ajustar qualquer resposta antes de enviar."])
+    ]));
+    if(state.meta.sendStatus==="error") container.appendChild(h("p",{class:"error-msg show"},[state.meta.sendError]));
+    conversationQuestions.forEach(function(q){
+      var answer=String(state.answers[q.key]||"").trim();
+      if(answer) container.appendChild(h("div",{class:"review-row"},[
+        h("div",{class:"rk"},[q.prompt]),h("div",{class:"rv"},[answer])
       ]));
     });
     var disclosure=h("div",{class:"conditional show",style:"margin-top:18px;"},[
