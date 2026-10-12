@@ -38,6 +38,7 @@ function setup() {
   ensurePublicProfilesSheet_(ss);
   ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
   ensureAvanteUsersSheet_(ss);
+  ensureCnaeRefreshTrigger_();
   return ss.getUrl();
 }
 
@@ -94,6 +95,16 @@ function lookupCompanyCnpj(value) {
 /** Persiste CNAEs obtidos da consulta oficial ao adicionar um fornecedor pela busca de CNPJ. */
 function saveSupplierCnpjRecord(token, companyName, cnpjValue) {
   if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  return refreshAndSaveSupplierCnae_(companyName, cnpjValue);
+}
+
+/** Atualiza o CNAE de uma empresa já existente escolhida na lista de fornecedores. */
+function refreshSupplierCnae(token, companyName, cnpjValue) {
+  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  return refreshAndSaveSupplierCnae_(companyName, cnpjValue);
+}
+
+function refreshAndSaveSupplierCnae_(companyName, cnpjValue) {
   var cnpj = normalizeCnpj_(cnpjValue);
   if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido." };
   var lookup = lookupCompanyCnpj(cnpj);
@@ -105,10 +116,56 @@ function saveSupplierCnpjRecord(token, companyName, cnpjValue) {
   lock.waitLock(20000);
   try {
     var ss = getSpreadsheet_();
-    ensureCompaniesSheet_(ss);
-    saveCompanies_(ss, { suppliers: { lista: [{ empresa: name, cnpj: cnpj, cidade: city, cnpjDados: data }] } }, new Date(), true);
+    saveCompanyCnaeData_(ss, name, cnpj, city, data);
   } finally { lock.releaseLock(); }
   return { ok: true, dados: data };
+}
+
+function saveCompanyCnaeData_(ss, name, cnpj, city, data) {
+  var sheet = ensureCompaniesSheet_(ss);
+  saveCompanies_(ss, { suppliers: { lista: [{ empresa: name, cnpj: cnpj, cidade: city, cnpjDados: data }] } }, new Date(), true);
+  var last = sheet.getLastRow();
+  if (last < 2) return;
+  var values = sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (normalizeCnpj_(values[i][2]) !== cnpj) continue;
+    sheet.getRange(i + 2, 10, 1, 3).setValues([[String(data.cnaeCodigo || ""), safeCell_(data.cnae || ""), JSON.stringify(normalizeCnaes_(data.cnaesSecundarios || []))]]);
+    break;
+  }
+}
+
+/** Completa até 12 CNPJs sem CNAE a cada seis horas; falhas voltam a ser tentadas no próximo ciclo. */
+function refreshMissingCompanyCnaes() {
+  var ss = getSpreadsheet_(), sheet = ensureCompaniesSheet_(ss), last = sheet.getLastRow();
+  if (last < 2) return { checked: 0, updated: 0 };
+  var values = sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues();
+  var pending = [];
+  values.forEach(function(row, index) {
+    var cnpj = normalizeCnpj_(row[2]);
+    if (row[1] && validCnpj_(cnpj) && (!row[9] || !row[10])) pending.push({ row: index + 2, name: String(row[1]), cnpj: cnpj, city: String(row[4] || "") });
+  });
+  if (!pending.length) return { checked: 0, updated: 0 };
+  var props = PropertiesService.getScriptProperties(), cursor = Number(props.getProperty("MAPA_NEGOCIOS_CNAE_REFRESH_CURSOR") || 0) % values.length;
+  var batch = Math.min(12, pending.length), updated = 0, attempted = 0, scanned = 0;
+  while (attempted < batch && scanned < values.length) {
+    var rowIndex = (cursor + scanned) % values.length, row = values[rowIndex], cnpj = normalizeCnpj_(row[2]);
+    scanned++;
+    if (!row[1] || !validCnpj_(cnpj) || (row[9] && row[10])) continue;
+    var item = { name: String(row[1]), cnpj: cnpj, city: String(row[4] || "") }, lookup = lookupCompanyCnpj(item.cnpj);
+    attempted++;
+    if (!lookup.ok || !lookup.dados.cnaeCodigo || !lookup.dados.cnae) continue;
+    var lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try { saveCompanyCnaeData_(ss, item.name, item.cnpj, item.city, lookup.dados); updated++; }
+    finally { lock.releaseLock(); }
+  }
+  props.setProperty("MAPA_NEGOCIOS_CNAE_REFRESH_CURSOR", String((cursor + scanned) % values.length));
+  return { checked: attempted, updated: updated, remaining: pending.length - updated };
+}
+
+function ensureCnaeRefreshTrigger_() {
+  var exists = ScriptApp.getProjectTriggers().some(function(trigger) { return trigger.getHandlerFunction() === "refreshMissingCompanyCnaes"; });
+  if (!exists) ScriptApp.newTrigger("refreshMissingCompanyCnaes").timeBased().everyHours(6).create();
 }
 
 /** Executar uma vez no editor para o proprietário autorizar consultas externas da BrasilAPI. */
