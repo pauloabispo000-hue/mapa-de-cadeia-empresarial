@@ -79,7 +79,7 @@ function lookupCompanyCnpj(value) {
       return { ok: false, error: status === 404 ? "CNPJ não encontrado na base pública." : "A consulta pública falhou (HTTP " + status + "). " + detail };
     }
     var data = JSON.parse(response.getContentText());
-    return { ok: true, dados: {
+    var result = { ok: true, dados: {
       razaoSocial: data.razao_social || "", nomeFantasia: data.nome_fantasia || "",
       municipio: data.municipio || "", uf: data.uf || "",
       situacao: data.descricao_situacao_cadastral || "", cnae: data.cnae_fiscal_descricao || "",
@@ -87,6 +87,8 @@ function lookupCompanyCnpj(value) {
       cnaesSecundarios: (data.cnaes_secundarios || []).map(function(item) { return { codigo: item.codigo || "", descricao: item.descricao || "" }; }),
       fonte: "BrasilAPI (Dados Abertos do CNPJ)", consultadoEm: new Date().toISOString()
     } };
+    CacheService.getScriptCache().put("MAPA_CNAE_LOOKUP_" + cnpj, JSON.stringify(result.dados), 300);
+    return result;
   } catch (error) {
     return { ok: false, error: "Não foi possível acessar a consulta pública agora. " + String(error && error.message || error) };
   }
@@ -102,6 +104,25 @@ function saveSupplierCnpjRecord(token, companyName, cnpjValue) {
 function refreshSupplierCnae(token, companyName, cnpjValue) {
   if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
   return refreshAndSaveSupplierCnae_(companyName, cnpjValue);
+}
+
+/** Persiste os dados que a própria plataforma acabou de consultar na fonte pública. */
+function persistSupplierCnaeLookup(token, companyName, cnpjValue) {
+  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado." };
+  var cnpj = normalizeCnpj_(cnpjValue);
+  if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido." };
+  var cached = CacheService.getScriptCache().get("MAPA_CNAE_LOOKUP_" + cnpj);
+  if (!cached) return refreshAndSaveSupplierCnae_(companyName, cnpj);
+  var data;
+  try { data = JSON.parse(cached); } catch (ignored) { return refreshAndSaveSupplierCnae_(companyName, cnpj); }
+  if (!data.cnaeCodigo || !data.cnae) return { ok: false, error: "A consulta pública não retornou o CNAE principal." };
+  var name = String(companyName || data.nomeFantasia || data.razaoSocial || "").trim();
+  if (!name) return { ok: false, error: "Nome empresarial indisponível." };
+  var city = [data.municipio, data.uf].filter(Boolean).join(" - "), lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { saveCompanyCnaeData_(getSpreadsheet_(), name, cnpj, city, data); }
+  finally { lock.releaseLock(); }
+  return { ok: true, dados: data };
 }
 
 function refreshAndSaveSupplierCnae_(companyName, cnpjValue) {
