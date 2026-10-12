@@ -12,10 +12,6 @@
 
 O aplicativo deve ser aberto pela URL da implantação com `?app=1` no final. Essa versão é servida pelo Apps Script e valida a senha no servidor; a página estática do GitHub encaminha para ela. Depois de publicar o código atualizado, o proprietário inicializa a conta administrativa executando `initializeAvanteAdmin` no editor Apps Script. A função cria a conta `admin.avante`; guarde a senha mostrada no registro da execução em local privado.
 
-A pesquisa de empresa pelo CNPJ consulta a BrasilAPI no servidor Apps Script e aceita CNPJs numéricos ou alfanuméricos. O Apps Script precisa do escopo OAuth `https://www.googleapis.com/auth/script.external_request`; o proprietário deve autorizá-lo antes que a primeira consulta pública seja executada. O formato alfanumérico passou a ser emitido pela Receita Federal em julho de 2026.
-
-A pesquisa de empresa pelo CNPJ consulta a BrasilAPI no servidor Apps Script e aceita CNPJs numéricos ou alfanuméricos. O Apps Script precisa do escopo OAuth `https://www.googleapis.com/auth/script.external_request`; o proprietário deve autorizá-lo antes que a primeira consulta pública seja executada. O formato alfanumérico passou a ser emitido pela Receita Federal em julho de 2026.
-
 Participantes podem criar suas próprias contas na tela de entrada, usando um nome de usuário de 3 a 32 caracteres e uma senha de 12 a 128 caracteres. Depois de entrar, podem trocar a própria senha pelo botão **Senha**, informando a senha atual. A troca invalida as outras sessões daquela conta. As contas e hashes com sal ficam na aba privada `ContasAvante`; nenhuma senha em texto é gravada. Sessões expiram após seis horas, e o endpoint de envio exige uma sessão válida.
 
 Não há recuperação automática por e-mail porque o cadastro não verifica endereço nem identidade. Se alguém esquecer a senha, o proprietário do projeto pode executar `resetAvanteUserPassword("nome.de.usuario")` no editor Apps Script e entregar a senha temporária por canal privado. `resetAvanteAdminPassword()` continua disponível para a conta `admin.avante`. As trocas feitas na plataforma não exigem acesso de administrador.
