@@ -8,6 +8,7 @@ var SHEET_ID_PROPERTY = "MAPA_NEGOCIOS_SPREADSHEET_ID";
 var RESPONSE_SHEET_NAME = "Respostas";
 var OPTIONS_SHEET_NAME = "Opcoes";
 var COMPANIES_SHEET_NAME = "Empresas";
+var COMPANIES_HEADERS = ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização", "CNAE principal código", "CNAE principal descrição", "CNAEs secundários JSON"];
 var RELATIONS_SHEET_NAME = "Relacoes";
 var PUBLIC_PROFILES_SHEET_NAME = "PerfisPublicos";
 var PENDING_PROFILES_SHEET_NAME = "PerfisPendentes";
@@ -32,7 +33,7 @@ function setup() {
   props.setProperty(SHEET_ID_PROPERTY, ss.getId());
   ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
   ensureSheet_(ss, OPTIONS_SHEET_NAME, ["Campo", "Resposta", "Chave normalizada", "Área inferida", "Adicionada em", "Ocorrências"]);
-  ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+  ensureCompaniesSheet_(ss);
   ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
   ensurePublicProfilesSheet_(ss);
   ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
@@ -90,6 +91,26 @@ function lookupCompanyCnpj(value) {
   }
 }
 
+/** Persiste CNAEs obtidos da consulta oficial ao adicionar um fornecedor pela busca de CNPJ. */
+function saveSupplierCnpjRecord(token, companyName, cnpjValue) {
+  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  var cnpj = normalizeCnpj_(cnpjValue);
+  if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido." };
+  var lookup = lookupCompanyCnpj(cnpj);
+  if (!lookup.ok) return lookup;
+  var data = lookup.dados, name = String(companyName || data.nomeFantasia || data.razaoSocial || "").trim();
+  if (!name) return { ok: false, error: "A consulta não retornou o nome da empresa." };
+  var city = [data.municipio, data.uf].filter(Boolean).join(" - ");
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = getSpreadsheet_();
+    ensureCompaniesSheet_(ss);
+    saveCompanies_(ss, { suppliers: { lista: [{ empresa: name, cnpj: cnpj, cidade: city, cnpjDados: data }] } }, new Date(), true);
+  } finally { lock.releaseLock(); }
+  return { ok: true, dados: data };
+}
+
 /** Executar uma vez no editor para o proprietário autorizar consultas externas da BrasilAPI. */
 function authorizePublicCnpjLookup() {
   var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/19131243000197", {
@@ -110,7 +131,7 @@ function doPost(e) {
     var ss = getSpreadsheet_();
     ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON"]);
     ensureSheet_(ss, OPTIONS_SHEET_NAME, ["Campo", "Resposta", "Chave normalizada", "Área inferida", "Adicionada em", "Ocorrências"]);
-    ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+    ensureCompaniesSheet_(ss);
     ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
     ensurePublicProfilesSheet_(ss);
     ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
@@ -432,34 +453,36 @@ function readOptions_() {
   return result;
 }
 
-function saveCompanies_(ss, payload, now) {
-  var sheet = ss.getSheetByName(COMPANIES_SHEET_NAME);
+function saveCompanies_(ss, payload, now, skipOccurrenceCount) {
+  var sheet = ensureCompaniesSheet_(ss);
   var rows = [], b = payload.business || {};
-  addCompanyCandidate_(rows, b.nome, b.cnpj, b.cidade, b.areaNecessidade);
+  addCompanyCandidate_(rows, b.nome, b.cnpj, b.cidade, b.areaNecessidade, b.cnpjDados);
   ["suppliers", "customers", "complementary"].forEach(function(key) {
     var group = payload[key] || {};
     (Array.isArray(group.lista) ? group.lista : []).forEach(function(entity) {
       var inferredArea = key === "suppliers" ? inferArea_(entity.categorias || entity.itens) : "";
-      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferredArea);
+      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferredArea, entity.cnpjDados);
     });
   });
   var last = sheet.getLastRow(), existing = {};
-  if (last > 1) sheet.getRange(2, 1, last - 1, 9).getValues().forEach(function(row, index) { existing[String(row[0])] = index + 2; });
+  if (last > 1) sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues().forEach(function(row, index) { existing[String(row[0])] = index + 2; });
   rows.forEach(function(candidate) {
     var rowNo = existing[candidate.key];
     if (rowNo) {
-      var old = sheet.getRange(rowNo, 1, 1, 9).getValues()[0];
+      var old = sheet.getRange(rowNo, 1, 1, COMPANIES_HEADERS.length).getValues()[0];
       var aliases = parseJsonArray_(old[3]);
       if (normalize_(old[1]) !== normalize_(candidate.name) && aliases.indexOf(candidate.name) < 0) aliases.push(candidate.name);
       var areas = parseJsonArray_(old[5]);
       candidate.areas.forEach(function(area) { if (areas.indexOf(area) < 0) areas.push(area); });
-      sheet.getRange(rowNo, 2, 1, 8).setValues([[
+      var secondary = mergeCnaes_(parseJsonArray_(old[11]), candidate.secondaryCnaes);
+      sheet.getRange(rowNo, 2, 1, 11).setValues([[
         safeCell_(old[1] || candidate.name), old[2] || candidate.cnpj, JSON.stringify(aliases), safeCell_(old[4] || candidate.city),
-        JSON.stringify(areas), Number(old[6] || 0) + 1, old[7] || now, now
+        JSON.stringify(areas), Number(old[6] || 0) + (skipOccurrenceCount ? 0 : 1), old[7] || now, now,
+        old[9] || candidate.cnaeCodigo, old[10] || safeCell_(candidate.cnae), JSON.stringify(secondary)
       ]]);
     } else {
       sheet.appendRow([candidate.key, safeCell_(candidate.name), candidate.cnpj, JSON.stringify([]), safeCell_(candidate.city),
-        JSON.stringify(candidate.areas), 1, now, now]);
+        JSON.stringify(candidate.areas), skipOccurrenceCount ? 0 : 1, now, now, candidate.cnaeCodigo, safeCell_(candidate.cnae), JSON.stringify(candidate.secondaryCnaes)]);
       existing[candidate.key] = sheet.getLastRow();
     }
   });
@@ -557,27 +580,34 @@ function getProfileMediaFolder_() {
   return folder;
 }
 
-function addCompanyCandidate_(rows, name, cnpj, city, area) {
+function addCompanyCandidate_(rows, name, cnpj, city, area, cnpjDados) {
   name = String(name || "").trim();
   cnpj = normalizeCnpj_(cnpj);
   if (!name) return;
   if (!validCnpj_(cnpj)) cnpj = "";
   var key = cnpj.length === 14 ? "cnpj:" + cnpj : "name:" + normalize_(name) + "|" + normalize_(city || "");
   var candidate = rows.filter(function(item) { return item.key === key; })[0];
-  if (!candidate) { candidate = { key: key, name: name, cnpj: cnpj, city: String(city || ""), areas: [] }; rows.push(candidate); }
+  var data = cnpjDados || {};
+  if (!candidate) { candidate = { key: key, name: name, cnpj: cnpj, city: String(city || ""), areas: [], cnaeCodigo: String(data.cnaeCodigo || ""), cnae: String(data.cnae || ""), secondaryCnaes: normalizeCnaes_(data.cnaesSecundarios || data.secondaryCnaes || []) }; rows.push(candidate); }
+  else {
+    if (!candidate.cnaeCodigo) candidate.cnaeCodigo = String(data.cnaeCodigo || "");
+    if (!candidate.cnae) candidate.cnae = String(data.cnae || "");
+    candidate.secondaryCnaes = mergeCnaes_(candidate.secondaryCnaes, data.cnaesSecundarios || data.secondaryCnaes || []);
+  }
   if (area && AREAS_12.indexOf(String(area)) >= 0 && candidate.areas.indexOf(String(area)) < 0) candidate.areas.push(String(area));
 }
 
 function readCompanies_() {
   var ss = getSpreadsheet_();
-  var sheet = ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+  var sheet = ensureCompaniesSheet_(ss);
   var last = sheet.getLastRow(), result = [];
   if (last < 2) return result;
-  sheet.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
+  sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues().forEach(function(row) {
     if (!row[1]) return;
     var cnpj = normalizeCnpj_(row[2]);
     if (!validCnpj_(cnpj) || !isCompanyDirectoryApproved_(cnpj)) return;
-    result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1) });
+    var secondary = parseJsonArray_(row[11]);
+    result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1), cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary, cnpjDados: { cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary } });
   });
   result.sort(function(a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
   return result;
@@ -592,9 +622,9 @@ function isCompanyDirectoryApproved_(cnpj) {
 function approveCompanyDirectoryEntry(cnpj) {
   cnpj = normalizeCnpj_(cnpj);
   if (!validCnpj_(cnpj)) throw new Error("Informe um CNPJ válido.");
-  var sheet = ensureSheet_(getSpreadsheet_(), COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+  var sheet = ensureCompaniesSheet_(getSpreadsheet_());
   var last = sheet.getLastRow(), found = false;
-  if (last > 1) sheet.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) { if (normalizeCnpj_(row[2]) === cnpj && row[1]) found = true; });
+  if (last > 1) sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues().forEach(function(row) { if (normalizeCnpj_(row[2]) === cnpj && row[1]) found = true; });
   if (!found) throw new Error("CNPJ não encontrado na aba Empresas.");
   var props = PropertiesService.getScriptProperties(), key = "MAPA_NEGOCIOS_VERIFIED_PUBLIC_CNPJS", list = [];
   try { list = JSON.parse(props.getProperty(key) || "[]"); } catch (ignored) {}
@@ -638,7 +668,7 @@ function saveRelations_(ss, payload, responseId, now) {
 function summarizeNetwork_() {
   var ss = getSpreadsheet_();
   var rel = ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
-  var companies = ensureSheet_(ss, COMPANIES_SHEET_NAME, ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização"]);
+  var companies = ensureCompaniesSheet_(ss);
   var last = rel.getLastRow(), areaCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
   AREAS_12.forEach(function(area) { areaCounts[area] = 0; });
   if (last > 1) rel.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
@@ -802,6 +832,30 @@ function ensureSheet_(ss, name, headers) {
   var sheet = ss.getSheetByName(name) || ss.insertSheet(name);
   if (sheet.getLastRow() === 0) { sheet.appendRow(headers); sheet.setFrozenRows(1); }
   return sheet;
+}
+
+function ensureCompaniesSheet_(ss) {
+  var sheet = ensureSheet_(ss, COMPANIES_SHEET_NAME, COMPANIES_HEADERS);
+  if (sheet.getMaxColumns() < COMPANIES_HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), COMPANIES_HEADERS.length - sheet.getMaxColumns());
+  sheet.getRange(1, 1, 1, COMPANIES_HEADERS.length).setValues([COMPANIES_HEADERS]);
+  return sheet;
+}
+
+function normalizeCnaes_(items) {
+  return (Array.isArray(items) ? items : []).map(function(item) {
+    if (typeof item === "string") return { codigo: "", descricao: item };
+    return { codigo: String(item && (item.codigo || item.code) || ""), descricao: String(item && (item.descricao || item.description) || "") };
+  }).filter(function(item) { return item.codigo || item.descricao; });
+}
+
+function mergeCnaes_(existing, incoming) {
+  var result = normalizeCnaes_(existing), seen = {};
+  result.forEach(function(item) { seen[item.codigo || normalize_(item.descricao)] = true; });
+  normalizeCnaes_(incoming).forEach(function(item) {
+    var key = item.codigo || normalize_(item.descricao);
+    if (!seen[key]) { result.push(item); seen[key] = true; }
+  });
+  return result;
 }
 
 function normalize_(value) {
