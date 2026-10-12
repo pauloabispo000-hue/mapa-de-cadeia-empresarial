@@ -1187,6 +1187,7 @@ var PUBLIC_COMPANY_CATALOG = [
 var municipalCompanies = [];
 var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
+var cnaeRefreshInFlight = {};
 var sharedNetwork = null;
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
 var activeProgramSection = "overview";
@@ -3339,6 +3340,21 @@ function relatedCompanyEntries(manualNames,selectedValues){
     return true;
   });
 }
+function refreshSelectedSupplierCnaes(){
+  if(!isAppsScriptApp()||!authSession||!authSession.token||!google.script||!google.script.run)return;
+  (state.answers.fornecedoresSelecionados||[]).forEach(function(value){
+    var company=findSharedCompanyBySelection(value),cnpj=company?normalizarCNPJ(company.cnpj):"";
+    if(!cnpj||company.cnae&&company.cnaeCodigo||company.cnpjDados&&company.cnpjDados.cnae&&company.cnpjDados.cnaeCodigo||cnaeRefreshInFlight[cnpj])return;
+    cnaeRefreshInFlight[cnpj]=true;
+    google.script.run.withSuccessHandler(function(result){
+      delete cnaeRefreshInFlight[cnpj];
+      if(!result||!result.ok||!result.dados)return;
+      sharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
+      learnedSharedCompanies.forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=result.dados.cnae||item.cnae;item.cnaeCodigo=result.dados.cnaeCodigo||item.cnaeCodigo;item.cnaesSecundarios=result.dados.cnaesSecundarios||item.cnaesSecundarios||[];item.secondaryCnaes=item.cnaesSecundarios;item.cnpjDados=result.dados;}});
+      refreshSharedCompanies();
+    }).withFailureHandler(function(){delete cnaeRefreshInFlight[cnpj];}).refreshSupplierCnae(authSession.token,company.name,cnpj);
+  });
+}
 function reuseEntity(listType,name,id,cnpj){
   var list=state[listType].lista||[];
   var normalizedCnpj=normalizarCNPJ(cnpj);
@@ -3673,7 +3689,7 @@ function renderConversation(container){
             if(isAppsScriptApp()&&authSession&&authSession.token){google.script.run.withSuccessHandler(function(result){if(!result||!result.ok)console.warn("CNAE não persistido na base de empresas:",result&&result.error||"resposta vazia");else if(result.dados){company.cnpjDados=result.dados;company.cnae=result.dados.cnae;company.cnaeCodigo=result.dados.cnaeCodigo;company.cnaesSecundarios=result.dados.cnaesSecundarios||[];}}).withFailureHandler(function(error){console.warn("Falha ao salvar CNAE do fornecedor:",error&&error.message||error);}).saveSupplierCnpjRecord(authSession.token,companyName,cnpj);}
             renderCurrentStep();
           },
-          onChange:function(){syncConversationAnswers();saveState();renderCurrentStep();}
+          onChange:function(){syncConversationAnswers();saveState();if(q.key==="fornecedoresSelecionados")refreshSelectedSupplierCnaes();renderCurrentStep();}
         }));
         var publicSources=h("details",{class:"question-help",style:"margin-top:8px;"});
         publicSources.appendChild(h("summary",{},["Ver fontes das sugestões públicas"]));
