@@ -17,6 +17,7 @@ var AVANTE_ADMIN_SALT_PROPERTY = "AVANTE_ADMIN_PASSWORD_SALT";
 var AVANTE_ADMIN_HASH_PROPERTY = "AVANTE_ADMIN_PASSWORD_HASH";
 var AVANTE_SESSION_VERSION_PROPERTY = "AVANTE_SESSION_VERSION";
 var AVANTE_USERS_SHEET_NAME = "ContasAvante";
+var AVANTE_SETTINGS_SHEET_NAME = "ConfiguracoesPerfil";
 var AREAS_12 = [
   "Alimentos/Medicamentos", "Transportes/Logísticas", "Habitações/Edificações",
   "Acompanhamentos/Assistências", "Saneamentos/Eliminações", "Educações/Pesquisas",
@@ -135,6 +136,42 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Recebe alterações do perfil público como solicitação autenticada, sempre sujeita à revisão administrativa. */
+function submitAvantePublicProfile(token, input) {
+  if (!validateAvanteSession_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  input = input || {};
+  var business = input.business || {}, publicProfile = input.publicProfile || {};
+  var cnpj = normalizeCnpj_(business.cnpj);
+  var name = String(business.nome || "").trim();
+  if (!validCnpj_(cnpj) || !name) return { ok: false, error: "O perfil precisa ter nome empresarial e CNPJ válidos." };
+  if (publicProfile.consent !== true) return { ok: false, error: "Autorize a solicitação de publicação do perfil." };
+  var ss = getSpreadsheet_(), now = new Date(), responseId = Utilities.getUuid();
+  ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
+  savePendingPublicProfile_(ss, { business: business, answers: input.answers || {}, publicProfile: publicProfile }, responseId, now);
+  return { ok: true, responseId: responseId, message: "Solicitação enviada para validação administrativa." };
+}
+
+/** Persiste as respostas de pesquisa vinculadas à conta; os campos oficiais não são atualizados por esta operação. */
+function saveAvanteProfileSettings(token, input) {
+  var username = getAvanteSessionUser_(String(token || ""));
+  if (!username) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  input = input || {};
+  var cnpj = normalizeCnpj_(input.cnpj || "");
+  var headers = ["Conta", "CNPJ", "Atualizado em", "Respostas JSON"];
+  var sheet = ensureSheet_(getSpreadsheet_(), AVANTE_SETTINGS_SHEET_NAME, headers);
+  var data = JSON.parse(JSON.stringify(input.data || {}));
+  delete data.business;
+  delete data.publicProfile;
+  var row = [username, cnpj, new Date(), safeCell_(JSON.stringify(data))];
+  var last = sheet.getLastRow(), target = 0;
+  if (last > 1) {
+    var keys = sheet.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < keys.length; i++) if (String(keys[i][0]) === username && normalizeCnpj_(keys[i][1]) === cnpj) { target = i + 2; break; }
+  }
+  if (target) sheet.getRange(target, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
+  return { ok: true };
 }
 
 /** Executar manualmente no editor Apps Script uma única vez para criar o acesso inicial. */
