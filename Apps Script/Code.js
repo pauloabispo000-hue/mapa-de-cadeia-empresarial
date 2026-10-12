@@ -8,7 +8,7 @@ var SHEET_ID_PROPERTY = "MAPA_NEGOCIOS_SPREADSHEET_ID";
 var RESPONSE_SHEET_NAME = "Respostas";
 var OPTIONS_SHEET_NAME = "Opcoes";
 var COMPANIES_SHEET_NAME = "Empresas";
-var COMPANIES_HEADERS = ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização", "CNAE principal código", "CNAE principal descrição", "CNAEs secundários JSON"];
+var COMPANIES_HEADERS = ["Chave", "Nome principal", "CNPJ", "Nomes alternativos JSON", "Cidade", "Áreas JSON", "Ocorrências", "Primeiro registro", "Última atualização", "CNAE principal código", "CNAE principal descrição", "CNAEs secundários JSON", "Ofertas JSON"];
 var RELATIONS_SHEET_NAME = "Relacoes";
 var PUBLIC_PROFILES_SHEET_NAME = "PerfisPublicos";
 var PENDING_PROFILES_SHEET_NAME = "PerfisPendentes";
@@ -541,12 +541,12 @@ function readOptions_() {
 function saveCompanies_(ss, payload, now, skipOccurrenceCount) {
   var sheet = ensureCompaniesSheet_(ss);
   var rows = [], b = payload.business || {};
-  addCompanyCandidate_(rows, b.nome, b.cnpj, b.cidade, b.areaNecessidade, b.cnpjDados);
+  addCompanyCandidate_(rows, b.nome, b.cnpj, b.cidade, b.areaNecessidade, b.cnpjDados, b.ofertas, true);
   ["suppliers", "customers", "complementary"].forEach(function(key) {
     var group = payload[key] || {};
     (Array.isArray(group.lista) ? group.lista : []).forEach(function(entity) {
       var inferredArea = key === "suppliers" ? inferArea_(entity.categorias || entity.itens) : "";
-      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferredArea, entity.cnpjDados);
+      addCompanyCandidate_(rows, entity.empresa, entity.cnpj, entity.cidade, entity.areaNecessidade || inferredArea, entity.cnpjDados, entity.ofertas);
     });
   });
   var last = sheet.getLastRow(), existing = {};
@@ -560,14 +560,16 @@ function saveCompanies_(ss, payload, now, skipOccurrenceCount) {
       var areas = parseJsonArray_(old[5]);
       candidate.areas.forEach(function(area) { if (areas.indexOf(area) < 0) areas.push(area); });
       var secondary = mergeCnaes_(parseJsonArray_(old[11]), candidate.secondaryCnaes);
+      var offers = mergeCompanyOffers_(parseJsonArray_(old[12]), candidate.offers);
       sheet.getRange(rowNo, 2, 1, 11).setValues([[
         safeCell_(old[1] || candidate.name), old[2] || candidate.cnpj, JSON.stringify(aliases), safeCell_(old[4] || candidate.city),
         JSON.stringify(areas), Number(old[6] || 0) + (skipOccurrenceCount ? 0 : 1), old[7] || now, now,
         old[9] || candidate.cnaeCodigo, old[10] || safeCell_(candidate.cnae), JSON.stringify(secondary)
       ]]);
+      sheet.getRange(rowNo, 13).setValue(JSON.stringify(offers));
     } else {
       sheet.appendRow([candidate.key, safeCell_(candidate.name), candidate.cnpj, JSON.stringify([]), safeCell_(candidate.city),
-        JSON.stringify(candidate.areas), skipOccurrenceCount ? 0 : 1, now, now, candidate.cnaeCodigo, safeCell_(candidate.cnae), JSON.stringify(candidate.secondaryCnaes)]);
+        JSON.stringify(candidate.areas), skipOccurrenceCount ? 0 : 1, now, now, candidate.cnaeCodigo, safeCell_(candidate.cnae), JSON.stringify(candidate.secondaryCnaes), JSON.stringify(candidate.offers)]);
       existing[candidate.key] = sheet.getLastRow();
     }
   });
@@ -665,7 +667,7 @@ function getProfileMediaFolder_() {
   return folder;
 }
 
-function addCompanyCandidate_(rows, name, cnpj, city, area, cnpjDados) {
+function addCompanyCandidate_(rows, name, cnpj, city, area, cnpjDados, offers, replaceOffers) {
   name = String(name || "").trim();
   cnpj = normalizeCnpj_(cnpj);
   if (!name) return;
@@ -673,13 +675,31 @@ function addCompanyCandidate_(rows, name, cnpj, city, area, cnpjDados) {
   var key = cnpj.length === 14 ? "cnpj:" + cnpj : "name:" + normalize_(name) + "|" + normalize_(city || "");
   var candidate = rows.filter(function(item) { return item.key === key; })[0];
   var data = cnpjDados || {};
-  if (!candidate) { candidate = { key: key, name: name, cnpj: cnpj, city: String(city || ""), areas: [], cnaeCodigo: String(data.cnaeCodigo || ""), cnae: String(data.cnae || ""), secondaryCnaes: normalizeCnaes_(data.cnaesSecundarios || data.secondaryCnaes || []) }; rows.push(candidate); }
+  if (!candidate) { candidate = { key: key, name: name, cnpj: cnpj, city: String(city || ""), areas: [], offers: [], cnaeCodigo: String(data.cnaeCodigo || ""), cnae: String(data.cnae || ""), secondaryCnaes: normalizeCnaes_(data.cnaesSecundarios || data.secondaryCnaes || []) }; rows.push(candidate); }
   else {
     if (!candidate.cnaeCodigo) candidate.cnaeCodigo = String(data.cnaeCodigo || "");
     if (!candidate.cnae) candidate.cnae = String(data.cnae || "");
     candidate.secondaryCnaes = mergeCnaes_(candidate.secondaryCnaes, data.cnaesSecundarios || data.secondaryCnaes || []);
   }
   if (area && AREAS_12.indexOf(String(area)) >= 0 && candidate.areas.indexOf(String(area)) < 0) candidate.areas.push(String(area));
+  candidate.offers = replaceOffers ? mergeCompanyOffers_([], offers) : mergeCompanyOffers_(candidate.offers, offers);
+}
+
+function mergeCompanyOffers_(current, incoming) {
+  var merged = Array.isArray(current) ? current.slice() : [];
+  (Array.isArray(incoming) ? incoming : []).forEach(function(item) {
+    if (!item || !String(item.nome || "").trim()) return;
+    var name = String(item.nome).trim(), key = normalize_(name);
+    var existing = merged.filter(function(value) { return normalize_(value && value.nome) === key; })[0];
+    var normalized = { id: String(item.id || ""), nome: name.slice(0, 160), tipo: String(item.tipo || "Produto"), descricao: String(item.descricao || "").slice(0, 500), areas: (Array.isArray(item.areas) ? item.areas : []).filter(function(area) { return AREAS_12.indexOf(String(area)) >= 0; }) };
+    if (existing) {
+      if (!existing.id && normalized.id) existing.id = normalized.id;
+      existing.tipo = normalized.tipo || existing.tipo;
+      existing.descricao = normalized.descricao || existing.descricao;
+      existing.areas = Array.from(new Set((existing.areas || []).concat(normalized.areas)));
+    } else merged.push(normalized);
+  });
+  return merged.slice(0, 300);
 }
 
 function readCompanies_() {
@@ -692,7 +712,7 @@ function readCompanies_() {
     var cnpj = normalizeCnpj_(row[2]);
     if (!validCnpj_(cnpj) || !isCompanyDirectoryApproved_(cnpj)) return;
     var secondary = parseJsonArray_(row[11]);
-    result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), count: Number(row[6] || 1), cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary, cnpjDados: { cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary } });
+    result.push({ name: String(row[1]), cnpj: cnpj, aliases: parseJsonArray_(row[3]), city: String(row[4] || ""), areas: parseJsonArray_(row[5]), offers: parseJsonArray_(row[12]), count: Number(row[6] || 1), cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary, cnpjDados: { cnaeCodigo: String(row[9] || ""), cnae: String(row[10] || ""), cnaesSecundarios: secondary } });
   });
   result.sort(function(a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
   return result;
@@ -754,8 +774,8 @@ function summarizeNetwork_() {
   var ss = getSpreadsheet_();
   var rel = ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
   var companies = ensureCompaniesSheet_(ss);
-  var last = rel.getLastRow(), areaCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
-  AREAS_12.forEach(function(area) { areaCounts[area] = 0; });
+  var last = rel.getLastRow(), areaCounts = {}, areaOfferCompanies = {}, areaOfferCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
+  AREAS_12.forEach(function(area) { areaCounts[area] = 0; areaOfferCompanies[area] = {}; areaOfferCounts[area] = 0; });
   if (last > 1) rel.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
     var from = nodeKey_(row[3], row[2]), to = nodeKey_(row[5], row[4]);
     if (from) nodes[from] = true;
@@ -771,6 +791,20 @@ function summarizeNetwork_() {
       }
     }
     if (row[6] === "fornecedor") parseJsonArray_(row[7]).forEach(function(area) { if (areaCounts.hasOwnProperty(area)) areaCounts[area]++; });
+  });
+  var companyLast = companies.getLastRow();
+  if (companyLast > 1) companies.getRange(2, 1, companyLast - 1, COMPANIES_HEADERS.length).getValues().forEach(function(row) {
+    var cnpj = normalizeCnpj_(row[2]);
+    if (!validCnpj_(cnpj) || !isCompanyDirectoryApproved_(cnpj)) return;
+    var companyKey = "cnpj:" + cnpj;
+    parseJsonArray_(row[12]).forEach(function(offer) {
+      if (!offer || !String(offer.nome || "").trim()) return;
+      (Array.isArray(offer.areas) ? offer.areas : []).forEach(function(area) {
+        if (!areaOfferCompanies.hasOwnProperty(area)) return;
+        areaOfferCompanies[area][companyKey] = true;
+        areaOfferCounts[area]++;
+      });
+    });
   });
   var twoStep = {}, twoStepCount = 0, closed = 0;
   Object.keys(adjacency).forEach(function(start) {
@@ -792,7 +826,7 @@ function summarizeNetwork_() {
     twoStepChains: twoStepCount,
     confirmedClosures: closed,
     potentialConnections: Math.max(0, twoStepCount - closed),
-    areas: AREAS_12.map(function(area) { return { name: area, knownSupplierLinks: areaCounts[area] }; })
+    areas: AREAS_12.map(function(area) { return { name: area, knownSupplierLinks: areaCounts[area], registeredOfferCompanies: Object.keys(areaOfferCompanies[area]).length, registeredOffers: areaOfferCounts[area] }; })
   };
 }
 
