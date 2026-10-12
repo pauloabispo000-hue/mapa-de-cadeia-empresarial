@@ -3079,7 +3079,7 @@ function renderCompanyProfileHeader(){
   var area=String(state.business.areaNecessidade||"").trim()||(profileCompany&&profileCompany.areas||[]).join(" · ");
   var offers=(state.answers.produtosSelecionados||[]).slice();
   if(!offers.length) offers=(state.business.produtoCategorias||[]).slice();
-  var description=String(state.business.produtoDetalhe||state.answers.produtos||"").trim();
+  var description=String(state.business.profileDescription||state.business.produtoDetalhe||state.answers.produtos||"").trim();
   if(!offers.length&&profileCompany) description=description||profileCompany.offer;
 
   var profile=h("section",{class:"company-profile","aria-label":"Perfil público da empresa"});
