@@ -3254,7 +3254,7 @@ var conversationQuestions = [
   {key:"produtosSelecionados", prompt:"O que você vende ou faz para seus clientes?", kind:"product-service", options:SEGMENTOS_OPTS, help:"Use o botão para buscar e adicionar soluções já cadastradas ou incluir um produto ou serviço novo."},
   {key:"tipoClientes", prompt:"Quem costuma comprar de você?", kind:"multi", options:PERFIL_CLIENTES_OPTS, help:"Escolha todas as opções que se aplicam."},
   {key:"fornecedoresSelecionados", prompt:"De quais empresas você costuma comprar para manter seu negócio funcionando?", help:"Escolha fornecedores já identificados ou digite um nome novo. O CNPJ e a cidade são preenchidos quando já constam na base.", kind:"companies"},
-  {key:"comprasSelecionadas", prompt:"O que você costuma comprar dessas empresas ou pessoas?", kind:"multi", options:CATEGORIA_INSUMOS_OPTS.filter(function(x){return x.indexOf("Outro (")!==0;}), help:"Escolha tudo o que costuma comprar. A lista inclui produtos e serviços."},
+  {key:"comprasSelecionadas", prompt:"O que você costuma comprar dessas empresas ou pessoas?", kind:"supplier-purchases", options:CATEGORIA_INSUMOS_OPTS.filter(function(x){return x.indexOf("Outro (")!==0;}), help:"Selecione os produtos ou serviços comprados de cada empresa."},
   {key:"clientesSelecionados", prompt:"Quais empresas compram de você para revender ou usar no próprio trabalho?", help:"Escolha uma empresa já identificada ou digite um nome novo. Pode deixar sem resposta se não souber.", kind:"companies"},
   {key:"categoriasClientes", prompt:"O que essas empresas compram ou usam do seu negócio?", kind:"multi", options:SEGMENTOS_OPTS, help:"Escolha as opções que melhor descrevem o que você fornece."},
   {key:"usoOferta", prompt:"Como essas empresas usam ou revendem seus produtos ou serviços?", help:"Uma frase simples já ajuda. Se não se aplicar, deixe em branco.", placeholder:"Ex.: revendem os produtos aos clientes delas"},
@@ -3358,12 +3358,13 @@ function syncConversationAnswers(){
   var area=b.areaNecessidade;
   if(!b.produtoCategorias.length && a.produtos.trim()) b.produtoCategorias=["Outro"];
   var compras=(a.comprasSelecionadas||[]).slice();
-  var comprasTexto=compras.concat(a.comprasFornecedores?[a.comprasFornecedores]:[]).join(", ");
   var supplierEntries=relatedCompanyEntries(splitNames(a.fornecedores),a.fornecedoresSelecionados);
   state.fornecedores.lista=supplierEntries.map(function(entry,i){
-    var name=entry.name,e=reuseEntity("fornecedores",name,"supplier"+i,entry.cnpj); if(comprasTexto) e.itens=comprasTexto;
-    e.categorias=compras.slice();
-    var inferred=compras.map(function(item){return CATEGORIA_INSUMO_AREA[item];}).filter(Boolean)[0]||inferAreaFromText(comprasTexto); if(inferred) e.areaNecessidade=inferred;
+    var name=entry.name,e=reuseEntity("fornecedores",name,"supplier"+i,entry.cnpj);
+    if(!state.meta.supplierPurchaseAllocationVersion&&supplierEntries.length===1)e.categorias=compras.slice();
+    e.categorias=Array.isArray(e.categorias)?e.categorias.slice():[];
+    if(e.categorias.length)e.itens=e.categorias.join(", ");
+    var inferred=e.categorias.map(function(item){return CATEGORIA_INSUMO_AREA[item];}).filter(Boolean)[0]||inferAreaFromText(e.itens); if(inferred) e.areaNecessidade=inferred;
     var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
     if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
     e.compra_de=true; return e;
@@ -3452,7 +3453,7 @@ function companyOptionLabel(company){
   return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+sourceHint;
 }
 function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
-function addAnswerControl(key){
+function addAnswerControl(key,targetSupplier){
   if(!canAddAnswer(key)) return null;
   var box=h("div",{class:"add-answer-box"});
   var labels={produtosSelecionados:"produto ou serviço",categoriasClientes:"produto ou serviço",comprasSelecionadas:"item de compra"};
@@ -3480,10 +3481,16 @@ function addAnswerControl(key){
         if(contribution.area) SEGMENTO_AREA[value]=contribution.area;
       }
       if(key==="comprasSelecionadas"&&contribution.area) CATEGORIA_INSUMO_AREA[value]=contribution.area;
-      if(Array.isArray(state.answers[key])&&state.answers[key].indexOf(value)===-1) state.answers[key].push(value);
+      if(targetSupplier&&Array.isArray(targetSupplier.categorias)){
+        if(targetSupplier.categorias.indexOf(value)===-1)targetSupplier.categorias.push(value);
+      }else if(Array.isArray(state.answers[key])&&state.answers[key].indexOf(value)===-1) state.answers[key].push(value);
       added++;
     });
     if(!added){message.textContent="Todas as opções digitadas já estão na lista.";return;}
+    if(targetSupplier){
+      targetSupplier.itens=(targetSupplier.categorias||[]).join(", ");
+      state.answers.comprasSelecionadas=(state.fornecedores.lista||[]).reduce(function(all,item){return all.concat(item.categorias||[]);},[]).filter(function(value,index,all){return all.indexOf(value)===index;});
+    }
     syncConversationAnswers();
     saveState();
     if(duplicates) message.textContent=added+" opção(ões) adicionada(s); "+duplicates+" repetida(s) ignorada(s).";
@@ -3553,6 +3560,41 @@ function buildProductServicePicker(opts){
   return wrapper;
 }
 
+function renderSupplierPurchases(q){
+  var wrap=h("div",{});
+  var suppliers=(state.fornecedores.lista||[]).filter(function(item){return String(item.empresa||"").trim();});
+  if(!state.meta.supplierPurchaseAllocationVersion){
+    if(suppliers.length>1)suppliers.forEach(function(item){item.categorias=[];item.itens="";});
+    state.meta.supplierPurchaseAllocationVersion=true;
+    saveState();
+  }
+  if(!suppliers.length){
+    wrap.appendChild(h("div",{class:"platform-card"},[
+      h("p",{},["Nenhuma empresa fornecedora foi selecionada na etapa anterior."]),
+      h("button",{class:"platform-action",type:"button",onclick:function(){currentStepIndex=Math.max(0,currentStepIndex-1);renderCurrentStep(true);}},["Voltar para escolher fornecedores"])
+    ]));
+    return wrap;
+  }
+  var options=optionsWithContributions("comprasSelecionadas",q.options);
+  suppliers.forEach(function(supplier){
+    if(!Array.isArray(supplier.categorias))supplier.categorias=[];
+    var card=h("section",{class:"platform-card supplier-purchases-card",style:"margin-bottom:14px;"});
+    card.appendChild(h("h3",{},[supplier.empresa]));
+    if(supplier.cnpj)card.appendChild(h("p",{class:"company-profile-meta"},["CNPJ "+formatarCNPJ(supplier.cnpj)]));
+    card.appendChild(buildComboMulti({
+      options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
+      onChange:function(){
+        supplier.itens=supplier.categorias.join(", ");
+        state.answers.comprasSelecionadas=suppliers.reduce(function(all,item){return all.concat(item.categorias||[]);},[]).filter(function(value,index,all){return all.indexOf(value)===index;});
+        syncConversationAnswers();saveState();
+      }
+    }));
+    card.appendChild(addAnswerControl("comprasSelecionadas",supplier));
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
 function renderConversation(container){
   syncConversationAnswers();
   var questions=activeConversationQuestions();
@@ -3571,6 +3613,7 @@ function renderConversation(container){
         }
         return buildProductServicePicker({key:q.key,selectedArr:state.answers[q.key],options:q.options});
       }
+      if(q.kind==="supplier-purchases") return renderSupplierPurchases(q);
       if(q.kind==="multi"){
         var multiOptions=optionsWithContributions(q.key,q.options);
         var useCnaeFilter=q.key==="produtosSelecionados"||q.key==="categoriasClientes";
