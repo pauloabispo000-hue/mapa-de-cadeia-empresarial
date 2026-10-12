@@ -19,6 +19,12 @@ var AVANTE_ADMIN_HASH_PROPERTY = "AVANTE_ADMIN_PASSWORD_HASH";
 var AVANTE_SESSION_VERSION_PROPERTY = "AVANTE_SESSION_VERSION";
 var AVANTE_USERS_SHEET_NAME = "ContasAvante";
 var AVANTE_SETTINGS_SHEET_NAME = "ConfiguracoesPerfil";
+var GEMINI_API_KEY_PROPERTY = "GEMINI_API_KEY";
+var GOOGLE_MAPS_BROWSER_KEY_PROPERTY = "MAPS_BROWSER_API_KEY";
+var GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY = "MAPS_MONTHLY_USAGE";
+var GOOGLE_MAPS_MONTHLY_EVENT_LIMIT = 8000;
+var AVANTE_GEMINI_MONTHLY_REQUEST_LIMIT = 500;
+var AVANTE_GEMINI_DAILY_REQUEST_LIMIT = 20;
 var AREAS_12 = [
   "Alimentos/Medicamentos", "Transportes/Logísticas", "Habitações/Edificações",
   "Acompanhamentos/Assistências", "Saneamentos/Eliminações", "Educações/Pesquisas",
@@ -38,7 +44,7 @@ function setup() {
   ensurePublicProfilesSheet_(ss);
   ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
   ensureAvanteUsersSheet_(ss);
-  ensureCnaeRefreshTrigger_();
+  removeCnaeRefreshTriggers_();
   return ss.getUrl();
 }
 
@@ -47,6 +53,7 @@ function doGet(e) {
   if (String(params.app || "") === "1") {
     return HtmlService.createHtmlOutputFromFile("Index")
       .setTitle("Avante — conexões para o seu negócio")
+      .setFaviconUrl("https://raw.githubusercontent.com/pauloabispo000-hue/mapa-de-cadeia-empresarial/main/favicon.png")
       .addMetaTag("viewport", "width=device-width, initial-scale=1");
   }
   var profileCnpj = normalizeCnpj_(params.perfil || params.profile || "");
@@ -63,146 +70,256 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
-/** Consulta dados cadastrais públicos de CNPJ pela BrasilAPI, no servidor para evitar bloqueios do navegador. */
+/** Chave pública do Maps JavaScript API, servida somente à interface do Web App. */
+function getMapsBrowserApiKey() {
+  return String(PropertiesService.getScriptProperties().getProperty(GOOGLE_MAPS_BROWSER_KEY_PROPERTY) || "").trim();
+}
+
+/** Reserva eventos antes de carregar o mapa, mantendo margem abaixo do limite gratuito do Google. */
+function reserveGoogleMapsMonthlyUsage(geocodingEvents) {
+  var requestedGeocodingEvents = Number(geocodingEvents);
+  if (!isFinite(requestedGeocodingEvents) || Math.floor(requestedGeocodingEvents) !== requestedGeocodingEvents || requestedGeocodingEvents < 0 || requestedGeocodingEvents > 31) {
+    return { ok: false, message: "Não foi possível validar o consumo previsto do mapa." };
+  }
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, message: "Não foi possível conferir o limite mensal do mapa. Tente novamente." };
+  try {
+    var month = Utilities.formatDate(new Date(), "America/Los_Angeles", "yyyy-MM");
+    var properties = PropertiesService.getScriptProperties();
+    var saved = properties.getProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY);
+    var usage = saved ? JSON.parse(saved) : {};
+    if (usage.month !== month) usage = { month: month, mapLoads: 0, geocoding: 0 };
+    var nextMapLoads = Number(usage.mapLoads || 0) + 1;
+    var nextGeocoding = Number(usage.geocoding || 0) + requestedGeocodingEvents;
+    if (nextMapLoads > GOOGLE_MAPS_MONTHLY_EVENT_LIMIT || nextGeocoding > GOOGLE_MAPS_MONTHLY_EVENT_LIMIT) {
+      return {
+        ok: false,
+        message: "Limite mensal de segurança atingido: " + Number(usage.mapLoads || 0) + "/" + GOOGLE_MAPS_MONTHLY_EVENT_LIMIT + " mapas e " + Number(usage.geocoding || 0) + "/" + GOOGLE_MAPS_MONTHLY_EVENT_LIMIT + " consultas de endereço. O mapa ficará pausado até o próximo mês.",
+        mapLoads: Number(usage.mapLoads || 0),
+        geocoding: Number(usage.geocoding || 0),
+        limit: GOOGLE_MAPS_MONTHLY_EVENT_LIMIT
+      };
+    }
+    usage.mapLoads = nextMapLoads;
+    usage.geocoding = nextGeocoding;
+    properties.setProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY, JSON.stringify(usage));
+    return { ok: true, mapLoads: nextMapLoads, geocoding: nextGeocoding, limit: GOOGLE_MAPS_MONTHLY_EVENT_LIMIT };
+  } catch (error) {
+    console.error("Falha ao reservar uso mensal do Google Maps: " + error);
+    return { ok: false, message: "Não foi possível conferir o limite mensal do mapa. Tente novamente." };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Reserva cada consulta de autocompletar endereço antes de chamar Places API. */
+function reserveGooglePlacesAutocompleteUsage() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, message: "Não foi possível conferir o limite mensal da busca de endereço. Tente novamente." };
+  try {
+    var month = Utilities.formatDate(new Date(), "America/Los_Angeles", "yyyy-MM");
+    var properties = PropertiesService.getScriptProperties();
+    var saved = properties.getProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY);
+    var usage = saved ? JSON.parse(saved) : {};
+    if (usage.month !== month) usage = { month: month, mapLoads: 0, geocoding: 0, placesAutocomplete: 0 };
+    var next = Number(usage.placesAutocomplete || 0) + 1;
+    if (next > GOOGLE_MAPS_MONTHLY_EVENT_LIMIT) {
+      return { ok: false, message: "Limite mensal de buscas de endereço atingido: " + Number(usage.placesAutocomplete || 0) + "/" + GOOGLE_MAPS_MONTHLY_EVENT_LIMIT + ". A busca será reativada no próximo mês." };
+    }
+    usage.placesAutocomplete = next;
+    properties.setProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY, JSON.stringify(usage));
+    return { ok: true, placesAutocomplete: next, limit: GOOGLE_MAPS_MONTHLY_EVENT_LIMIT };
+  } catch (error) {
+    console.error("Falha ao reservar uso mensal do Places: " + error);
+    return { ok: false, message: "Não foi possível conferir o limite mensal da busca de endereço. Tente novamente." };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Reserva consultas Place Details usadas para confirmar logradouro, município e CEP. */
+function reserveGooglePlacesDetailsUsage() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, message: "Não foi possível conferir o limite mensal da confirmação de endereço." };
+  try {
+    var month = Utilities.formatDate(new Date(), "America/Los_Angeles", "yyyy-MM");
+    var properties = PropertiesService.getScriptProperties();
+    var saved = properties.getProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY);
+    var usage = saved ? JSON.parse(saved) : {};
+    if (usage.month !== month) usage = { month: month, mapLoads: 0, geocoding: 0, placesAutocomplete: 0, placesDetails: 0 };
+    var next = Number(usage.placesDetails || 0) + 1;
+    if (next > GOOGLE_MAPS_MONTHLY_EVENT_LIMIT) {
+      return { ok: false, message: "Limite mensal de confirmações de endereço atingido. Você ainda pode informar o endereço manualmente." };
+    }
+    usage.placesDetails = next;
+    properties.setProperty(GOOGLE_MAPS_MONTHLY_USAGE_PROPERTY, JSON.stringify(usage));
+    return { ok: true, placesDetails: next, limit: GOOGLE_MAPS_MONTHLY_EVENT_LIMIT };
+  } catch (error) {
+    console.error("Falha ao reservar uso mensal do Place Details: " + error);
+    return { ok: false, message: "Não foi possível conferir o limite mensal da confirmação de endereço." };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Consulta dados cadastrais da empresa pelo CNPJ; os campos de CNAE não são usados pela plataforma. */
 function lookupCompanyCnpj(value) {
   var cnpj = normalizeCnpj_(value);
   if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores." };
-  var cached = CacheService.getScriptCache().get("MAPA_CNAE_LOOKUP_" + cnpj);
-  if (cached) {
+  var providers = [
+    { url: "https://brasilapi.com.br/api/cnpj/v1/" + encodeURIComponent(cnpj), name: "BrasilAPI" },
+    { url: "https://minhareceita.org/" + encodeURIComponent(cnpj), name: "Minha Receita" }
+  ];
+  var failures = [];
+  for (var i = 0; i < providers.length; i++) {
     try {
-      var cachedData = JSON.parse(cached);
-      if (String(cachedData.cnaeCodigo || "").replace(/\D/g, "").length >= 2) return { ok: true, dados: cachedData };
-    } catch (ignored) {}
+      var response = UrlFetchApp.fetch(providers[i].url, {
+        method: "get", muteHttpExceptions: true, followRedirects: true,
+        headers: { "Accept": "application/json" }
+      });
+      var status = response.getResponseCode();
+      if (status < 200 || status >= 300) { failures.push(providers[i].name + " HTTP " + status); continue; }
+      var data = JSON.parse(response.getContentText());
+      var result = { ok: true, dados: {
+        razaoSocial: data.razao_social || data.razaoSocial || "",
+        nomeFantasia: data.nome_fantasia || data.nomeFantasia || "",
+        municipio: data.municipio || "", uf: data.uf || "",
+        logradouro: data.logradouro || "", descricaoTipoLogradouro: data.descricao_tipo_de_logradouro || data.tipo_logradouro || "",
+        numero: data.numero || "", complemento: data.complemento || "", bairro: data.bairro || "", cep: data.cep || "",
+        situacao: data.descricao_situacao_cadastral || data.situacao || "",
+        fonte: providers[i].name + " (Dados Abertos do CNPJ)"
+      } };
+      if (result.dados.razaoSocial || result.dados.nomeFantasia) return result;
+      failures.push(providers[i].name + " não retornou os dados da empresa");
+    } catch (error) { failures.push(providers[i].name + ": " + String(error && error.message || error)); }
   }
+  return { ok: false, error: "Não foi possível consultar os dados deste CNPJ. " + failures.join("; ") };
+}
+
+/** Pesquisa e orientação empresarial com Gemini e Grounding na Busca Google.
+ * Não grava nem altera cadastros; devolve resposta e fontes para revisão do usuário.
+ */
+function runAvanteAiAssistant(token, input) {
+  var username = getAvanteSessionUser_(String(token || ""));
+  if (!username) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
+  input = input || {};
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = String(props.getProperty(GEMINI_API_KEY_PROPERTY) || "").trim();
+  if (!apiKey) return { ok: false, error: "A pesquisa com IA ainda não foi configurada. O administrador precisa adicionar a chave Gemini nas propriedades do projeto Apps Script." };
+
+  var mode = String(input.mode || "research");
+  if (mode !== "research" && mode !== "review") return { ok: false, error: "Tipo de solicitação inválido." };
+  var question = String(input.question || "").trim().slice(0, 1000);
+  if (mode === "research" && !question) return { ok: false, error: "Descreva o que deseja pesquisar." };
+
+  var business = input.business || {};
+  var context = {
+    name: String(business.name || "").trim().slice(0, 160),
+    cnpj: (function(value) { var normalized = normalizeCnpj_(value || ""); return validCnpj_(normalized) ? normalized : ""; })(business.cnpj),
+    city: String(business.city || "").trim().slice(0, 100),
+    types: (Array.isArray(business.types) ? business.types : []).map(function(value) { return String(value || "").trim().slice(0, 100); }).filter(Boolean).slice(0, 8),
+    offers: (Array.isArray(business.offers) ? business.offers : []).map(function(value) { return String(value || "").trim().slice(0, 140); }).filter(Boolean).slice(0, 20),
+    description: String(business.description || "").trim().slice(0, 1200)
+  };
+  if (mode === "review" && !context.name && !context.description && !context.offers.length) {
+    return { ok: false, error: "Preencha primeiro o nome e a oferta do negócio no cadastro." };
+  }
+  var aiQuota = consumeAvanteAiQuota_(username);
+  if (aiQuota === "user") return { ok: false, error: "Você atingiu o limite temporário de pesquisas com IA. Aguarde 10 minutos e tente novamente." };
+  if (aiQuota === "daily") return { ok: false, error: "A plataforma atingiu o limite de 20 consultas gratuitas de IA hoje. Tente novamente amanhã." };
+  if (aiQuota === "monthly") return { ok: false, error: "A plataforma atingiu o limite mensal de 500 consultas gratuitas de IA. O uso será liberado no próximo mês." };
+
+  var systemInstruction, prompt;
+  if (mode === "review") {
+    systemInstruction = "Você é o assistente de pesquisa empresarial do Avante. Revise apenas os dados fornecidos e seu conhecimento geral; não afirme que consultou a internet nem invente fontes ou fatos. Distinga claramente sugestões de informações verificadas. Responda em português conciso, nas seções Pontos coerentes; Pontos que merecem conferência; Sugestões de melhoria do cadastro. Não trate CNAE como prova de produto vendido, não altere cadastro e nunca solicite ou exponha relações privadas, senhas ou dados pessoais.";
+    prompt = "Revise estes dados declarados, que podem conter erros e não estão verificados:\n" + JSON.stringify(context);
+  } else {
+    systemInstruction = "Você é o assistente do Avante. Responda com seu conhecimento geral, sem afirmar que consultou a internet ou fontes atuais. Avise quando a resposta precisar de confirmação em fonte oficial. Não invente produtos, serviços, endereços, situação cadastral ou relações comerciais. Responda em português do Brasil, de forma útil e concisa. Não altere cadastros; apresente descobertas como sugestões para conferência.";
+    prompt = question;
+  }
+
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
   try {
-    var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/" + encodeURIComponent(cnpj), {
-      method: "get", muteHttpExceptions: true, followRedirects: true,
-      headers: { "Accept": "application/json" }
+    var response = UrlFetchApp.fetch(url, {
+      method: "post", muteHttpExceptions: true,
+      contentType: "application/json",
+      headers: { "x-goog-api-key": apiKey, "Accept": "application/json" },
+      payload: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1200 }
+      })
     });
     var status = response.getResponseCode();
     if (status < 200 || status >= 300) {
-      var detail = "";
-      try { detail = String(JSON.parse(response.getContentText()).message || ""); } catch (ignored) {}
-      return { ok: false, error: status === 404 ? "CNPJ não encontrado na base pública." : "A consulta pública falhou (HTTP " + status + "). " + detail };
+      if (status === 401 || status === 403) return { ok: false, error: "A chave Gemini não foi aceita ou não tem acesso à API. Confira a configuração do projeto." };
+      if (status === 429) return { ok: false, error: "A cota de pesquisas do Gemini foi atingida. Tente novamente mais tarde." };
+      console.warn("Gemini respondeu com HTTP " + status + "; o conteúdo da consulta não foi registrado.");
+      return { ok: false, error: "O serviço de pesquisa com IA não respondeu corretamente (HTTP " + status + "). Tente novamente." };
     }
-    var data = JSON.parse(response.getContentText());
-    var result = { ok: true, dados: {
-      razaoSocial: data.razao_social || "", nomeFantasia: data.nome_fantasia || "",
-      municipio: data.municipio || "", uf: data.uf || "",
-      situacao: data.descricao_situacao_cadastral || "", cnae: data.cnae_fiscal_descricao || "",
-      cnaeCodigo: data.cnae_fiscal || "",
-      cnaesSecundarios: (data.cnaes_secundarios || []).map(function(item) { return { codigo: item.codigo || "", descricao: item.descricao || "" }; }),
-      fonte: "BrasilAPI (Dados Abertos do CNPJ)", consultadoEm: new Date().toISOString()
-    } };
-    CacheService.getScriptCache().put("MAPA_CNAE_LOOKUP_" + cnpj, JSON.stringify(result.dados), 300);
-    return result;
+    var data = JSON.parse(response.getContentText() || "{}");
+    var candidate = (data.candidates || [])[0] || {};
+    var parts = candidate.content && candidate.content.parts || [];
+    var answer = parts.map(function(part) { return String(part.text || ""); }).filter(Boolean).join("\n").trim();
+    if (!answer) return { ok: false, error: "A pesquisa não retornou uma resposta. Reformule a consulta e tente novamente." };
+    var metadata = candidate.groundingMetadata || {};
+    var seen = {}, sources = [];
+    (metadata.groundingChunks || []).forEach(function(chunk) {
+      var web = chunk && chunk.web || {}, uri = String(web.uri || "");
+      if (!/^https?:\/\//i.test(uri) || seen[uri]) return;
+      seen[uri] = true;
+      sources.push({ title: String(web.title || uri).slice(0, 240), url: uri });
+    });
+    return {
+      ok: true, answer: answer.slice(0, 12000),
+      sources: sources.slice(0, 12),
+      searchQueries: (metadata.webSearchQueries || []).map(function(value) { return String(value || "").slice(0, 240); }).slice(0, 8),
+      reviewedAt: new Date().toISOString(), mode: mode
+    };
   } catch (error) {
-    return { ok: false, error: "Não foi possível acessar a consulta pública agora. " + String(error && error.message || error) };
+    console.warn("Falha na pesquisa do Gemini; consulta omitida dos registros.");
+    return { ok: false, error: "Não foi possível concluir a pesquisa agora. Verifique a conexão e tente novamente." };
   }
 }
 
-/** Persiste CNAEs obtidos da consulta oficial ao adicionar um fornecedor pela busca de CNPJ. */
-function saveSupplierCnpjRecord(token, companyName, cnpjValue) {
-  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
-  return refreshAndSaveSupplierCnae_(companyName, cnpjValue);
-}
-
-/** Atualiza o CNAE de uma empresa já existente escolhida na lista de fornecedores. */
-function refreshSupplierCnae(token, companyName, cnpjValue) {
-  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
-  return refreshAndSaveSupplierCnae_(companyName, cnpjValue);
-}
-
-/** Persiste os dados que a própria plataforma acabou de consultar na fonte pública. */
-function persistSupplierCnaeLookup(token, companyName, cnpjValue) {
-  if (!getAvanteSessionUser_(String(token || ""))) return { ok: false, error: "Acesso expirado." };
-  var cnpj = normalizeCnpj_(cnpjValue);
-  if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido." };
-  var cached = CacheService.getScriptCache().get("MAPA_CNAE_LOOKUP_" + cnpj);
-  if (!cached) return refreshAndSaveSupplierCnae_(companyName, cnpj);
-  var data;
-  try { data = JSON.parse(cached); } catch (ignored) { return refreshAndSaveSupplierCnae_(companyName, cnpj); }
-  if (!data.cnaeCodigo || !data.cnae) return { ok: false, error: "A consulta pública não retornou o CNAE principal." };
-  var name = String(companyName || data.nomeFantasia || data.razaoSocial || "").trim();
-  if (!name) return { ok: false, error: "Nome empresarial indisponível." };
-  var city = [data.municipio, data.uf].filter(Boolean).join(" - "), lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try { saveCompanyCnaeData_(getSpreadsheet_(), name, cnpj, city, data); }
-  finally { lock.releaseLock(); }
-  return { ok: true, dados: data };
-}
-
-function refreshAndSaveSupplierCnae_(companyName, cnpjValue) {
-  var cnpj = normalizeCnpj_(cnpjValue);
-  if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido." };
-  var lookup = lookupCompanyCnpj(cnpj);
-  if (!lookup.ok) return lookup;
-  var data = lookup.dados, name = String(companyName || data.nomeFantasia || data.razaoSocial || "").trim();
-  if (!name) return { ok: false, error: "A consulta não retornou o nome da empresa." };
-  var city = [data.municipio, data.uf].filter(Boolean).join(" - ");
+/** Limita cada conta e mantém cotas diária e mensal globais abaixo dos limites gratuitos. */
+function consumeAvanteAiQuota_(username) {
+  var cache = CacheService.getScriptCache();
+  var key = "avante-gemini-quota-" + hashAvanteToken_(String(username || "")).slice(0, 32);
   var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  lock.waitLock(5000);
   try {
-    var ss = getSpreadsheet_();
-    saveCompanyCnaeData_(ss, name, cnpj, city, data);
-  } finally { lock.releaseLock(); }
-  return { ok: true, dados: data };
-}
-
-function saveCompanyCnaeData_(ss, name, cnpj, city, data) {
-  var sheet = ensureCompaniesSheet_(ss);
-  saveCompanies_(ss, { suppliers: { lista: [{ empresa: name, cnpj: cnpj, cidade: city, cnpjDados: data }] } }, new Date(), true);
-  var last = sheet.getLastRow();
-  if (last < 2) return;
-  var values = sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues();
-  for (var i = 0; i < values.length; i++) {
-    if (normalizeCnpj_(values[i][2]) !== cnpj) continue;
-    sheet.getRange(i + 2, 10, 1, 3).setValues([[String(data.cnaeCodigo || ""), safeCell_(data.cnae || ""), JSON.stringify(normalizeCnaes_(data.cnaesSecundarios || []))]]);
-    break;
+    var count = Number(cache.get(key) || 0);
+    if (count >= 5) return "user";
+    var props = PropertiesService.getScriptProperties();
+    var today = Utilities.formatDate(new Date(), "America/Sao_Paulo", "yyyyMMdd");
+    var month = Utilities.formatDate(new Date(), "America/Sao_Paulo", "yyyyMM");
+    if (props.getProperty("AVANTE_GEMINI_QUOTA_DATE") !== today) {
+      props.setProperty("AVANTE_GEMINI_QUOTA_DATE", today);
+      props.setProperty("AVANTE_GEMINI_DAILY_CALLS", "0");
+    }
+    if (props.getProperty("AVANTE_GEMINI_QUOTA_MONTH") !== month) {
+      props.setProperty("AVANTE_GEMINI_QUOTA_MONTH", month);
+      props.setProperty("AVANTE_GEMINI_MONTHLY_CALLS", "0");
+    }
+    var daily = Number(props.getProperty("AVANTE_GEMINI_DAILY_CALLS") || 0);
+    var monthly = Number(props.getProperty("AVANTE_GEMINI_MONTHLY_CALLS") || 0);
+    if (monthly >= AVANTE_GEMINI_MONTHLY_REQUEST_LIMIT) return "monthly";
+    if (daily >= AVANTE_GEMINI_DAILY_REQUEST_LIMIT) return "daily";
+    cache.put(key, String(count + 1), 600);
+    props.setProperty("AVANTE_GEMINI_DAILY_CALLS", String(daily + 1));
+    props.setProperty("AVANTE_GEMINI_MONTHLY_CALLS", String(monthly + 1));
+    return true;
+  } finally {
+    lock.releaseLock();
   }
 }
 
-/** Completa até 12 CNPJs sem CNAE a cada seis horas; falhas voltam a ser tentadas no próximo ciclo. */
-function refreshMissingCompanyCnaes() {
-  var ss = getSpreadsheet_(), sheet = ensureCompaniesSheet_(ss), last = sheet.getLastRow();
-  if (last < 2) return { checked: 0, updated: 0 };
-  var values = sheet.getRange(2, 1, last - 1, COMPANIES_HEADERS.length).getValues();
-  var pending = [];
-  values.forEach(function(row, index) {
-    var cnpj = normalizeCnpj_(row[2]);
-    if (row[1] && validCnpj_(cnpj) && (!row[9] || !row[10])) pending.push({ row: index + 2, name: String(row[1]), cnpj: cnpj, city: String(row[4] || "") });
+/** Remove os gatilhos antigos que faziam consultas periódicas de CNAE. */
+function removeCnaeRefreshTriggers_() {
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === "refreshMissingCompanyCnaes") ScriptApp.deleteTrigger(trigger);
   });
-  if (!pending.length) return { checked: 0, updated: 0 };
-  var props = PropertiesService.getScriptProperties(), cursor = Number(props.getProperty("MAPA_NEGOCIOS_CNAE_REFRESH_CURSOR") || 0) % values.length;
-  var batch = Math.min(12, pending.length), updated = 0, attempted = 0, scanned = 0;
-  while (attempted < batch && scanned < values.length) {
-    var rowIndex = (cursor + scanned) % values.length, row = values[rowIndex], cnpj = normalizeCnpj_(row[2]);
-    scanned++;
-    if (!row[1] || !validCnpj_(cnpj) || (row[9] && row[10])) continue;
-    var item = { name: String(row[1]), cnpj: cnpj, city: String(row[4] || "") }, lookup = lookupCompanyCnpj(item.cnpj);
-    attempted++;
-    if (!lookup.ok || !lookup.dados.cnaeCodigo || !lookup.dados.cnae) continue;
-    var lock = LockService.getScriptLock();
-    lock.waitLock(20000);
-    try { saveCompanyCnaeData_(ss, item.name, item.cnpj, item.city, lookup.dados); updated++; }
-    finally { lock.releaseLock(); }
-  }
-  props.setProperty("MAPA_NEGOCIOS_CNAE_REFRESH_CURSOR", String((cursor + scanned) % values.length));
-  return { checked: attempted, updated: updated, remaining: pending.length - updated };
-}
-
-function ensureCnaeRefreshTrigger_() {
-  var exists = ScriptApp.getProjectTriggers().some(function(trigger) { return trigger.getHandlerFunction() === "refreshMissingCompanyCnaes"; });
-  if (!exists) ScriptApp.newTrigger("refreshMissingCompanyCnaes").timeBased().everyHours(6).create();
-}
-
-/** Executar uma vez no editor para o proprietário autorizar consultas externas da BrasilAPI. */
-function authorizePublicCnpjLookup() {
-  var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/19131243000197", {
-    method: "get", muteHttpExceptions: true, followRedirects: true,
-    headers: { "Accept": "application/json" }
-  });
-  return "Permissão de consulta externa autorizada. Resposta da BrasilAPI: HTTP " + response.getResponseCode() + ".";
 }
 
 function doPost(e) {
@@ -774,7 +891,8 @@ function summarizeNetwork_() {
   var ss = getSpreadsheet_();
   var rel = ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
   var companies = ensureCompaniesSheet_(ss);
-  var last = rel.getLastRow(), areaCounts = {}, areaOfferCompanies = {}, areaOfferCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
+  var last = rel.getLastRow(), areaCounts = {}, edgeKeys = {}, nodes = {}, adjacency = {};
+  var areaOfferCompanies = {}, areaOfferCounts = {};
   AREAS_12.forEach(function(area) { areaCounts[area] = 0; areaOfferCompanies[area] = {}; areaOfferCounts[area] = 0; });
   if (last > 1) rel.getRange(2, 1, last - 1, 9).getValues().forEach(function(row) {
     var from = nodeKey_(row[3], row[2]), to = nodeKey_(row[5], row[4]);
