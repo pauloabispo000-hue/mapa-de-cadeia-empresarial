@@ -291,6 +291,7 @@
     background:#fff;border:1.5px solid var(--line);border-radius:10px;
     box-shadow:0 8px 24px rgba(28,43,40,.15);overflow:hidden;
   }
+  .combo-panel.opens-up{top:auto;bottom:calc(100% + 4px);}
   .combo-search{
     width:100%;border:none;border-bottom:1.5px solid var(--line);border-radius:0;
     padding:11px 13px;font-size:14px;
@@ -1230,6 +1231,7 @@ var cnaeRefreshInFlight = {};
 var cnaeRefreshStatus = {};
 var cnaeRefreshRequestId = {};
 var cnaeRefreshTimeouts = {};
+var supplierCnpjPersistInFlight = {};
 var sharedNetwork = null;
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
 var activeProgramSection = "overview";
@@ -1574,6 +1576,7 @@ function comboField(options, value, placeholder, onSelect, filterFn, allowCustom
     if(det.open){
       searchInput.value = "";
       renderList("");
+      setTimeout(function(){fitComboPanel(panel,summary,listEl);},0);
       setTimeout(function(){ searchInput.focus(); }, 20);
     }
   });
@@ -1997,6 +2000,20 @@ function normalizeSearch(s){
   return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 }
 
+function fitComboPanel(panel,anchor,list){
+  if(!panel||!anchor)return;
+  panel.classList.remove("opens-up");panel.style.maxHeight="";
+  if(list)list.style.maxHeight="";
+  var rect=anchor.getBoundingClientRect(),below=window.innerHeight-rect.bottom-8,above=rect.top-8;
+  var desired=panel.scrollHeight||300,opensUp=below<desired&&above>below;
+  panel.classList.toggle("opens-up",opensUp);
+  var available=Math.max(80,Math.floor(opensUp?above:below));
+  panel.style.maxHeight=available+"px";
+  var reserved=0;
+  panel.querySelectorAll(".combo-search,.combo-toggle-all,.product-service-message").forEach(function(el){reserved+=el.offsetHeight;});
+  if(list)list.style.maxHeight=Math.max(48,available-reserved-16)+"px";
+}
+
 // Múltipla seleção com busca (para listas grandes, ex: segmentos de atuação). selectedArr é mutado diretamente (array de strings, referência do state).
 // onChange() é chamado sem argumento após cada adição/remoção — o caller lê selectedArr direto do state.
 function buildComboMulti(opts){
@@ -2130,6 +2147,7 @@ function buildComboMulti(opts){
     searchInput.value = "";
     visibleOptionLimit=80;
     renderList("");
+    setTimeout(function(){fitComboPanel(panel,toggle,list);},0);
     setTimeout(function(){ searchInput.focus(); },0);
   }
   function closePanel(){
@@ -2285,12 +2303,30 @@ function renderEntityList(container, listType, listArr, extraFieldsRenderer){
 
     var cnpjField = h("div",{class:"subfield"});
     cnpjField.appendChild(h("label",{class:"small"},["CNPJ desta empresa (opcional)"]));
+    var cnaeSaveStatus=h("div",{id:"supplier-cnae-save-status-"+entity.id,class:"question-help supplier-cnae-status","aria-live":"polite"});
+    function renderCnaeSaveStatus(status){
+      var statusEl=document.getElementById("supplier-cnae-save-status-"+entity.id)||cnaeSaveStatus;
+      statusEl.innerHTML="";statusEl.style.display=status?"block":"none";
+      if(status==="saving")statusEl.textContent="CNAE encontrado. Cadastrando na base de fornecedores…";
+      else if(status==="saved")statusEl.textContent="CNAE pesquisado e cadastrado na base de fornecedores.";
+      else if(status==="error"){
+        statusEl.appendChild(document.createTextNode("CNAE encontrado, mas não foi possível cadastrá-lo na base agora. "));
+        statusEl.appendChild(h("button",{type:"button",class:"platform-action",onclick:function(){persistSupplierRegistrationCnae(entity,entity.cnpjDados,renderCnaeSaveStatus);}},["Tentar cadastrar novamente"]));
+      }else if(status==="unavailable")statusEl.textContent="CNAE pesquisado. Entre na plataforma para cadastrá-lo na base compartilhada.";
+    }
+    renderCnaeSaveStatus(entity.cnaeCadastroStatus||"");
     cnpjField.appendChild(buildCNPJField({
       value: entity.cnpj,
       dadosCache: entity.cnpjDados,
       autoUseData: true,
-      onDigitsChange: function(digits){ entity.cnpj=digits; saveState(); },
-      onDadosChange: function(dados){ entity.cnpjDados=dados; saveState(); },
+      onDigitsChange: function(digits){
+        if(normalizarCNPJ(entity.cnpj)!==digits){entity.cnpjDados=null;entity.cnae="";entity.cnaeCodigo="";entity.cnaesSecundarios=[];entity.cnaeCadastroStatus="";renderCnaeSaveStatus("");}
+        entity.cnpj=digits;saveState();
+      },
+      onDadosChange: function(dados){
+        entity.cnpjDados=dados;saveState();
+        if(dados&&String(dados.cnaeCodigo||"").replace(/\D/g,"").length>=2)persistSupplierRegistrationCnae(entity,dados,renderCnaeSaveStatus);
+      },
       onUseData: function(dados){
         if(dados.razaoSocial) entity.empresa = dados.nomeFantasia || dados.razaoSocial;
         if(dados.municipio && dados.uf){ entity.pais="Brasil"; entity.cidade = dados.municipio+" - "+dados.uf; }
@@ -2298,6 +2334,7 @@ function renderEntityList(container, listType, listArr, extraFieldsRenderer){
       }
     }));
     card.appendChild(cnpjField);
+    card.appendChild(cnaeSaveStatus);
 
     var paisCidadeRow = h("div",{class:"subfield"});
     paisCidadeRow.appendChild(h("label",{class:"small"},["País e cidade desta empresa"]));
@@ -3413,6 +3450,26 @@ function updateSupplierCnaeData(supplier,data){
   (state.fornecedores.lista||[]).forEach(function(item){if(normalizarCNPJ(item.cnpj)===cnpj){item.cnae=supplier.cnae;item.cnaeCodigo=supplier.cnaeCodigo;item.cnaesSecundarios=supplier.cnaesSecundarios;item.cnpjDados=data;}});
   refreshSharedCompanies();saveState();
 }
+function persistSupplierRegistrationCnae(entity,data,onStatus){
+  var cnpj=normalizarCNPJ(entity&&entity.cnpj);
+  if(!cnpj||!data||String(data.cnaeCodigo||"").replace(/\D/g,"").length<2||supplierCnpjPersistInFlight[cnpj])return;
+  if(!isAppsScriptApp()||!authSession||!authSession.token){if(onStatus)onStatus("unavailable");return;}
+  var companyName=String(entity.empresa||data.nomeFantasia||data.razaoSocial||"").trim();
+  if(!companyName)return;
+  supplierCnpjPersistInFlight[cnpj]=true;
+  entity.cnaeCadastroStatus="saving";if(onStatus)onStatus("saving");
+  google.script.run.withSuccessHandler(function(result){
+    delete supplierCnpjPersistInFlight[cnpj];
+    if(normalizarCNPJ(entity.cnpj)!==cnpj)return;
+    if(result&&result.ok&&result.dados){entity.cnaeCadastroStatus="saved";if(onStatus)onStatus("saved");updateSupplierCnaeData(entity,result.dados);}
+    else{entity.cnaeCadastroStatus="error";if(onStatus)onStatus("error");console.warn("CNAE consultado, mas não cadastrado na base de fornecedores:",result&&result.error||"resposta vazia");}
+  }).withFailureHandler(function(error){
+    delete supplierCnpjPersistInFlight[cnpj];
+    if(normalizarCNPJ(entity.cnpj)!==cnpj)return;
+    entity.cnaeCadastroStatus="error";if(onStatus)onStatus("error");
+    console.warn("Falha ao cadastrar CNAE do fornecedor:",error&&error.message||error);
+  }).saveSupplierCnpjRecord(authSession.token,companyName,cnpj);
+}
 function refreshSupplierCnaeForFiltering(supplier,attempt){
   var cnpj=normalizarCNPJ(supplier&&supplier.cnpj),tries=Number(attempt||0);
   if(supplierCnaeCode(supplier)||!cnpj||cnaeRefreshInFlight[cnpj]||cnaeRefreshStatus[cnpj]==="timeout"||String(cnaeRefreshStatus[cnpj]||"").indexOf("error:")===0||!isAppsScriptApp()||!authSession||!authSession.token)return;
@@ -3684,7 +3741,7 @@ function buildProductServicePicker(opts){
     addAction.addEventListener("keydown",function(event){if(event.key==="Enter"||event.key===" "){event.preventDefault();addSolution(search.value);}});
     list.appendChild(addAction);
   }
-  function openPanel(){panel.style.display="block";open.setAttribute("aria-expanded","true");renderOptions();setTimeout(function(){search.focus();},0);}
+  function openPanel(){panel.style.display="block";open.setAttribute("aria-expanded","true");renderOptions();setTimeout(function(){fitComboPanel(panel,open,list);},0);setTimeout(function(){search.focus();},0);}
   function closePanel(){panel.style.display="none";open.setAttribute("aria-expanded","false");}
   open.addEventListener("click",function(){if(panel.style.display==="none")openPanel();else closePanel();});
   search.addEventListener("input",renderOptions);
