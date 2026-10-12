@@ -67,6 +67,13 @@ function doGet(e) {
 function lookupCompanyCnpj(value) {
   var cnpj = normalizeCnpj_(value);
   if (!validCnpj_(cnpj)) return { ok: false, error: "CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores." };
+  var cached = CacheService.getScriptCache().get("MAPA_CNAE_LOOKUP_" + cnpj);
+  if (cached) {
+    try {
+      var cachedData = JSON.parse(cached);
+      if (String(cachedData.cnaeCodigo || "").replace(/\D/g, "").length >= 2) return { ok: true, dados: cachedData };
+    } catch (ignored) {}
+  }
   try {
     var response = UrlFetchApp.fetch("https://brasilapi.com.br/api/cnpj/v1/" + encodeURIComponent(cnpj), {
       method: "get", muteHttpExceptions: true, followRedirects: true,
