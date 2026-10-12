@@ -2785,6 +2785,9 @@ function refreshSharedCompanies(){
     if(!duplicate.city&&company.city)duplicate.city=company.city;
     if(!duplicate.status&&company.status)duplicate.status=company.status;
     if(!duplicate.cnae&&company.cnae)duplicate.cnae=company.cnae;
+    if(!duplicate.cnaeCodigo&&company.cnaeCodigo)duplicate.cnaeCodigo=company.cnaeCodigo;
+    if((!duplicate.cnaesSecundarios||!duplicate.cnaesSecundarios.length)&&(company.cnaesSecundarios||company.secondaryCnaes))duplicate.cnaesSecundarios=company.cnaesSecundarios||company.secondaryCnaes;
+    if(!duplicate.cnpjDados&&company.cnpjDados)duplicate.cnpjDados=company.cnpjDados;
     if(!duplicate.offer&&company.offer)duplicate.offer=company.offer;
     duplicate.aliases=Array.isArray(duplicate.aliases)?duplicate.aliases:[];
     [company.name].concat(Array.isArray(company.aliases)?company.aliases:[]).forEach(function(alias){
@@ -3366,7 +3369,7 @@ function syncConversationAnswers(){
     if(e.categorias.length)e.itens=e.categorias.join(", ");
     var inferred=e.categorias.map(function(item){return CATEGORIA_INSUMO_AREA[item];}).filter(Boolean)[0]||inferAreaFromText(e.itens); if(inferred) e.areaNecessidade=inferred;
     var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
-    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];if(known.cnpjDados||known.cnae||known.cnaesSecundarios)e.cnpjDados=known.cnpjDados||{cnae:known.cnae||"",cnaeCodigo:known.cnaeCodigo||"",cnaesSecundarios:known.cnaesSecundarios||known.secondaryCnaes||[]};}
     e.compra_de=true; return e;
   });
   var customerEntries=relatedCompanyEntries(splitNames(a.clientes),a.clientesSelecionados);
@@ -3560,6 +3563,31 @@ function buildProductServicePicker(opts){
   return wrapper;
 }
 
+function filterSupplierPurchaseOptions(supplier,fullList){
+  var data=supplier.cnpjDados||{},activities=[data.cnae||supplier.cnae||""];
+  (data.cnaesSecundarios||supplier.cnaesSecundarios||supplier.secondaryCnaes||[]).forEach(function(item){activities.push(typeof item==="string"?item:(item.descricao||item.description||""));});
+  var text=normalizeSearch(activities.join(" "));
+  if(!text.trim())return fullList;
+  var matches=[];
+  var rules=[
+    [/correio|postal|courier|entrega/,/correios e postagem|servicos de entrega|fretes e transporte|embalagens|armazenagem/],
+    [/transporte|logistica|frete|carga|rodoviari|aereo|aquaviari/,/fretes e transporte|aluguel de veiculos|armazenagem|servicos de entrega|veiculos e frota|combustiveis|embalagens/],
+    [/padaria|panific|confeitaria|alimento|bebida|latic|frigor|acougue|agric|agropec|cultivo|pecuaria/,/arroz|feijao|milho|trigo|farinha|batata|mandioca|cebola|tomate|frutas|carne|peixe|leite|queijo|manteiga|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas|insumos agricolas|fertilizantes|racoes|embalagens|energia eletrica|fretes/],
+    [/farmacia|medicamento|drogaria|saude/,/analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas|equipamentos e insumos medicos/],
+    [/construcao|edificac|material de construcao|engenharia|arquitetura/,/materiais de construcao|projetos de arquitetura|reformas e manutencao|pintura predial|serralheria|vidracaria|paisagismo/],
+    [/software|informatica|programacao|tecnologia da informacao|telecomunic|internet|comunicacao/,/tecnologia e software|sistemas de gestao|internet e telefonia|suporte tecnico de ti|hospedagem de sites|impressao grafica|material de escritorio/],
+    [/contabil|contabilidade|auditoria|advocacia|juridic|consultoria|recursos humanos/,/contabilidade|servicos juridicos|consultoria empresarial|auditoria e compliance|recursos humanos|assessoria em licencas/],
+    [/vestuario|roupa|confecc|textil|calcado/,/uniformes|vestuario corporativo|embalagens|materia-prima industrial/],
+    [/metalurg|metal|usinagem|maquina|equipamento industrial/,/metais e ligas|equipamentos e maquinario|pecas de reposicao|manutencao e reparo|materia-prima industrial|produtos quimicos industriais/],
+    [/limpeza|conservacao|higienizacao|dedetizacao/,/produtos de limpeza|servicos de limpeza|descarte|controle de pragas|higienizacao/],
+    [/energia|eletricidade|combustivel|gas|solar/,/energia eletrica|combustiveis|gas de cozinha|gas natural|energia solar|energia eolica|geradores|instalacao e manutencao eletrica/],
+    [/hotel|hospedagem|turismo|viagens/,/pacotes de viagem|servicos de limpeza|aluguel de imovel|internet e telefonia|servicos de entrega/]
+  ];
+  rules.forEach(function(rule){if(rule[0].test(text))matches=matches.concat(fullList.filter(function(item){return rule[1].test(normalizeSearch(item));}));});
+  if(!matches.length)return fullList;
+  return fullList.filter(function(item){return matches.indexOf(item)>-1||/^Outro \(/.test(item);});
+}
+
 function renderSupplierPurchases(q){
   var wrap=h("div",{});
   var suppliers=(state.fornecedores.lista||[]).filter(function(item){return String(item.empresa||"").trim();});
@@ -3583,6 +3611,7 @@ function renderSupplierPurchases(q){
     if(supplier.cnpj)card.appendChild(h("p",{class:"company-profile-meta"},["CNPJ "+formatarCNPJ(supplier.cnpj)]));
     card.appendChild(buildComboMulti({
       options:options,selectedArr:supplier.categorias,placeholder:"Escolha os produtos ou serviços comprados...",allowFreeText:false,
+      filterFn:function(fullList){return filterSupplierPurchaseOptions(supplier,fullList);},
       onChange:function(){
         supplier.itens=supplier.categorias.join(", ");
         state.answers.comprasSelecionadas=suppliers.reduce(function(all,item){return all.concat(item.categorias||[]);},[]).filter(function(value,index,all){return all.indexOf(value)===index;});
@@ -3634,12 +3663,14 @@ function renderConversation(container){
             var companyName=String(data.nomeFantasia||data.razaoSocial||"").trim();
             if(!companyName)companyName="Empresa "+formatarCNPJ(cnpj);
             var city=[data.municipio,data.uf].filter(Boolean).join(" - ");
-            var company={name:companyName,aliases:data.razaoSocial&&data.razaoSocial!==companyName?[data.razaoSocial]:[],cnpj:cnpj,city:city,areas:[],count:1,catalogSource:"lookup",status:data.situacao,cnae:data.cnae,offer:data.cnae,cnpjDados:data};
+            var company={name:companyName,aliases:data.razaoSocial&&data.razaoSocial!==companyName?[data.razaoSocial]:[],cnpj:cnpj,city:city,areas:[],count:1,catalogSource:"lookup",status:data.situacao,cnae:data.cnae,cnaeCodigo:data.cnaeCodigo,cnaesSecundarios:data.cnaesSecundarios||[],secondaryCnaes:data.cnaesSecundarios||[],offer:data.cnae,cnpjDados:data};
             var existing=sharedCompanies.filter(function(item){return normalizarCNPJ(item.cnpj)===normalizarCNPJ(cnpj);})[0];
             if(existing)company=existing;else sharedCompanies.push(company);
             var selected=state.answers[q.key]||[],label=companyOptionLabel(company);
             if(!selected.some(function(value){return findSharedCompanyBySelection(value)&&normalizarCNPJ(findSharedCompanyBySelection(value).cnpj)===normalizarCNPJ(cnpj);}))selected.push(label);
-            syncConversationAnswers();saveState();renderCurrentStep();
+            syncConversationAnswers();saveState();
+            if(isAppsScriptApp()&&authSession&&authSession.token){google.script.run.withSuccessHandler(function(result){if(!result||!result.ok)console.warn("CNAE não persistido na base de empresas:",result&&result.error||"resposta vazia");else if(result.dados){company.cnpjDados=result.dados;company.cnae=result.dados.cnae;company.cnaeCodigo=result.dados.cnaeCodigo;company.cnaesSecundarios=result.dados.cnaesSecundarios||[];}}).withFailureHandler(function(error){console.warn("Falha ao salvar CNAE do fornecedor:",error&&error.message||error);}).saveSupplierCnpjRecord(authSession.token,companyName,cnpj);}
+            renderCurrentStep();
           },
           onChange:function(){syncConversationAnswers();saveState();renderCurrentStep();}
         }));
