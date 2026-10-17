@@ -112,3 +112,15 @@ Nos dois campos de busca de oportunidades, texto livre pode ser adicionado como
 criar empresa no diretório nem consolidar automaticamente uma sugestão global.
 A busca por CNPJ continua usando a consulta própria e não adiciona um CNPJ válido
 como tipo de negócio. Comparação normalizada evita tipos selecionados duplicados.
+
+## Indicações comerciais
+
+A pergunta de indicações contém dois seletores de empresas: “Indico”
+(`answers.empresasQueIndico`) e “Sou indicado por” (`answers.empresasQueMeIndicam`).
+Ambos pesquisam nome/CNPJ, sem aceitar tipos de negócio como empresas. A lista
+privada de complementares usa `indico` e `meIndica` independentemente e une as duas
+direções somente quando a empresa é selecionada nos dois campos.
+
+O texto legado `answers.indicacoes` é preservado e exibido para consulta, sem
+inferir empresas nem marcar automaticamente os dois sentidos. As respostas
+continuam privadas; nenhuma confirmação pela outra empresa é presumida.

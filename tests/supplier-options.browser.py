@@ -86,6 +86,29 @@ with sync_playwright() as p:
  run("saveState();state=loadState();syncConversationAnswers();")
  assert run("state.answers.fornecedoresBuscados.length")==3
  assert run("state.answers.clientesBuscados.length")==3
+ run("state=freshState();state.answers.indicacoes='Texto antigo sem direção definida';currentStepIndex=activeConversationQuestions().findIndex(q=>q.key==='indicacoes');window.testRoot.innerHTML='';renderConversation(window.testRoot);")
+ for key in ['empresasQueIndico','empresasQueMeIndicam']:
+  field=page.locator('[data-referral='+key+']')
+  field.locator('.combo-toggle').click()
+  field.locator('.combo-search').fill('Parceira fictícia' if key=='empresasQueIndico' else '11222333000181')
+  field.locator('.combo-option').filter(has_text='Parceira fictícia').click()
+  field.locator('.combo-toggle').click()
+  assert run("state.answers."+key+".length")==1
+  if key=='empresasQueIndico':
+   assert run("state.complementares.lista[0].indico") is True
+   assert run("state.complementares.lista[0].meIndica") is False
+ assert run("state.complementares.lista.length")==1
+ assert run("state.complementares.lista[0].meIndica") is True
+ # Remover uma direção não remove a outra.
+ page.locator('[data-referral=empresasQueIndico] .combo-tag-remove').click()
+ assert run("state.complementares.lista[0].indico") is False
+ assert run("state.complementares.lista[0].meIndica") is True
+ run("saveState();state=loadState();syncConversationAnswers();")
+ assert run("state.answers.empresasQueMeIndicam.length")==1
+ assert run("state.answers.indicacoes")=='Texto antigo sem direção definida'
+ assert run("state.complementares.lista[0].cnpj")=='11222333000181'
+ assert run("buildExportObject().complementary.lista[0].meIndica") is True
+ print('Navegador: dois campos de indicação, nome/CNPJ, direções independentes, remoção e persistência aprovados.')
  print('Navegador: duas páginas, busca por CNPJ/nome/tipo e persistência independente aprovados.')
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: dois campos de revenda, fornecedores compatíveis, consentimento, recarga e remoção aprovados.')

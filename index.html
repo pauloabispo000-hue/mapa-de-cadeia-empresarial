@@ -1335,7 +1335,7 @@ function freshState(){
   return {
     meta:{ startedAt:new Date().toISOString(), submittedAt:null, sendStatus:"idle", sendError:"", shareDirectory:false, sharePublicProfile:false },
     contributedOptions:{}, contributions:[],
-    answers:{ negocioNome:"", cnpj:"", pais:"Brasil", estado:"", cidade:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", produtos:"", produtosSelecionados:[], tipoClientes:[], revendeProdutos:"", fornecedores:"", fornecedoresSelecionados:[], comprasFornecedores:"", comprasSelecionadas:[], clientes:"", clientesSelecionados:[], workforceActive:"", workforceVacancies:"", workforceRoles:"", usoOferta:"", categoriasClientes:[], complementares:"", complementaresSelecionados:[], indicacoes:"", vendaConjunta:"", empresasVendaConjunta:[], faltaLocal:"", faltaLocalSelecionado:[], oportunidade:"", oportunidadeSelecionada:[], fornecedoresBuscados:[], clientesBuscados:[], produtosClassificados:[] },
+    answers:{ negocioNome:"", cnpj:"", pais:"Brasil", estado:"", cidade:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", produtos:"", produtosSelecionados:[], tipoClientes:[], revendeProdutos:"", fornecedores:"", fornecedoresSelecionados:[], comprasFornecedores:"", comprasSelecionadas:[], clientes:"", clientesSelecionados:[], workforceActive:"", workforceVacancies:"", workforceRoles:"", usoOferta:"", categoriasClientes:[], complementares:"", complementaresSelecionados:[], indicacoes:"", empresasQueIndico:[], empresasQueMeIndicam:[], vendaConjunta:"", empresasVendaConjunta:[], faltaLocal:"", faltaLocalSelecionado:[], oportunidade:"", oportunidadeSelecionada:[], fornecedoresBuscados:[], clientesBuscados:[], produtosClassificados:[] },
     business:{ nome:"", cnpj:"", cnpjDados:null, pais:"Brasil", cidade:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", areaNecessidade:"", modeloNegocio:"", modeloNegocioSubitem:"", modeloNegocioOutro:"", tipoNegocio:[], tipoNegocioOutro:"", produtoCategorias:[], produtoDetalhe:"", segmento:"", segmentoOutro:"", perfilClientes:[], perfilClientesOutro:"", abrangencia:[], ofertas:[], profileCoverData:"", profileAvatarData:"" },
     fornecedores:{
       precisaAdquirirDetalhe:"",
@@ -3588,6 +3588,7 @@ function setAvanteThemeMode(mode){
 
 function businessSettingSummary(item){
   var key=item.key,a=state.answers;
+  if(key==="indicacoes")return referralSummary();
   if(item.readOnly&&key==="negocioNome")return state.business.nome||a.negocioNome||"Não informado";
   if(item.readOnly&&key==="cnpj")return state.business.cnpj||a.cnpj?formatarCNPJ(state.business.cnpj||a.cnpj):"Não informado";
   if(item.type==="address")return [a.logradouroEmpresa,a.numeroEmpresa?"nº "+a.numeroEmpresa:"",a.cepEmpresa?"CEP "+formatBusinessCep(a.cepEmpresa):""].filter(Boolean).join(" · ")||a.enderecoEmpresa||"Não informado";
@@ -3623,6 +3624,17 @@ function buildCompanySettingsEditor(key,onAdded){
   return control;
 }
 
+function referralSummary(){
+  return "Indico: "+(state.answers.empresasQueIndico||[]).map(selectedCompanyDisplay).join(", ")+"; Sou indicado por: "+(state.answers.empresasQueMeIndicam||[]).map(selectedCompanyDisplay).join(", ");
+}
+function renderReferralFields(onAdded){
+  var wrap=h("div",{class:"referral-fields"});
+  [["Indico","empresasQueIndico"],["Sou indicado por","empresasQueMeIndicam"]].forEach(function(item){
+    var field=fieldWrap(item[0],null,buildCompanySettingsEditor(item[1],onAdded));field.setAttribute("data-referral",item[1]);wrap.appendChild(field);
+  });
+  if(state.answers.indicacoes)wrap.appendChild(h("p",{class:"question-help"},["Resposta anterior preservada: "+state.answers.indicacoes+". Selecione as empresas nos campos acima para informar a direção da indicação."]));
+  return wrap;
+}
 function buildBusinessSettingEditor(item){
   var key=item.key,q=item.question,control;
   if(item.type==="address")return buildBusinessAddressFields();
@@ -3637,6 +3649,7 @@ function buildBusinessSettingEditor(item){
     if(!(state.fornecedores.lista||[]).some(function(item){return String(item.empresa||"").trim();}))return h("div",{class:"platform-card"},[h("p",{},["Selecione primeiro as empresas fornecedoras para editar os produtos ou serviços comprados."]),h("button",{type:"button",class:"platform-action",onclick:function(){editingBusinessSettingsField="fornecedoresSelecionados";renderProgramSection();}},["Atualizar fornecedores"])]);
     return renderSupplierPurchases(q);
   }
+  if(q.kind==="referrals")return renderReferralFields();
   if(q.kind==="resale-purchases")return renderResalePurchaseSelection();
   if(q.kind==="product-service")return buildProductServicePicker({key:key,selectedArr:state.answers[key],options:q.options});
   if(q.kind==="multi")return buildComboMulti({options:optionsWithContributions(key,q.options),selectedArr:state.answers[key],placeholder:"Escolha uma ou mais opções...",allowFreeText:true,freeTextLabel:function(value){return "＋ Adicionar opção: "+value;},onFreeTextAdd:canAddAnswer(key)?function(value){addAnswerOption(key,value);}:null,filterFn:(key==="produtosSelecionados"||key==="categoriasClientes")?filterSegmentosProprios:null,onChange:function(){syncConversationAnswers();saveState();}});
@@ -4352,7 +4365,7 @@ var conversationQuestions = [
   {key:"revendeProdutos", prompt:"Você revende algum produto comprado de fornecedores?", kind:"resale-purchases", help:"Busque o produto e depois selecione a empresa que o fornece. Repita para informar outros produtos. Se não revende, deixe sem seleção."},
   {key:"fornecedoresBuscados", prompt:"Que tipo de negócio você busca como fornecedor?", kind:"business-targets", options:SEGMENTOS_OPTS, help:"Busque por CNPJ, nome da empresa ou tipo de negócio. Selecione de quem você gostaria de comprar produtos ou contratar serviços."},
   {key:"clientesBuscados", prompt:"Que tipo de negócio você busca para se tornar um fornecedor dele?", kind:"business-targets", options:SEGMENTOS_OPTS, help:"Busque por CNPJ, nome da empresa ou tipo de negócio. Selecione para quem você gostaria de vender seus produtos ou serviços."},
-  {key:"indicacoes", prompt:"Você costuma indicar outros negócios aos seus clientes, ou recebe indicações?", help:"Conte quais, se lembrar. Não precisa usar nenhum termo técnico.", placeholder:"Ex.: indico uma floricultura e recebo clientes de uma empresa de eventos"},
+  {key:"indicacoes", prompt:"Você costuma indicar outros negócios aos seus clientes, ou recebe indicações?", kind:"referrals", help:"Busque por nome ou CNPJ. Informe separadamente quem você indica e quem indica seu negócio."},
   {key:"empresasVendaConjunta", prompt:"Você já fez alguma oferta ou promoção junto com outro negócio?", kind:"companies", help:"Busque pelo nome ou CNPJ e selecione as empresas com que já fez uma oferta ou promoção conjunta. Se não fez, deixe sem seleção."},
   {key:"faltaLocalSelecionado", prompt:"O que você ou seus clientes precisam comprar ou contratar em outra cidade por não encontrar por perto?", kind:"multi", options:SEGMENTOS_OPTS, help:"Escolha as opções que se aplicam. Se não souber, deixe sem seleção."},
 ];
@@ -4476,17 +4489,20 @@ function syncConversationAnswers(){
     return e;
   });
   var nomesComplementares=splitNames(a.complementares);
-  var nomesIndicacao=splitNames(a.indicacoes);
+  var referralsOut=relatedCompanyEntries([],a.empresasQueIndico),referralsIn=relatedCompanyEntries([],a.empresasQueMeIndicam);
   state.complementares.lista=nomesComplementares.map(function(name,i){
-    var e=reuseEntity("complementares",name,"complementary"+i); e.clientes_em_comum=true; return e;
+    var e=reuseEntity("complementares",name,"complementary"+i); e.clientes_em_comum=true;e.indico=false;e.meIndica=false; return e;
   });
-  nomesIndicacao.forEach(function(name,i){
-    var e=reuseEntity("complementares",name,"referral"+i); e.indico=true; e.meIndica=true;
-    if(!state.complementares.lista.some(function(x){return normName(x.empresa)===normName(name);})) state.complementares.lista.push(e);
+  [[referralsOut,"indico"],[referralsIn,"meIndica"]].forEach(function(group){
+    group[0].forEach(function(entry,i){
+      var e=state.complementares.lista.filter(function(item){return entry.cnpj?normalizarCNPJ(item.cnpj)===entry.cnpj:normName(item.empresa)===normName(entry.name);})[0];
+      if(!e){e=reuseEntity("complementares",entry.name,"referral"+state.complementares.lista.length,entry.cnpj);e.cnpj=entry.cnpj;e.indico=false;e.meIndica=false;state.complementares.lista.push(e);}
+      e[group[1]]=true;
+    });
   });
   state.complementares.negociosQueClientesProcuramCategorias=(a.complementaresSelecionados||[]).slice();
   state.complementares.outrosProdutosClientesPrecisamDetalhe=a.complementares;
-  state.complementares.indicaQuandoNaoTem=a.indicacoes ? "Sim" : "";
+  state.complementares.indicaQuandoNaoTem=referralsOut.length?"Sim":"";
   state.complementares.empresasVendaConjunta=relatedCompanyEntries([],a.empresasVendaConjunta).map(function(entry){return {empresa:entry.name,cnpj:entry.cnpj};});
   state.complementares.jaFezVendaConjunta=state.complementares.empresasVendaConjunta.length?"Sim":a.vendaConjunta ? (normalizeSearch(a.vendaConjunta)==="nao" ? "Não" : "Sim") : "";
   state.oportunidades.buscaForaMunicipioCategorias=(a.faltaLocalSelecionado||[]).slice();
@@ -4522,7 +4538,7 @@ function renderConversationReview(container){
         });
         return;
       }
-      var answer=q.kind==="resale-purchases"?(state.fornecedores.lista||[]).map(function(supplier){var products=(supplier.categorias||[]).filter(function(product){return supplier.purchasePurposes&&supplier.purchasePurposes[product]==="revenda";});return products.length?supplier.empresa+": "+products.join(", "):"";}).filter(Boolean).join("; "):q.kind==="companies"||q.kind==="business-targets"?(state.answers[q.key]||[]).map(selectedCompanyDisplay).join(", "):String(state.answers[q.key]||"").trim();
+      var answer=q.kind==="referrals"?referralSummary():q.kind==="resale-purchases"?(state.fornecedores.lista||[]).map(function(supplier){var products=(supplier.categorias||[]).filter(function(product){return supplier.purchasePurposes&&supplier.purchasePurposes[product]==="revenda";});return products.length?supplier.empresa+": "+products.join(", "):"";}).filter(Boolean).join("; "):q.kind==="companies"||q.kind==="business-targets"?(state.answers[q.key]||[]).map(selectedCompanyDisplay).join(", "):String(state.answers[q.key]||"").trim();
       if(answer) container.appendChild(h("div",{class:"review-row"},[
         h("div",{class:"rk"},[q.prompt]),h("div",{class:"rv"},[answer])
       ]));
@@ -4869,6 +4885,7 @@ function renderConversation(container){
         return buildProductServicePicker({key:q.key,selectedArr:state.answers[q.key],options:q.options});
       }
       if(q.kind==="supplier-purchases") return renderSupplierPurchases(q);
+      if(q.kind==="referrals")return renderReferralFields(function(){renderCurrentStep();});
       if(q.kind==="resale-purchases") return renderResalePurchaseSelection();
       if(q.kind==="multi"){
         var multiOptions=optionsWithContributions(q.key,q.options);
