@@ -19,9 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci --ignore-scripts
-      - run: npm run check
-      - run: npm test
+      - name: Preparar ambiente Codex Cloud e validar o projeto
+        run: bash scripts/cloud-setup.sh
 
   publicar:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

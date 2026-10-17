@@ -10,4 +10,5 @@
 - A alteração da automação deve manter verificações antes da escrita e a confirmação da versão publicada.
 
 A continuidade do usuário é pelo ChatGPT/Codex. Consulte `CONTINUAR_NO_CHATGPT.md`.
+Para preparar o ambiente Cloud, consulte `CODEX_CLOUD.md` e execute `bash scripts/cloud-setup.sh` com Node.js 22.
 Ao terminar, informe claramente o resultado, a publicação e qualquer ação pendente do usuário.

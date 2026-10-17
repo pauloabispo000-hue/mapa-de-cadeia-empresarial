@@ -4,6 +4,9 @@ Repositório: https://github.com/pauloabispo000-hue/mapa-de-cadeia-empresarial
 
 ## Preparar o acesso uma vez
 
+A configuração pronta e a mensagem para criar o ambiente estão em `CODEX_CLOUD.md`.
+O comando de instalação e verificação é `bash scripts/cloud-setup.sh`.
+
 A publicação no Apps Script já está configurada no GitHub. Para editar o repositório
 pelo ChatGPT no smartphone, use uma sessão com acesso de escrita e execução, como
 Codex Cloud dentro do ChatGPT. Uma conversa que ofereça apenas consulta ao GitHub
