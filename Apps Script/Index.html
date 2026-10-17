@@ -1401,6 +1401,7 @@ var activeProgramSection = "overview";
 var surveyMode = "research";
 var editingBusinessSettingsField = "";
 state.meta = state.meta || {};
+normalizeSurveySubmissionState(state.meta);
 if(typeof state.meta.shareDirectory !== "boolean") state.meta.shareDirectory = false;
 if(typeof state.meta.sharePublicProfile !== "boolean") state.meta.sharePublicProfile = false;
 if(!Array.isArray(state.answers.fornecedoresSelecionados)){
@@ -1666,6 +1667,7 @@ function loadState(){
     if(parsed.complementares) parsed.complementares.lista = backfillListItems(parsed.complementares.lista, function(){ return newEntity("complementares"); });
     if(parsed.business) parsed.business.ofertas = backfillListItems(parsed.business.ofertas, newOferta);
 
+    normalizeSurveySubmissionState(parsed.meta);
     return parsed;
   }catch(e){ return null; }
 }
@@ -3093,20 +3095,66 @@ function toCSV(rels){
   return lines.join("\n");
 }
 
+function surveySendError(message, outcomeUnknown){
+  var error=new Error(message);error.outcomeUnknown=outcomeUnknown===true;return error;
+}
+
 function sendToSheet(payload){
-  if(!authSession||!authSession.token) return Promise.reject(new Error("Entre no Avante novamente antes de enviar."));
-  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf("COLE_AQUI_")===0){
-    return Promise.reject(new Error("Configure a URL da implantação do Apps Script antes de enviar."));
+  if(!authSession||!authSession.token)return Promise.reject(surveySendError("Entre no Avante novamente antes de enviar.",false));
+  if(!isAppsScriptApp())return Promise.reject(surveySendError("Abra a versão oficial do Avante para enviar a pesquisa com confirmação. Seu rascunho foi preservado.",false));
+  return new Promise(function(resolve,reject){
+    var finished=false;
+    var timer=setTimeout(function(){if(finished)return;finished=true;reject(surveySendError("O servidor não confirmou o resultado a tempo. O envio pode ter sido recebido. Confira antes de tentar novamente; não haverá reenvio automático.",true));},60000);
+    function finish(callback,value){if(finished)return;finished=true;clearTimeout(timer);callback(value);}
+    try {
+      google.script.run.withSuccessHandler(function(result){finish(resolve,result);})
+        .withFailureHandler(function(){finish(reject,surveySendError("A comunicação terminou sem confirmação. O envio pode ter sido recebido. Confira antes de tentar novamente; não haverá reenvio automático.",true));})
+        .submitAvanteSurvey(authSession.token,payload);
+    } catch(error){finish(reject,surveySendError("Não foi possível confirmar o envio. Seu rascunho foi preservado. Confira o resultado antes de tentar novamente.",true));}
+  });
+}
+
+function normalizeSurveySubmissionState(meta){
+  // Recibos antigos e envios interrompidos não comprovam persistência no servidor.
+  if(meta.sendStatus==="sending"||(meta.submittedAt&&!meta.responseId)){
+    if(meta.submittedAt)meta.unverifiedSubmittedAt=meta.submittedAt;
+    meta.submittedAt=null;meta.sendStatus="unknown";
+    meta.sendError="Há um envio anterior sem confirmação verificável. Seu rascunho foi preservado. Confira o resultado na plataforma antes de reenviar.";
   }
-  // Google Apps Script Web Apps não retornam cabeçalhos CORS por padrão,
-  // então usamos modo no-cors: o envio ocorre, mas não é possível ler a resposta.
-  // Content-Type text/plain evita o preflight OPTIONS (que o Apps Script não trata).
-  payload.authToken=authSession.token;
-  return fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
+}
+
+function applySurveySubmissionResult(meta,result){
+  if(!result||typeof result.ok!=="boolean"||
+    (result.responsesSaved!==true&&result.responsesSaved!==false&&result.responsesSaved!==null)||
+    (result.profilePublished!==true&&result.profilePublished!==false&&result.profilePublished!==null)||
+    (result.responsesSaved===true&&(typeof result.responseId!=="string"||!result.responseId.trim()))||
+    (result.profilePublished===true&&result.responsesSaved!==true)||
+    (result.ok&&result.responsesSaved!==true)){
+    throw surveySendError("O servidor retornou uma confirmação incompleta. O resultado é desconhecido; confira antes de reenviar. Seu rascunho foi preservado.",true);
+  }
+  if(result.responsesSaved!==true){
+    throw surveySendError(result.error||"O servidor não confirmou que as respostas foram salvas.",result.responsesSaved===null);
+  }
+  meta.responseId=result.responseId;meta.responsesSaved=true;meta.submittedAt=new Date().toISOString();
+  meta.profilePublished=result.profilePublished===true;meta.profilePublicationUnknown=result.profilePublished===null;
+  meta.publishedProfileCnpj=result.profilePublished===true?String(result.profileCnpj||""):"";
+  meta.sendStatus=result.ok?"ok":"partial";meta.sendError=result.ok?"":String(result.error||"Uma etapa do processamento não foi concluída.");
+}
+
+function surveySubmissionSummary(meta){
+  var profile=meta.profilePublished===true?"Perfil publicado.":meta.profilePublicationUnknown?"A publicação do perfil não foi confirmada. Confira antes de tentar publicá-lo novamente.":"O perfil não foi publicado neste envio.";
+  return {title:"Respostas salvas ✓",profile:profile};
+}
+
+function submitSurveyDraft(){
+  if(state.meta.sendStatus==="sending"||state.meta.sendStatus==="unknown"||state.meta.responsesSaved===true)return Promise.resolve();
+  state.meta.sendStatus="sending";state.meta.sendError="";saveState();renderCurrentStep();
+  var payload=buildExportObject();
+  return sendToSheet(payload).then(function(result){
+    applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();
+  }).catch(function(error){
+    state.meta.sendStatus=error.outcomeUnknown?"unknown":"error";state.meta.sendError=error.message;
+    saveState();renderCurrentStep();
   });
 }
 
@@ -3261,9 +3309,12 @@ function downloadFile(filename, content, mime){
 function renderRevisao(container){
   if(state.meta.submittedAt){
     var box = h("div",{class:"success-box"});
-    box.appendChild(h("h2",{},["Respostas enviadas ✓"]));
+    var receipt=surveySubmissionSummary(state.meta);
+    box.appendChild(h("h2",{},[receipt.title]));
     box.appendChild(h("p",{},["Obrigado! Suas respostas foram registradas em "+new Date(state.meta.submittedAt).toLocaleString("pt-BR")+" e enviadas para a planilha central. Você ainda pode baixar uma cópia dos dados abaixo."]));
-    if(state.meta.sharePublicProfile){box.appendChild(h("p",{class:"question-help"},["Seu perfil público foi publicado. Você pode atualizá-lo pela conta que o criou."]));var submittedCnpj=normalizarCNPJ(state.business.cnpj);if(/^[0-9A-Z]{12}[0-9]{2}$/.test(submittedCnpj))box.appendChild(h("p",{class:"question-help"},["Endereço do perfil: "+location.origin+location.pathname+"?perfil="+submittedCnpj]));}
+    box.appendChild(h("p",{class:"question-help"},[receipt.profile]));
+    if(state.meta.sendError)box.appendChild(h("p",{class:"question-help"},["Aviso: "+state.meta.sendError+" Não reenvie a pesquisa; suas respostas já foram salvas."]));
+    if(state.meta.profilePublished===true){var submittedCnpj=normalizarCNPJ(state.meta.publishedProfileCnpj);if(/^[0-9A-Z]{12}[0-9]{2}$/.test(submittedCnpj))box.appendChild(h("p",{class:"question-help"},["Endereço do perfil: "+location.origin+location.pathname+"?perfil="+submittedCnpj]));}
     var exp = h("div",{class:"export-row"});
     exp.appendChild(h("button",{class:"btn-outline", type:"button", onclick:function(){
       downloadFile("mapeamento_"+(state.business.nome||"negocio").replace(/\s+/g,"_")+".json", JSON.stringify(buildExportObject(),null,2), "application/json");
@@ -3283,7 +3334,7 @@ function renderRevisao(container){
       h("p",{style:"margin:0;font-size:13.5px;"},["Enviando suas respostas para a planilha central…"])
     ]));
   }
-  if(state.meta.sendStatus==="error"){
+  if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown"){
     container.appendChild(h("div",{class:"conditional show", style:"border-left-color:#A5432F;background:#FBEAE5;"},[
       h("p",{style:"margin:0;font-size:13.5px;color:#A5432F;"},[state.meta.sendError])
     ]));
@@ -4435,15 +4486,19 @@ function syncConversationAnswers(){
 function renderConversationReview(container){
   if(state.meta.submittedAt&&surveyMode!=="settings"){
     container.appendChild(h("div",{class:"success-box"},[
-      h("h2",{},["Pronto, suas respostas foram enviadas."]),
-      h("p",{},["Obrigado por ajudar a mostrar como os negócios se conectam na sua cidade."])
+      h("h2",{},[surveySubmissionSummary(state.meta).title]),
+      h("p",{},[surveySubmissionSummary(state.meta).profile]),
+      h("p",{class:"question-help"},[state.meta.sendError?"Aviso: "+state.meta.sendError+" Não reenvie a pesquisa; suas respostas já foram salvas.":"Obrigado por ajudar a mostrar como os negócios se conectam na sua cidade."])
     ]));
   } else {
     container.appendChild(h("div",{class:"question-card"},[
       h("h2",{},[surveyMode==="settings"?"Revise os dados do negócio":"Confira suas respostas"]),
       h("p",{class:"question-help"},["Você pode voltar para ajustar qualquer resposta antes de enviar."])
     ]));
-    if(state.meta.sendStatus==="error") container.appendChild(h("p",{class:"error-msg show"},[state.meta.sendError]));
+    if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown") {
+      container.appendChild(h("p",{class:"error-msg show"},[state.meta.sendError]));
+      container.appendChild(h("button",{type:"button",class:"btn-outline",onclick:function(){downloadFile("rascunho_pesquisa.json",JSON.stringify(buildExportObject(),null,2),"application/json");}},["Baixar rascunho JSON"]));
+    }
     activeConversationQuestions().forEach(function(q){
       if(q.kind==="business-basics"){
         [["Qual é o modelo do seu negócio?",state.answers.tipoNegocioPrincipal==="Outro"?(state.answers.tipoNegocioPrincipalOutro||"Outro"):state.answers.tipoNegocioPrincipal],["Qual o endereço da empresa?",state.answers.enderecoEmpresa]].forEach(function(item){
@@ -4872,7 +4927,8 @@ function renderCurrentStep(isStepChange){
   if(isReview){
     if(surveyMode==="settings"){nextBtn.textContent="Salvar dados do negócio";nextBtn.disabled=false;}
     else if(state.meta.sendStatus==="sending"){ nextBtn.textContent = "Enviando…"; nextBtn.disabled = true; }
-    else if(state.meta.submittedAt){ nextBtn.textContent = "Enviado ✓"; nextBtn.disabled = true; }
+    else if(state.meta.sendStatus==="unknown"){ nextBtn.textContent = "Confirmação pendente"; nextBtn.disabled = true; }
+    else if(state.meta.submittedAt){ nextBtn.textContent = "Respostas salvas ✓"; nextBtn.disabled = true; }
     else if(state.meta.sendStatus==="error"){ nextBtn.textContent = "Tentar novamente"; nextBtn.disabled = false; }
     else { nextBtn.textContent = "Confirmar e enviar"; nextBtn.disabled = false; }
   } else {
@@ -4902,22 +4958,7 @@ document.getElementById("btnNext").addEventListener("click", function(){
       }
       window.alert("Dados do negócio atualizados nesta conta.");showProgramSection("settings");return;
     }
-    if(state.meta.sendStatus==="sending") return;
-    state.meta.sendStatus = "sending";
-    state.meta.sendError = "";
-    renderCurrentStep();
-    var payload = buildExportObject();
-    sendToSheet(payload).then(function(){
-      state.meta.submittedAt = new Date().toISOString();
-      state.meta.sendStatus = "ok";
-      saveState();
-      renderCurrentStep();
-    }).catch(function(err){
-      state.meta.sendStatus = "error";
-      state.meta.sendError = "Não foi possível enviar automaticamente (sem internet ou bloqueio de rede). Baixe o JSON ou o CSV abaixo e envie manualmente, ou tente novamente.";
-      saveState();
-      renderCurrentStep();
-    });
+    submitSurveyDraft();
     return;
   }
   if(currentStepIndex < questions.length){

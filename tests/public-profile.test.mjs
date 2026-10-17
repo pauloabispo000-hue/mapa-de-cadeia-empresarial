@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../Apps Script/Code.js', import.meta.url), 'utf8');
-const cnpj = '20678438000130';
-const input = () => ({ business: { nome: 'ALESSANDRO RODRIGO GUERRA', cnpj, cidade: 'Descalvado', pais: 'Brasil', produtoDetalhe: 'Barbearia' }, publicProfile: { consent: true, products: [] } });
+// Identidade de teste; os serviços Google são inteiramente simulados em memória.
+const cnpj = '11222333000181';
+const input = () => ({ business: { nome: 'EMPRESA FICTICIA DE TESTE', cnpj, cidade: 'Descalvado', pais: 'Brasil', produtoDetalhe: 'Barbearia' }, publicProfile: { consent: true, products: [] } });
 
 class Sheet {
   rows = [];
@@ -30,7 +31,7 @@ function fixture() {
   let held = false, id = 0;
   const lock = { waitLock: () => { assert.equal(held, false, 'nested lock'); held = true; }, hasLock: () => held, releaseLock: () => { assert.equal(held, true); held = false; } };
   const ctx = vm.createContext({
-    console, LockService: { getScriptLock: () => lock }, Utilities: { getUuid: () => 'response-' + ++id },
+    console, SpreadsheetApp: { flush() {} }, LockService: { getScriptLock: () => lock }, Utilities: { getUuid: () => 'response-' + ++id },
     DriveApp: { Access: { ANYONE_WITH_LINK: 'public', PRIVATE: 'private' }, Permission: { VIEW: 'view', EDIT: 'edit' }, getFileById: id => { if (!files.has(id)) files.set(id, { getId: () => id, setSharing: access => { files.get(id).access = access; } }); return files.get(id); } }
   });
   vm.runInContext(source, ctx);
@@ -164,4 +165,59 @@ test('publicação automática não deixa pendência na caixa administrativa', (
   const notifications = ctx.getAvantePendingNotifications('alice');
   assert.equal(notifications.ok, true);
   assert.equal(notifications.count, 0);
+});
+
+
+test('RPC da pesquisa confirma respostas salvas e distingue ausência de consentimento', () => {
+  const { ctx, sheets } = fixture(), data = input();
+  data.publicProfile.consent = false;
+  const result = ctx.submitAvanteSurvey('alice', data);
+  assert.equal(result.ok, true);
+  assert.equal(result.responsesSaved, true);
+  assert.equal(result.profilePublished, false);
+  assert.equal(result.profileRequested, false);
+  assert.equal(typeof result.responseId, 'string');
+  assert.equal(sheets.get('Respostas').rows[1][7], 'alice');
+  assert.equal(sheets.has('ContasPerfisPublicos'), false);
+  assert.equal(sheets.get('PerfisPublicos').getLastRow(), 1);
+});
+
+test('RPC recusa sessão inválida antes de persistir respostas ou perfil', () => {
+  const { ctx, sheets } = fixture();
+  const result = ctx.submitAvanteSurvey('expired', input());
+  assert.equal(result.ok, false);
+  assert.equal(result.responsesSaved, false);
+  assert.equal(result.profilePublished, false);
+  assert.equal(sheets.size, 0);
+});
+
+test('erro no flush não é apresentado como recusa segura de uma escrita que pode ter ocorrido', () => {
+  const { ctx, locked } = fixture();
+  ctx.SpreadsheetApp.flush = () => { throw Error('Falha na confirmação da escrita'); };
+  const result = ctx.submitAvanteSurvey('alice', input());
+  assert.equal(result.ok, false);
+  assert.equal(result.responsesSaved, null);
+  assert.equal(result.profilePublished, false);
+  assert.equal(locked(), false);
+});
+
+test('falha de publicação depois de salvar respostas devolve confirmação parcial', () => {
+  const { ctx, sheets } = fixture();
+  ctx.savePublicProfile_ = () => { throw Error('Falha de publicação simulada'); };
+  const result = ctx.submitAvanteSurvey('alice', input());
+  assert.equal(result.ok, false);
+  assert.equal(result.responsesSaved, true);
+  assert.equal(result.profilePublished, null);
+  assert.equal(sheets.get('Respostas').getLastRow(), 2);
+  assert.equal(sheets.get('PerfisPublicos').getLastRow(), 1);
+});
+
+test('falha posterior à publicação mantém os dois resultados confirmados', () => {
+  const { ctx } = fixture();
+  ctx.createAvanteMatchNotifications_ = () => { throw Error('Falha de notificação simulada'); };
+  const result = ctx.submitAvanteSurvey('alice', input());
+  assert.equal(result.ok, false);
+  assert.equal(result.responsesSaved, true);
+  assert.equal(result.profilePublished, true);
+  assert.equal(ctx.readPublicProfile_(cnpj).ok, true);
 });

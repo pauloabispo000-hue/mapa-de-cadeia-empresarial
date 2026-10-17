@@ -26,6 +26,14 @@ Participantes podem criar suas próprias contas na tela de entrada, usando um no
 
 Não há recuperação automática por e-mail porque o cadastro não verifica endereço nem identidade. Se alguém esquecer a senha, o proprietário do projeto pode executar `resetAvanteUserPassword("nome.de.usuario")` no editor Apps Script e entregar a senha temporária por canal privado. `resetAvanteAdminPassword()` continua disponível para a conta `admin.avante`. As trocas feitas na plataforma não exigem acesso de administrador.
 
+## Confirmação do envio da pesquisa
+
+Na versão Apps Script, a pesquisa usa `submitAvanteSurvey` por `google.script.run`, com sessão autenticada e retorno explícito. O servidor confirma separadamente `responsesSaved` e `profilePublished`, após descarregar as escritas na planilha. A interface só apresenta **Respostas salvas** ao receber esse recibo; consentir com a publicação não basta para mostrar **Perfil publicado**.
+
+Recusa do servidor preserva o rascunho e mostra o erro. Se houver timeout, perda de comunicação ou resposta incompleta, a interface mostra **Confirmação pendente**, preserva os dados e permite baixar o rascunho. Não reenvia automaticamente nem habilita nova tentativa enquanto o resultado for desconhecido. Uma recarga ou nova entrada na conta também mantém esse bloqueio para envios interrompidos e recibos antigos sem confirmação verificável. A conferência deve ser feita na base privada pelo responsável antes de decidir sobre novo envio.
+
+Se as respostas estiverem salvas e uma etapa posterior falhar, a interface confirma apenas o que foi persistido e não reenvia a pesquisa. Fora da versão Apps Script, o envio é recusado localmente; não se usa mais um POST opaco `no-cors` como confirmação. Os testes usam apenas serviços simulados em memória e identidade fictícia, sem cadastrar perfis reais.
+
 ## Atualizar uma implantação existente
 
 Ao substituir o `Code.gs` de uma implantação que já está em uso, salve o código e abra **Deploy → Manage deployments**. Edite a implantação ativa, escolha **New version** e clique em **Deploy**. A URL `/exec` permanece a mesma. A planilha existente será preservada; ao receber novas chamadas, o script cria as abas novas que estiverem faltando.

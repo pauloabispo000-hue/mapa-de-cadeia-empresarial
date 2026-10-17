@@ -422,13 +422,24 @@ function removeCnaeRefreshTriggers_() {
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
   try {
     var payload = JSON.parse(e && e.postData && e.postData.contents || "{}");
-    if (!validateAvanteSession_(String(payload.authToken || ""))) {
-      return jsonOutput_({ ok: false, error: "Acesso expirado. Entre novamente no Avante." });
-    }
+    return jsonOutput_(submitAvanteSurvey(String(payload.authToken || ""), payload));
+  } catch (err) {
+    return jsonOutput_({ ok: false, responsesSaved: false, profilePublished: false, error: String(err && err.message || err) });
+  }
+}
+
+/** Mesmo processamento para HTTP e RPC autenticado, com confirmação das etapas persistidas. */
+function submitAvanteSurvey(token, payload) {
+  var account = getAvanteSessionUser_(String(token || ""));
+  if (!account) return { ok: false, responsesSaved: false, profilePublished: false, error: "Acesso expirado. Entre novamente no Avante." };
+  payload = payload || {};
+  var profileRequested = !!(payload.publicProfile && payload.publicProfile.consent === true);
+  var responsesSaved = false, profilePublished = false, responseId = "";
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
     var ss = getSpreadsheet_();
     var responseSheet = ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON", "Conta Avante"]);
     if (responseSheet.getMaxColumns() < 8) responseSheet.insertColumnsAfter(responseSheet.getMaxColumns(), 8 - responseSheet.getMaxColumns());
@@ -439,29 +450,42 @@ function doPost(e) {
     ensurePublicProfilesSheet_(ss);
     ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
 
-    var responseId = Utilities.getUuid();
+    responseId = Utilities.getUuid();
     var now = new Date();
     var b = payload.business || {};
-    var account = getAvanteSessionUser_(String(payload.authToken || ""));
-    if (payload.publicProfile && payload.publicProfile.consent === true) assertPublicProfileAccount_(ss, b.cnpj, account);
+    if (profileRequested) {
+      if (!validCnpj_(normalizeCnpj_(b.cnpj)) || !String(b.nome || "").trim()) throw new Error("O perfil precisa ter nome empresarial e CNPJ válidos.");
+      assertPublicProfileAccount_(ss, b.cnpj, account);
+    }
     var storedPayload = JSON.parse(JSON.stringify(payload));
     delete storedPayload.authToken;
     if (storedPayload.publicProfile) { delete storedPayload.publicProfile.coverData; delete storedPayload.publicProfile.avatarData; }
+    // Uma falha de escrita/flush pode deixar o resultado desconhecido. Não repetir automaticamente.
+    responsesSaved = null;
     responseSheet.appendRow([
       now, responseId, safeCell_(b.nome), safeCell_(b.cnpj), safeCell_(b.cidade), safeCell_(b.areaNecessidade),
       safeCell_(JSON.stringify(storedPayload)), safeCell_(account)
     ]);
+    SpreadsheetApp.flush();
+    responsesSaved = true;
     saveContributions_(ss, extractContributions_(payload));
     saveRelations_(ss, payload, responseId, now);
     // Guarda candidatos para a análise privada; readCompanies_ só expõe pares nome/CNPJ aprovados pelo administrador.
     saveCompanies_(ss, payload, now);
-    savePublicProfile_(ss, payload, responseId, now, account);
+    if (profileRequested) {
+      profilePublished = null;
+      savePublicProfile_(ss, payload, responseId, now, account);
+      SpreadsheetApp.flush();
+      profilePublished = true;
+    }
     createAvanteMatchNotifications_(ss, payload, account, now);
-    return jsonOutput_({ ok: true, responseId: responseId });
+    return { ok: true, responseId: responseId, responsesSaved: true, profileRequested: profileRequested, profilePublished: profilePublished, profileCnpj: profilePublished ? normalizeCnpj_(b.cnpj) : "" };
   } catch (err) {
-    return jsonOutput_({ ok: false, error: String(err && err.message || err) });
+    return { ok: false, responseId: responseId, responsesSaved: responsesSaved, profileRequested: profileRequested,
+      profilePublished: profilePublished, profileCnpj: profilePublished ? normalizeCnpj_((payload.business || {}).cnpj) : "",
+      error: String(err && err.message || err) };
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) lock.releaseLock();
   }
 }
 
