@@ -1,6 +1,6 @@
 # Mapeador de Negócios / Avante
 
-Leia `VISAO_DO_PROGRAMA.md`, `CONTINUAR_NO_CLAUDE.md` e `AGENTS.md` antes de alterar o programa.
+Leia `VISAO_DO_PROGRAMA.md`, `CONTINUAR_NO_CHATGPT.md` e `AGENTS.md` antes de alterar o programa.
 
 ## Código oficial
 

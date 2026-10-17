@@ -1,27 +1,48 @@
-# Continuar o Mapeador pelo aplicativo Claude
+# Continuar o Mapeador pelo ChatGPT
 
 Repositório: https://github.com/pauloabispo000-hue/mapa-de-cadeia-empresarial
 
-## No smartphone
+## Preparar o acesso uma vez
 
-1. Use a área **Code / Claude Code** do aplicativo, com acesso ao repositório.
-   Anexar arquivos do GitHub a um chat comum não configura uma sessão de desenvolvimento com escrita.
-2. Escolha este repositório e comece a partir do `main` atualizado.
-3. Peça a alteração desejada. O arquivo `CLAUDE.md` orienta os arquivos a editar,
-   as verificações e a entrega por commit/branch.
-4. Revise o resultado e incorpore o PR em `main` quando quiser publicá-lo.
-5. Confira o workflow **Mapeador - verificar e publicar** em **Actions**.
-   O resumo informa commit, versão e link do aplicativo; falha significa publicação não confirmada.
+A publicação no Apps Script já está configurada no GitHub. Para editar o repositório
+pelo ChatGPT no smartphone, use uma sessão com acesso de escrita e execução, como
+Codex Cloud dentro do ChatGPT. Uma conversa que ofereça apenas consulta ao GitHub
+não consegue executar os testes nem enviar alterações.
 
-Sugestão de mensagem inicial:
+1. No ChatGPT na web ou no aplicativo desktop, abra uma tarefa e escolha
+   **Work in > Cloud > Select environment > Create environment**.
+2. Conecte o GitHub, se solicitado, e escolha este repositório.
+3. Prepare o ambiente com Node.js 22. Peça para executar `npm ci --ignore-scripts`,
+   `npm run check` e `npm test`. Revise a preparação e selecione **Publish**.
+4. No aplicativo ChatGPT do smartphone, abra **Codex** e selecione esse ambiente.
+   A criação do ambiente é feita pela web/desktop; a seleção depende da disponibilidade
+   e das permissões da sua conta.
+
+Documentação oficial: https://learn.chatgpt.com/docs/environments/cloud-environments
+
+## Fazer uma alteração pelo smartphone
+
+1. Comece a partir do `main` atualizado e descreva a alteração desejada.
+2. O Codex lê `AGENTS.md`; o guia técnico completo está em `DESENVOLVIMENTO.md`.
+3. Ao terminar a alteração, execute `npm run sync`, `npm run check` e `npm test`.
+4. Faça commit e envie uma branch/PR. Incorpore a alteração em `main` quando desejar publicá-la.
+5. Confira o workflow **Mapeador - verificar e publicar** em **Actions**. O resumo
+   informa commit, versão e link do aplicativo. Push sozinho não confirma publicação.
+6. Termine a resposta informando o resultado e se o usuário precisa intervir.
+
+Mensagem sugerida para começar:
 
 > Trabalhe no repositório pauloabispo000-hue/mapa-de-cadeia-empresarial, a partir de main.
-> Leia CLAUDE.md, AGENTS.md e VISAO_DO_PROGRAMA.md. Faça a seguinte alteração: [descrever].
+> Leia AGENTS.md, DESENVOLVIMENTO.md e VISAO_DO_PROGRAMA.md. Faça esta alteração: [descrever].
 > Preserve os recursos atuais e a privacidade. Execute npm run sync, npm run check e npm test.
-> Faça commit, envie uma branch e abra um PR. Explique o que mudou e como foi verificado.
+> Faça commit, envie uma branch e abra um PR. Informe o resultado e qualquer ação pendente.
+> Quando a tarefa incluir publicar, acompanhe o workflow até confirmar a versão do Apps Script.
 
-O trabalho na nuvem não depende deste Chromebook ligado. A publicação depende da
-autenticação Google configurada no GitHub e do acesso do Claude ao repositório.
+O trabalho em Codex Cloud pode continuar com o Chromebook desligado. Se preferir
+continuar esta sessão local pela ponte, o Chromebook, o Codex e a ponte precisam
+permanecer em execução. Os dois caminhos usam o mesmo fluxo de publicação pelo GitHub.
+Não copie a credencial Google para o chat nem para o ambiente de desenvolvimento:
+ela já está no Secret privado do GitHub Actions.
 
 ## Configuração única da publicação
 
