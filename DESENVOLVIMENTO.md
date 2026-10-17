@@ -106,3 +106,9 @@ Versão observada e confirmação ficam nas anotações do job, acessíveis pela
 check-runs, mesmo quando o proxy bloqueia o download dos logs. Falhas também geram
 anotação e `deployment-error.json`; o upload dos artefatos roda com `always()`.
 Uma consulta bem-sucedida não muda a conclusão histórica de um workflow anterior.
+
+Nos dois campos de busca de oportunidades, texto livre pode ser adicionado como
+“Tipo de negócio: …”. O valor permanece na resposta privada como categoria, sem
+criar empresa no diretório nem consolidar automaticamente uma sugestão global.
+A busca por CNPJ continua usando a consulta própria e não adiciona um CNPJ válido
+como tipo de negócio. Comparação normalizada evita tipos selecionados duplicados.

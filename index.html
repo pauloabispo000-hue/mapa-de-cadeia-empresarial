@@ -2384,12 +2384,13 @@ function buildComboMulti(opts){
       list.appendChild(h("li",{class:"combo-empty"},[opts.noResultsText]));
     }
     var typedOption=String(term||"").trim();
-    var optionAlreadyExists=typedOption&&options.some(function(item){return normalizeSearch(item)===normalizeSearch(typedOption);});
-    var optionAlreadySelected=typedOption&&selected.some(function(item){return normalizeSearch(item)===normalizeSearch(typedOption);});
+    var freeTextValue=opts.freeTextValue?opts.freeTextValue(typedOption):typedOption;
+    var optionAlreadyExists=typedOption&&options.some(function(item){return normalizeSearch(item)===normalizeSearch(freeTextValue);});
+    var optionAlreadySelected=typedOption&&selected.some(function(item){return normalizeSearch(item)===normalizeSearch(freeTextValue);});
     if(allowFreeText && !(opts.onCnpjLookup&&validCnpjSearch) && typedOption && !optionAlreadyExists && !optionAlreadySelected){
       var freeTextLabel=opts.freeTextLabel?opts.freeTextLabel(typedOption):"＋ Adicionar opção: "+typedOption;
       var liFree = h("li",{class:"combo-option combo-freetext"},[freeTextLabel]);
-      liFree.addEventListener("mousedown", function(ev){ ev.preventDefault(); if(opts.onFreeTextAdd)opts.onFreeTextAdd(typedOption);else toggleOption(typedOption); searchInput.value=""; renderList(""); });
+      liFree.addEventListener("mousedown", function(ev){ ev.preventDefault(); if(opts.onFreeTextAdd)opts.onFreeTextAdd(typedOption);else toggleOption(freeTextValue); searchInput.value=""; renderList(""); });
       list.appendChild(liFree);
     }
     if(opts.onCnpjLookup&&validCnpjSearch){
@@ -3603,8 +3604,10 @@ function businessTargetOptions(){return sharedCompanyOptions().concat(SEGMENTOS_
 function buildCompanySettingsEditor(key,onAdded){
   var selected=Array.isArray(state.answers[key])?state.answers[key]:(state.answers[key]=[]);
   var control=buildComboMulti({
-    options:isBusinessTargetField(key)?businessTargetOptions():sharedCompanyOptions(),selectedArr:selected,placeholder:isBusinessTargetField(key)?"Buscar por CNPJ, nome da empresa ou tipo de negócio...":"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:false,
-    noResultsText:"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",selectedLabel:selectedCompanyDisplay,
+    options:isBusinessTargetField(key)?businessTargetOptions():sharedCompanyOptions(),selectedArr:selected,placeholder:isBusinessTargetField(key)?"Buscar por CNPJ, nome da empresa ou tipo de negócio...":"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:isBusinessTargetField(key),
+    freeTextValue:isBusinessTargetField(key)?function(value){return "Tipo de negócio: "+String(value).replace(/^Tipo de negócio:\s*/i,"").trim();}:null,
+    freeTextLabel:function(value){return "＋ Adicionar tipo de negócio: "+String(value).replace(/^Tipo de negócio:\s*/i,"").trim();},
+    noResultsText:isBusinessTargetField(key)?"Nenhuma opção encontrada. Adicione o tipo de negócio digitado ou pesquise uma empresa pelo CNPJ.":"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",selectedLabel:selectedCompanyDisplay,
     onCnpjLookup:function(cnpj){return consultarCNPJPublico(cnpj);},
     onCnpjAdd:function(data,cnpj){
       var name=String(data.nomeFantasia||data.razaoSocial||"").trim()||"Empresa "+formatarCNPJ(cnpj);

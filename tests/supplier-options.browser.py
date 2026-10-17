@@ -70,10 +70,22 @@ with sync_playwright() as p:
   assert run("state.oportunidades."+key+"Empresas[0].cnpj")=='11222333000181'
   assert run("state.oportunidades."+key+"Categorias[0]")==type_label.removeprefix('Tipo de negócio: ')
   assert run("buildExportObject().answers."+key+".length")==2
+ # Tipo novo deve ser categorizado, preservado e não duplicado nem virar empresa.
+ for key in ['fornecedoresBuscados','clientesBuscados']:
+  run("currentStepIndex=activeConversationQuestions().findIndex(q=>q.key==='"+key+"');window.testRoot.innerHTML='';renderConversation(window.testRoot);")
+  page.locator('#platformContent .combo-toggle').click()
+  page.locator('#platformContent .combo-search').fill('Tipo fictício inédito')
+  page.locator('#platformContent .combo-freetext').click()
+  assert run("state.oportunidades."+key+"Categorias.includes('Tipo fictício inédito')") is True
+  assert run("state.oportunidades."+key+"Empresas.length")==1
+  page.locator('#platformContent .combo-search').fill('TIPO FICTÍCIO INÉDITO')
+  assert page.locator('#platformContent .combo-freetext').count()==0
+  page.locator('#platformContent .combo-search').fill('11222333000181')
+  assert page.locator('#platformContent .combo-freetext').count()==0
  # Salvar e recarregar preserva as duas respostas independentes.
  run("saveState();state=loadState();syncConversationAnswers();")
- assert run("state.answers.fornecedoresBuscados.length")==2
- assert run("state.answers.clientesBuscados.length")==2
+ assert run("state.answers.fornecedoresBuscados.length")==3
+ assert run("state.answers.clientesBuscados.length")==3
  print('Navegador: duas páginas, busca por CNPJ/nome/tipo e persistência independente aprovados.')
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: dois campos de revenda, fornecedores compatíveis, consentimento, recarga e remoção aprovados.')
