@@ -45,3 +45,18 @@ secret `CLASPRC_JSON` do GitHub Actions. Não tente imprimi-la ou obtê-la pelo 
 O aplicativo usa Apps Script, Sheets e Drive. Mapas e Gemini exigem chaves já
 configuradas pelo proprietário; preservá-las não exige copiá-las para o repositório.
 Consulte `INSTALAR_APPS_SCRIPT.md` para o funcionamento e a manutenção do ambiente.
+
+## Sugestões de compras por fornecedor
+
+Priorize as ofertas declaradas no catálogo do fornecedor. Quando esse catálogo não
+estiver disponível, use somente as regras de oferta compatíveis com o tipo de
+negócio escolhido. Nunca use a área geral como prova de que uma empresa oferece
+todos os seus itens, nem volte à lista completa quando não houver correspondência.
+A lista de compras usa filtro estrito, inclusive na busca, sem “Ver todas”.
+
+Um tipo sem regra conhecida não recebe sugestões automáticas. O participante pode
+informar uma oferta real em texto livre quando não há catálogo; isso não transforma
+uma inferência em oferta confirmada. Trocar o tipo não deve apagar respostas antigas.
+Valide as regras com `npm test`. O teste de interface opcional é
+`python tests/supplier-options.browser.py`, com Playwright para Python e Chromium;
+ele usa dados fictícios e bloqueia todas as chamadas externas.

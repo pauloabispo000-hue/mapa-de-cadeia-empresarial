@@ -4639,29 +4639,62 @@ function buildProductServicePicker(opts){
   return wrapper;
 }
 
+// Regras de oferta, não de despesas do fornecedor. Uma área ampla não comprova
+// que a empresa ofereça todos os produtos de segurança, saúde, transporte etc.
 function filterSupplierPurchaseOptions(supplier,fullList){
-  var type=normalizeSearch([supplier.tipoEmpresa||"",supplier.tipoEmpresaOutro||""].join(" "));
-  if(!type)return fullList;
-  var segmentRules=[
-    [/\b(padaria|panific|confeitaria|pao e bolo|produtos de panificacao)\b/,/^(pao|cafe|leite|queijo|manteiga\/margarina|iogurte|fretes e transporte)$/],
-    [/\b(acougue|frigorifico|abate de animais|comercio de carnes)\b/,/^(carne bovina|carne suina|carne de frango|embalagens|fretes e transporte)$/],
-    [/\b(hortifruti|frutas e verduras|comercio de frutas|comercio de verduras|cultivo de hortalicas)\b/,/^(frutas e verduras em geral|batata|mandioca|cebola|tomate|embalagens|fretes e transporte|insumos agricolas|fertilizantes e racoes)$/],
-    [/\b(farmacia|drogaria|medicamentos|comercio varejista de produtos farmaceuticos)\b/,/^(analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas e suplementos|equipamentos e insumos medicos)$/],
-    [/\b(posto de combustivel|combustiveis|gasolina|diesel|etanol)\b/,/^(combustiveis \(gasolina, diesel, etanol\)|lubrificantes|pecas de reposicao|fretes e transporte)$/],
-    [/\b(material de construcao|construcao e acabamento|loja de materiais de construcao)\b/,/^(materiais de construcao|madeira e derivados|metais e ligas|produtos quimicos industriais|ferramentas|pecas de reposicao|fretes e transporte)$/],
-    [/\b(autopecas|pecas e acessorios para veiculos|comercio de pecas automotivas)\b/,/^(pecas de reposicao|veiculos e frota propria|combustiveis \(gasolina, diesel, etanol\)|manutencao e reparo de equipamentos)$/],
-    [/\b(supermercado|hipermercado|mercearia|minimercado|armazem|comercio varejista de mercadorias em geral)\b/,/^(arroz|feijao|milho|trigo\/farinha de trigo|batata|mandioca|cebola|tomate|frutas e verduras em geral|carne bovina|carne suina|carne de frango|peixe e frutos do mar|leite|queijo|manteiga\/margarina|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas para revenda|embalagens|fretes e transporte)$/],
-    [/\b(eletronicos e informatica|tecnologia da informacao|loja de informatica|loja de eletronicos|loja de eletrodomesticos|celulares e telefonia)\b/,/^(tecnologia e software|sistemas de gestao \(erp\/crm\)|material de escritorio e papelaria|equipamentos e maquinario|pecas de reposicao|suporte tecnico de ti|internet e telefonia|instalacao e manutencao eletrica|fretes e transporte)$/],
-    [/\b(moveis e decoracao|industria moveleira|loja de moveis)\b/,/^(moveis e mobiliario|madeira e derivados|materia-prima industrial|pecas de reposicao|manutencao e reparo de equipamentos|fretes e transporte)$/],
-    [/\b(logistica e transporte de cargas|transporte de cargas|servico de transporte de cargas)\b/,/^(embalagens|veiculos e frota propria|fretes e transporte de mercadorias|aluguel de veiculos|armazenagem e estoque|servicos de entrega\/courier|outro \(transportes\/logisticas\))$/]
+  var selectedType=supplier.tipoEmpresa==="Outro"?(supplier.tipoEmpresaOutro||""):(supplier.tipoEmpresa||supplier.tipoEmpresaOutro||"");
+  var type=normalizeSearch(selectedType).trim();
+  if(!type)return [];
+  var offerRules=[
+    [/\b(confeccao de roupas|fabrica de roupas e tecidos|industria textil|moda e vestuario|roupas e acessorios|loja de roupas)\b/,/^(uniformes e equipamentos de protecao \(epis\)|vestuario corporativo)$/],
+    [/\b(padaria|panificacao|confeitaria)\b/,/^(pao|cafe)$/],
+    [/\b(acougue|frigorifico|comercio de carnes)\b/,/^(carne bovina|carne suina|carne de frango)$/],
+    [/\b(peixaria|pescados)\b/,/^peixe e frutos do mar$/],
+    [/\b(hortifruti|hortalicas|frutas e verduras|hortalicas e frutas|producao agricola)\b/,/^(frutas e verduras em geral|batata|mandioca|cebola|tomate)$/],
+    [/\b(leite e laticinios)\b/,/^(leite|queijo|manteiga\/margarina|iogurte)$/],
+    [/\b(farmacia|drogaria|medicamentos)\b/,/^(analgesico|antitermico|anti-inflamatorio|antibiotico|anti-parasitario|antialergico|antiacido|anti-hipertensivo|antidiabetico|vitaminas e suplementos)$/],
+    [/\b(posto de combustivel|combustiveis|gasolina|diesel|etanol)\b/,/^(combustiveis \(gasolina, diesel, etanol\)|lubrificantes)$/],
+    [/\b(material de construcao|materiais de construcao|ferragens|loja de ferramentas)\b/,/^(materiais de construcao|madeira e derivados|metais e ligas|ferramentas)$/],
+    [/\b(autopecas|pecas automotivas|pecas e acessorios para veiculos|loja de pneus)\b/,/^pecas de reposicao$/],
+    [/\b(supermercado|hipermercado|mercearia|mercado de bairro|distribuidora de alimentos|comercio varejista de mercadorias em geral)\b/,/^(arroz|feijao|milho|trigo\/farinha de trigo|batata|mandioca|cebola|tomate|frutas e verduras em geral|carne bovina|carne suina|carne de frango|peixe e frutos do mar|leite|queijo|manteiga\/margarina|iogurte|ovos|pao|cafe|acucar|oleo de cozinha|bebidas para revenda)$/],
+    [/\b(bebidas|distribuidora de bebidas)\b/,/^bebidas para revenda$/],
+    [/\b(eletronicos e informatica|loja de informatica|loja de eletronicos|tecnologia da informacao)\b/,/^(tecnologia e software|sistemas de gestao \(erp\/crm\)|suporte tecnico de ti)$/],
+    [/\b(manutencao de computadores|assistencia tecnica de eletronicos)\b/,/^(suporte tecnico de ti|assistencia tecnica especializada em equipamentos)$/],
+    [/\b(moveis e decoracao|moveleira|loja de moveis|fabrica de moveis|industria de moveis|marcenaria)\b/,/^moveis e mobiliario$/],
+    [/\b(logistica e transporte de cargas|transporte de cargas|servico de transporte de cargas|empresa de mudancas)\b/,/^(fretes e transporte de mercadorias|servicos de entrega\/courier|armazenagem e estoque)$/],
+    [/\b(servico de entregas|correios|postagem)\b/,/^(servicos de entrega\/courier|correios e postagem)$/],
+    [/\b(aluguel de maquinas e equipamentos)\b/,/^equipamentos e maquinario$/],
+    [/\b(maquinas e equipamentos|industria de maquinas)\b/,/^(equipamentos e maquinario|pecas de reposicao)$/],
+    [/\b(produtos de limpeza)\b/,/^produtos de limpeza$/],
+    [/\b(limpeza e conservacao|servico de limpeza|servicos domesticos)\b/,/^(servicos de limpeza|higienizacao de ambientes)$/],
+    [/\b(lavanderia)\b/,/^lavagem de veiculos e uniformes$/],
+    [/\b(lava-rapido)\b/,/^lavagem de veiculos e uniformes$/],
+    [/\b(contabilidade|contabeis)\b/,/^contabilidade$/],
+    [/\b(advocacia|juridico)\b/,/^servicos juridicos$/],
+    [/\b(consultoria empresarial)\b/,/^(consultoria empresarial|auditoria e compliance)$/],
+    [/\b(recursos humanos|recrutamento)\b/,/^(recursos humanos e recrutamento|mao de obra terceirizada)$/],
+    [/\b(publicidade|marketing|design)\b/,/^marketing e publicidade$/],
+    [/\b(fotografia|fotos e videos|fotografia e video)\b/,/^producao de fotos e videos$/],
+    [/\b(grafica|impressao)\b/,/^impressao grafica e sinalizacao$/],
+    [/\b(papelaria|material de escritorio)\b/,/^(material de escritorio e papelaria|material didatico e apostilas)$/],
+    [/\b(telecomunicacoes|internet e telefonia)\b/,/^(internet e telefonia|instalacao de redes sem fio)$/],
+    [/\b(seguradora|seguros)\b/,/^seguros$/],
+    [/\b(seguranca patrimonial|seguranca e monitoramento)\b/,/^(sistemas de alarme e cameras|seguranca patrimonial e monitoramento)$/],
+    [/\b(extintores|equipamentos contra incendio)\b/,/^extintores e equipamentos contra incendio$/],
+    [/\b(arquitetura|engenharia)\b/,/^projetos de arquitetura e engenharia$/],
+    [/\b(construcao civil|construcao e incorporacao)\b/,/^reformas e manutencao do espaco fisico$/],
+    [/\b(eletricista|instalacoes eletricas)\b/,/^(instalacao de fiacao eletrica e encanamento|instalacao e manutencao eletrica)$/],
+    [/\b(educacao|escola|cursos)\b/,/^(cursos e workshops|treinamentos e capacitacao de equipe)$/],
+    [/\b(turismo|agencia de viagens)\b/,/^pacotes de viagem corporativa$/],
+    [/\b(eventos|festas)\b/,/^(estrutura para eventos e ativacoes|decoracao para eventos|som e iluminacao para eventos)$/],
+    [/\b(veterinaria|veterinarios)\b/,/^servicos veterinarios$/],
+    [/\b(clinica medica|saude \(clinicas e consultorios\))\b/,/^consultas medicas \(convenio\/particular\)$/]
   ];
-  var specific=null;
-  for(var i=0;i<segmentRules.length;i++)if(segmentRules[i][0].test(type)){specific=segmentRules[i][1];break;}
-  if(specific){var matching=fullList.filter(function(item){return specific.test(normalizeSearch(item));});if(matching.length||/\b(logistica e transporte de cargas|transporte de cargas|servico de transporte de cargas)\b/.test(type))return matching;}
-  var selectedType=supplier.tipoEmpresa==="Outro"?(supplier.tipoEmpresaOutro||"Outro"):(supplier.tipoEmpresa||supplier.tipoEmpresaOutro||"");
-  var area=TIPO_FORNECEDOR_AREA[selectedType]||SEGMENTO_AREA[selectedType]||inferAreaFromText(selectedType);
-  if(area){var byArea=fullList.filter(function(item){return CATEGORIA_INSUMO_AREA[item]===area;});if(byArea.length)return byArea;}
-  return fullList;
+  for(var i=0;i<offerRules.length;i++){
+    if(offerRules[i][0].test(type))return fullList.filter(function(item){return offerRules[i][1].test(normalizeSearch(item).trim());});
+  }
+  // Sem relação conhecida, não inventar ofertas nem voltar ao catálogo inteiro.
+  return [];
 }
 
 function renderSupplierPurchases(q){
@@ -4693,7 +4726,7 @@ function renderSupplierPurchases(q){
     card.appendChild(fieldWrap("Qual o tipo de negócio?",null,comboField(TIPO_FORNECEDOR_OPTS,supplier.tipoEmpresa||"","Selecione o tipo do fornecedor...",function(value){supplier.tipoEmpresa=value;if(value!=="Outro")supplier.tipoEmpresaOutro="";saveState();},null,true)));
     if(supplier.tipoEmpresa==="Outro")card.appendChild(fieldWrap("Descreva o tipo de empresa",null,textInput(supplier.tipoEmpresaOutro||"","Ex.: loja de instrumentos musicais",function(value){supplier.tipoEmpresaOutro=value;saveState();})));
     card.appendChild(buildComboMulti({
-      options:options,selectedArr:supplier.categorias,placeholder:"Buscar ou adicionar produto ou serviço...",allowFreeText:true,
+      options:options,selectedArr:supplier.categorias,placeholder:"Buscar oferta deste fornecedor...",allowFreeText:!supplierOffers.length,
       freeTextLabel:function(value){return "＋ Adicionar produto ou serviço: \""+value+"\"";},
       onFreeTextAdd:function(rawValue){
         var value=String(rawValue||"").trim();if(!value||value.length>160)return;
@@ -4712,7 +4745,7 @@ function renderSupplierPurchases(q){
         state.answers.comprasSelecionadas=suppliers.reduce(function(all,item){return all.concat(item.categorias||[]);},[]).filter(function(item,index,all){return all.indexOf(item)===index;});
         syncConversationAnswers();saveState();renderCurrentStep();
       },
-      strictFilter:!!supplierOffers.length,noResultsText:supplierOffers.length?"Esta empresa ainda não cadastrou outras ofertas.":"Nenhuma opção corresponde ao tipo de negócio informado.",
+      strictFilter:true,noResultsText:supplierOffers.length?"Esta empresa ainda não cadastrou outras ofertas.":"Nenhuma oferta compatível cadastrada para este tipo de negócio. Informe somente o que esse fornecedor realmente oferece.",
       filterFn:function(fullList){return supplierOffers.length?fullList:filterSupplierPurchaseOptions(supplier,fullList);},
       onChange:function(){
         supplier.itens=supplier.categorias.join(", ");
