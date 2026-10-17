@@ -12,6 +12,7 @@ var COMPANIES_HEADERS = ["Chave", "Nome principal", "CNPJ", "Nomes alternativos 
 var RELATIONS_SHEET_NAME = "Relacoes";
 var PUBLIC_PROFILES_SHEET_NAME = "PerfisPublicos";
 var PENDING_PROFILES_SHEET_NAME = "PerfisPendentes";
+var PROFILE_ACCOUNTS_SHEET_NAME = "ContasPerfisPublicos";
 var PROFILE_MEDIA_FOLDER_NAME = "Avante - imagens de perfis públicos";
 var AVANTE_ADMIN_USER_PROPERTY = "AVANTE_ADMIN_USERNAME";
 var AVANTE_ADMIN_SALT_PROPERTY = "AVANTE_ADMIN_PASSWORD_SALT";
@@ -441,10 +442,11 @@ function doPost(e) {
     var responseId = Utilities.getUuid();
     var now = new Date();
     var b = payload.business || {};
+    var account = getAvanteSessionUser_(String(payload.authToken || ""));
+    if (payload.publicProfile && payload.publicProfile.consent === true) assertPublicProfileAccount_(ss, b.cnpj, account);
     var storedPayload = JSON.parse(JSON.stringify(payload));
     delete storedPayload.authToken;
     if (storedPayload.publicProfile) { delete storedPayload.publicProfile.coverData; delete storedPayload.publicProfile.avatarData; }
-    var account = getAvanteSessionUser_(String(payload.authToken || ""));
     responseSheet.appendRow([
       now, responseId, safeCell_(b.nome), safeCell_(b.cnpj), safeCell_(b.cidade), safeCell_(b.areaNecessidade),
       safeCell_(JSON.stringify(storedPayload)), safeCell_(account)
@@ -453,7 +455,7 @@ function doPost(e) {
     saveRelations_(ss, payload, responseId, now);
     // Guarda candidatos para a análise privada; readCompanies_ só expõe pares nome/CNPJ aprovados pelo administrador.
     saveCompanies_(ss, payload, now);
-    savePendingPublicProfile_(ss, payload, responseId, now);
+    savePublicProfile_(ss, payload, responseId, now, account);
     createAvanteMatchNotifications_(ss, payload, account, now);
     return jsonOutput_({ ok: true, responseId: responseId });
   } catch (err) {
@@ -463,19 +465,26 @@ function doPost(e) {
   }
 }
 
-/** Recebe alterações do perfil público como solicitação autenticada, sempre sujeita à revisão administrativa. */
+/** Publica o perfil com consentimento e sessão válida, sem aprovação administrativa. */
 function submitAvantePublicProfile(token, input) {
-  if (!validateAvanteSession_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  var account = getAvanteSessionUser_(String(token || ""));
+  if (!account) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
   input = input || {};
   var business = input.business || {}, publicProfile = input.publicProfile || {};
   var cnpj = normalizeCnpj_(business.cnpj);
-  var name = String(business.nome || "").trim();
-  if (!validCnpj_(cnpj) || !name) return { ok: false, error: "O perfil precisa ter nome empresarial e CNPJ válidos." };
-  if (publicProfile.consent !== true) return { ok: false, error: "Autorize a solicitação de publicação do perfil." };
-  var ss = getSpreadsheet_(), now = new Date(), responseId = Utilities.getUuid();
-  ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação"]);
-  savePendingPublicProfile_(ss, { business: business, answers: input.answers || {}, publicProfile: publicProfile }, responseId, now);
-  return { ok: true, responseId: responseId, message: "Solicitação enviada para validação administrativa." };
+  if (!validCnpj_(cnpj) || !String(business.nome || "").trim()) return { ok: false, error: "O perfil precisa ter nome empresarial e CNPJ válidos." };
+  if (publicProfile.consent !== true) return { ok: false, error: "Autorize a publicação do perfil." };
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    var ss = getSpreadsheet_(), now = new Date(), responseId = Utilities.getUuid();
+    savePublicProfile_(ss, { business: business, answers: input.answers || {}, publicProfile: publicProfile }, responseId, now, account);
+    return { ok: true, responseId: responseId, message: "Perfil e catálogo publicados.", cnpj: cnpj };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  } finally {
+    if (lock.hasLock()) lock.releaseLock();
+  }
 }
 
 /** Persiste as respostas de pesquisa vinculadas à conta; os campos oficiais não são atualizados por esta operação. */
@@ -499,7 +508,7 @@ function saveAvanteProfileSettings(token, input) {
   return { ok: true };
 }
 
-/** Lê o catálogo já aprovado para carregar a edição do perfil autenticado. */
+/** Lê o catálogo já publicado para carregar a edição do perfil autenticado. */
 function getAvantePublicProducts(token, cnpj) {
   if (!validateAvanteSession_(String(token || ""))) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
   var profile = readPublicProfile_(normalizeCnpj_(cnpj));
@@ -1051,11 +1060,51 @@ function readPublicProfile_(cnpj) {
 }
 
 function ensurePublicProfilesSheet_(ss) {
-  var headers = ["CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "Capa URL", "Avatar URL", "Atualizado em", "Validação administrativa", "Produtos JSON"];
+  var headers = ["CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "Capa URL", "Avatar URL", "Atualizado em", "Publicação", "Produtos JSON"];
   var sheet = ensureSheet_(ss, PUBLIC_PROFILES_SHEET_NAME, headers);
   if (sheet.getMaxColumns() < headers.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   return sheet;
+}
+
+/** A vinculação protege a edição; não certifica a titularidade legal do CNPJ. */
+function assertPublicProfileAccount_(ss, cnpj, account) {
+  cnpj = normalizeCnpj_(cnpj);
+  if (!account || !validCnpj_(cnpj)) throw new Error("Informe uma conta autenticada e um CNPJ válido.");
+  var sheet = ensureSheet_(ss, PROFILE_ACCOUNTS_SHEET_NAME, ["CNPJ", "Conta", "Vinculado em"]);
+  var rows = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues() : [];
+  var owner = "";
+  for (var i = 0; i < rows.length; i++) if (normalizeCnpj_(rows[i][0]) === cnpj) { owner = String(rows[i][1] || ""); break; }
+  var profiles = ensurePublicProfilesSheet_(ss);
+  var existing = profiles.getLastRow() > 1 ? profiles.getRange(2, 1, profiles.getLastRow() - 1, 1).getValues().some(function(row) { return normalizeCnpj_(row[0]) === cnpj; }) : false;
+  // Perfis antigos podem ser associados pela resposta autenticada que originou a publicação.
+  if (!owner && existing) {
+    var pending = ss.getSheetByName(PENDING_PROFILES_SHEET_NAME), responseId = "";
+    var pendingRows = pending && pending.getLastRow() > 1 ? pending.getRange(2, 1, pending.getLastRow() - 1, 12).getValues() : [];
+    for (var j = pendingRows.length - 1; j >= 0; j--) if (normalizeCnpj_(pendingRows[j][1]) === cnpj && String(pendingRows[j][11]).indexOf("APROVADO") === 0) { responseId = String(pendingRows[j][10] || ""); break; }
+    var responses = ss.getSheetByName(RESPONSE_SHEET_NAME);
+    var responseRows = responseId && responses && responses.getLastRow() > 1 ? responses.getRange(2, 1, responses.getLastRow() - 1, 8).getValues() : [];
+    for (var k = 0; k < responseRows.length; k++) if (String(responseRows[k][1]) === responseId && normalizeCnpj_(responseRows[k][3]) === cnpj) { owner = String(responseRows[k][7] || ""); break; }
+    if (!owner) throw new Error("Este perfil antigo ainda não está vinculado a uma conta. Solicite a vinculação ao suporte para editá-lo.");
+  }
+  if (owner && owner.toLowerCase() !== String(account).toLowerCase()) throw new Error("Este perfil pertence a outra conta. Entre com a conta que o criou.");
+  return { sheet: sheet, linked: rows.some(function(row) { return normalizeCnpj_(row[0]) === cnpj; }) };
+}
+
+/** Chamado apenas com o lock adquirido pelo envio ou pela edição autenticada. */
+function savePublicProfile_(ss, payload, responseId, now, account) {
+  if (!payload.publicProfile || payload.publicProfile.consent !== true) return;
+  var business = payload.business || {}, cnpj = normalizeCnpj_(business.cnpj);
+  if (!validCnpj_(cnpj) || !String(business.nome || "").trim()) throw new Error("O perfil precisa ter nome empresarial e CNPJ válidos.");
+  var binding = assertPublicProfileAccount_(ss, cnpj, account);
+  // A pesquisa pode atualizar a apresentação sem enviar o catálogo já publicado.
+  if (payload.publicProfile.products === undefined) {
+    var current = readPublicProfile_(cnpj);
+    payload.publicProfile.products = current.ok ? current.profile.products : [];
+  }
+  savePendingPublicProfile_(ss, payload, responseId, now);
+  if (!binding.linked) binding.sheet.appendRow([cnpj, account, now]);
+  publishPendingPublicProfile_(ss, cnpj, true);
 }
 
 function savePendingPublicProfile_(ss, payload, responseId, now) {
@@ -1114,13 +1163,21 @@ function saveProfileImage_(dataUrl, filename) {
   return file.getId();
 }
 
-// Aprovação deliberada pelo administrador no editor Apps Script, após conferir a titularidade.
-// Esta função não é chamada por doGet/doPost e não existe uma operação pública para aprovar.
+// Compatibilidade para solicitações antigas; novos envios são publicados automaticamente.
 function approvePublicProfile(cnpj) {
   assertAvanteOwner_();
   cnpj = normalizeCnpj_(cnpj);
   if (!validCnpj_(cnpj)) throw new Error("Informe um CNPJ válido.");
-  var ss = getSpreadsheet_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    return publishPendingPublicProfile_(getSpreadsheet_(), cnpj, false);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function publishPendingPublicProfile_(ss, cnpj, automatic) {
   var pendingHeaders = ["Recebido em", "CNPJ", "Nome", "País", "Cidade", "Áreas JSON", "Ofertas JSON", "Descrição", "ID da capa privada", "ID do avatar privado", "Resposta", "Situação", "Produtos JSON"];
   var pending = ensureSheet_(ss, PENDING_PROFILES_SHEET_NAME, pendingHeaders);
   if (pending.getMaxColumns() < pendingHeaders.length) pending.insertColumnsAfter(pending.getMaxColumns(), pendingHeaders.length - pending.getMaxColumns());
@@ -1149,12 +1206,17 @@ function approvePublicProfile(cnpj) {
       }
     });
   }
-  var publicRow = [cnpj, selected[2], selected[3], selected[4], selected[5], selected[6], selected[7], coverUrl, avatarUrl, new Date(), "APROVADO — " + new Date().toISOString(), JSON.stringify(products)];
+  if (profileRow) {
+    coverUrl = coverUrl || String(oldRows[profileRow - 2][7] || "");
+    avatarUrl = avatarUrl || String(oldRows[profileRow - 2][8] || "");
+  }
+  var publicationStatus = automatic ? "APROVADO AUTOMATICAMENTE — " : "APROVADO — ";
+  var publicRow = [cnpj, selected[2], selected[3], selected[4], selected[5], selected[6], selected[7], coverUrl, avatarUrl, new Date(), publicationStatus + new Date().toISOString(), JSON.stringify(products)];
   if (profileRow) profiles.getRange(profileRow, 1, 1, 12).setValues([publicRow]); else profiles.appendRow(publicRow);
   var approvedAt = new Date().toISOString();
   pendingRows.forEach(function(row, index) {
     if (normalizeCnpj_(row[1]) !== cnpj || String(row[11] || "") !== "AGUARDANDO REVISÃO") return;
-    pending.getRange(index + 2, 12).setValue(index + 2 === selectedRow ? "APROVADO — " + approvedAt : "SUBSTITUÍDO — " + approvedAt);
+    pending.getRange(index + 2, 12).setValue(index + 2 === selectedRow ? publicationStatus + approvedAt : "SUBSTITUÍDO — " + approvedAt);
   });
   return "Perfil publicado para CNPJ " + cnpj + ".";
 }

@@ -29,7 +29,9 @@ como parte de uma publicação de código.
 ## Dados e credenciais
 
 Respostas completas, relações comerciais, CPF, contas e hashes são privados.
-Preserve autenticação, consentimentos e revisão administrativa para publicação de perfis.
+Preserve autenticação, consentimento explícito e vínculo do perfil à conta criadora.
+Perfis públicos são publicados automaticamente; não exigem aprovação administrativa.
+A publicação não certifica titularidade do CNPJ nem divulga respostas e relações privadas.
 A IA sugere alterações em dados; não publica nem corrige cadastros automaticamente.
 Use Script Properties para chaves do aplicativo. Nunca grave `.clasprc.json`, tokens,
 senhas ou conteúdo de planilhas no Git. A credencial de implantação existe apenas no

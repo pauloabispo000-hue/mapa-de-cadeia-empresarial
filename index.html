@@ -3054,7 +3054,7 @@ function buildExportObject(){
   var rels = buildRelationships();
   return {
     meta: state.meta,
-    publicProfile:{consent:state.meta.sharePublicProfile===true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||""},
+    publicProfile:{consent:state.meta.sharePublicProfile===true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||"",products:state.business.profileProducts},
     answers: state.answers,
     business: state.business,
     suppliers: state.fornecedores,
@@ -3220,6 +3220,7 @@ function renderPublicCompanyProfile(root,result){
   identity.appendChild(avatar);
   identity.appendChild(h("div",{class:"company-profile-summary"},[h("h1",{},[profile.name]),h("p",{class:"company-profile-meta"},[[profile.city,profile.country].filter(Boolean).join(" · "),profile.areas.join(" · ")].filter(Boolean).join(" — ")),h("p",{class:"company-profile-description"},[profile.description||"Conheça os produtos e serviços desta empresa."])]));
   root.appendChild(identity);
+  root.appendChild(h("p",{class:"company-profile-meta"},["Perfil autodeclarado. A publicação não comprova titularidade do CNPJ."]));
   var tabs=h("nav",{class:"company-profile-tabs","aria-label":"Seções do perfil público"}),panel=h("div",{});
   var aboutTab=h("button",{type:"button",class:"active"},["Sobre"]),productsTab=h("button",{type:"button"},["Produtos ("+(profile.products||[]).length+")"]);
   function showTab(which){var isProducts=which==="products";aboutTab.classList.toggle("active",!isProducts);productsTab.classList.toggle("active",isProducts);panel.innerHTML="";
@@ -3262,7 +3263,7 @@ function renderRevisao(container){
     var box = h("div",{class:"success-box"});
     box.appendChild(h("h2",{},["Respostas enviadas ✓"]));
     box.appendChild(h("p",{},["Obrigado! Suas respostas foram registradas em "+new Date(state.meta.submittedAt).toLocaleString("pt-BR")+" e enviadas para a planilha central. Você ainda pode baixar uma cópia dos dados abaixo."]));
-    if(state.meta.sharePublicProfile){box.appendChild(h("p",{class:"question-help"},["Sua solicitação de perfil público foi recebida. Ela só será publicada após conferência manual da titularidade do CNPJ pela administração do Avante."]));var submittedCnpj=normalizarCNPJ(state.business.cnpj);if(/^[0-9A-Z]{12}[0-9]{2}$/.test(submittedCnpj))box.appendChild(h("p",{class:"question-help"},["Depois da aprovação, o endereço será: "+location.origin+location.pathname+"?perfil="+submittedCnpj]));}
+    if(state.meta.sharePublicProfile){box.appendChild(h("p",{class:"question-help"},["Seu perfil público foi publicado. Você pode atualizá-lo pela conta que o criou."]));var submittedCnpj=normalizarCNPJ(state.business.cnpj);if(/^[0-9A-Z]{12}[0-9]{2}$/.test(submittedCnpj))box.appendChild(h("p",{class:"question-help"},["Endereço do perfil: "+location.origin+location.pathname+"?perfil="+submittedCnpj]));}
     var exp = h("div",{class:"export-row"});
     exp.appendChild(h("button",{class:"btn-outline", type:"button", onclick:function(){
       downloadFile("mapeamento_"+(state.business.nome||"negocio").replace(/\s+/g,"_")+".json", JSON.stringify(buildExportObject(),null,2), "application/json");
@@ -3724,18 +3725,18 @@ function renderProfileEditor(root,activeTab){
     catalog.appendChild(h("button",{type:"button",class:"platform-action secondary",onclick:function(){if(state.business.profileProducts.length>=40){window.alert("O catálogo aceita até 40 produtos.");return;}state.business.profileProducts.push({sku:"",name:"",description:"",imageData:"",imageUrl:""});state.business.profileProductsDraftFor=cnpj;saveState();renderProgramSection();}},["＋ Adicionar produto"]));
     page.appendChild(catalog);
   }
-  var consentCard=h("div",{class:"platform-card"}),consent=h("label",{style:"display:flex;gap:9px;align-items:flex-start;"}),check=h("input",{type:"checkbox"});check.checked=!!state.meta.sharePublicProfile;check.addEventListener("change",function(){state.meta.sharePublicProfile=check.checked;saveState();});consent.appendChild(check);consent.appendChild(document.createTextNode("Autorizo a exibição pública do perfil e dos produtos após validação da titularidade do CNPJ."));consentCard.appendChild(consent);
+  var consentCard=h("div",{class:"platform-card"}),consent=h("label",{style:"display:flex;gap:9px;align-items:flex-start;"}),check=h("input",{type:"checkbox"});check.checked=!!state.meta.sharePublicProfile;check.addEventListener("change",function(){state.meta.sharePublicProfile=check.checked;saveState();});consent.appendChild(check);consent.appendChild(document.createTextNode("Autorizo a publicação imediata do perfil, das imagens e dos produtos."));consentCard.appendChild(consent);
   var save=h("button",{class:"platform-action",type:"button",style:"margin-top:16px;",onclick:function(){
     if(profileProductsLoadingFor===cnpj){window.alert("Aguarde o carregamento do catálogo antes de enviar.");return;}
     if(description)state.business.profileDescription=description.value;state.meta.profileDraftUpdatedAt=new Date().toISOString();saveState();
     if(check.checked&&isAppsScriptApp()&&authSession&&authSession.token){
-      save.disabled=true;save.textContent="Enviando para revisão…";
+      save.disabled=true;save.textContent="Publicando…";
       var publicDescription=(description&&description.value)||state.business.profileDescription||state.business.produtoDetalhe||state.answers.produtos||"";
-      google.script.run.withSuccessHandler(function(result){save.disabled=false;save.textContent="Enviar para validação";if(!result||!result.ok){window.alert(result&&result.error||"Não foi possível solicitar a revisão.");return;}window.alert(result.message||"Perfil e catálogo enviados para revisão.");showProgramSection("overview");}).withFailureHandler(function(error){save.disabled=false;save.textContent="Enviar para validação";window.alert(error&&error.message||"Falha ao enviar o perfil para revisão.");}).submitAvantePublicProfile(authSession.token,{business:{nome:name,cnpj:cnpj,pais:state.business.pais||"Brasil",cidade:state.business.cidade||"",areaNecessidade:state.business.areaNecessidade||"",produtoDetalhe:publicDescription,produtoCategorias:state.business.produtoCategorias||[]},answers:state.answers,publicProfile:{consent:true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||"",products:state.business.profileProducts||[]}});
+      google.script.run.withSuccessHandler(function(result){save.disabled=false;save.textContent="Publicar perfil";if(!result||!result.ok){window.alert(result&&result.error||"Não foi possível publicar o perfil.");return;}window.alert(result.message||"Perfil e catálogo publicados.");showProgramSection("overview");}).withFailureHandler(function(error){save.disabled=false;save.textContent="Publicar perfil";window.alert(error&&error.message||"Falha ao publicar o perfil.");}).submitAvantePublicProfile(authSession.token,{business:{nome:name,cnpj:cnpj,pais:state.business.pais||"Brasil",cidade:state.business.cidade||"",areaNecessidade:state.business.areaNecessidade||"",produtoDetalhe:publicDescription,produtoCategorias:state.business.produtoCategorias||[]},answers:state.answers,publicProfile:{consent:true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||"",products:state.business.profileProducts||[]}});
       return;
     }
-    window.alert(check.checked?"Para publicar o perfil e o catálogo, entre na versão oficial da plataforma.":"Ative a autorização de exibição pública para enviar o catálogo para validação.");
-  }},["Enviar para validação"]);
+    window.alert(check.checked?"Para publicar o perfil e o catálogo, entre na versão oficial da plataforma.":"Ative a autorização de exibição pública para publicar o perfil e o catálogo.");
+  }},["Publicar perfil"]);
   consentCard.appendChild(save);page.appendChild(consentCard);root.appendChild(page);
 }
 
@@ -4457,7 +4458,7 @@ function renderConversationReview(container){
       ]));
     });
     if(surveyMode!=="settings") { var disclosure=h("div",{class:"conditional show",style:"margin-top:18px;"},[
-      h("p",{style:"margin:0;font-size:13px;"},["Suas respostas ajudam a atualizar os indicadores e a encontrar conexões entre fornecedores e clientes. Para evitar cadastros falsos, nomes e CNPJs informados não entram automaticamente no diretório público; os perfis empresariais passam por validação manual."])
+      h("p",{style:"margin:0;font-size:13px;"},["Suas respostas ajudam a atualizar os indicadores e a encontrar conexões entre fornecedores e clientes. Com sua autorização, o perfil empresarial é publicado automaticamente e fica vinculado à sua conta. As respostas completas e relações comerciais continuam privadas. O perfil não comprova titularidade do CNPJ."])
     ]);
     container.appendChild(disclosure); }
     if(sharedNetwork){
