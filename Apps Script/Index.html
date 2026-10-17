@@ -520,7 +520,7 @@
   .journey-mission{border:1px solid #E3E8F2;border-radius:11px;background:#FAFBFF;padding:12px;min-height:90px;}
   .journey-mission.done{background:#EEF4FF;border-color:#C8D5FF;}
   .journey-mission strong{display:flex;align-items:center;gap:7px;color:#24314E;font-size:12px;}
-  .journey-mission p{margin:5px 0 0 24px;color:#65718B;font-size:11px;line-height:1.4;}
+  .journey-mission p{margin:5px 0 0 24px;color:var(--ink-soft, #65718B);font-size:11px;line-height:1.4;}
   .journey-check{width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center;border-radius:50%;background:#E9EDF7;color:#64708A;font-size:11px;font-weight:800;}
   .journey-mission.done .journey-check{background:#2D55E8;color:#fff;}
   .journey-scales{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px;}
@@ -648,8 +648,8 @@
   .platform-area-row{border-color:#E4E6EB;border-radius:8px;color:#1C1E21;}
   .platform-area-row:hover,.platform-area-row.active{background:#E7F3FF;border-color:#BBD7F5;}
   .platform-area-number{background:#E4E6EB;color:#4B4F56;}
-  .scale-switcher{background:#242526;border-color:#3E4042}.scale-switcher button{color:#E4E6EB}.scale-switcher .scale-current{background:#3A3B3C;color:#2D8CFF}.scale-description{color:#B0B3B8}.platform-scale-cell{fill:#3A3B3C;stroke:#6B7280}.platform-scale-cell.active{fill:#0866FF;stroke:#075CE5}.platform-scale-cell-text{fill:#E4E6EB}.scale-capacity{color:#B0B3B8}
-  .area-solution-company{border-color:#3E4042;color:#DADDE1}.area-solution-company strong{color:#E4E6EB}.area-solution-company span{color:#B0B3B8}
+html[data-theme="dark"] .scale-switcher{background:#242526;border-color:#3E4042}html[data-theme="dark"] .scale-switcher button{color:#E4E6EB}html[data-theme="dark"] .scale-switcher .scale-current{background:#3A3B3C;color:#2D8CFF}html[data-theme="dark"] .scale-description{color:#B0B3B8}html[data-theme="dark"] .platform-scale-cell{fill:#3A3B3C;stroke:#6B7280}html[data-theme="dark"] .platform-scale-cell.active{fill:#0866FF;stroke:#075CE5}html[data-theme="dark"] .platform-scale-cell-text{fill:#E4E6EB}html[data-theme="dark"] .scale-capacity{color:#B0B3B8}
+html[data-theme="dark"] .area-solution-company{border-color:#3E4042;color:#DADDE1}html[data-theme="dark"] .area-solution-company strong{color:#E4E6EB}html[data-theme="dark"] .area-solution-company span{color:#B0B3B8}
   .platform-area-node.has-data polygon{fill:#0866FF;stroke:#075CE5;}
   .platform-link.confirmed{stroke:#0866FF;}
   .platform-note{background:#FFFDE1;border-radius:4px 8px 8px 4px;}
@@ -828,6 +828,51 @@
   html[data-theme="dark"] .password-dialog h2,html[data-theme="dark"] .password-dialog p{color:#E4E6EB;}
   html[data-theme="dark"] #passwordChangeCancel{background:#3A3B3C;color:#E4E6EB;}
   html[data-theme="dark"] .ai-search-result,html[data-theme="dark"] .ai-assistant-status{color:#E4E6EB;}
+  /* Pares de texto/superfície compartilhados por todas as telas e estados. */
+  html[data-theme="dark"],html[data-theme="dark"] #surveyWizard{
+    --ui-text:#E4E6EB;--ui-muted:#B0B3B8;--ui-link:#A8C7FA;
+    --ui-surface:#242526;--ui-raised:#303132;--ui-border:#62666A;
+    --ui-danger:#FFB4AB;--ui-success:#9BDEAC;--ui-warning:#FFD27A;
+    --ink:var(--ui-text);--ink-soft:var(--ui-muted);
+    --paper:var(--ui-surface);--paper-2:var(--ui-raised);--paper-3:#3A3B3C;
+    --teal:#8AB4F8;--teal-dark:#C3D6FF;--teal-soft:#263951;
+    --amber-dark:var(--ui-warning);--amber-soft:#3B3520;
+    --line:var(--ui-border);--good:var(--ui-success);--danger:var(--ui-danger);
+  }
+  html[data-theme="dark"] :is(h1,h2,h3,h4,h5,h6,label,legend){color:var(--ui-text);}
+  html[data-theme="dark"] :is(a,.auth-secondary,.auth-brand,.platform-brand strong,.platform-mark,.marketplace-eyebrow,.platform-stat strong,.scale-current){color:var(--ui-link);}
+  html[data-theme="dark"] :is(.auth-field,.ai-assistant-field,.ai-assistant-consent,.company-profile-fact strong,.company-profile-about h3,.company-profile-summary h1,.journey-mission strong,.journey-scale strong,.survey-heading strong){color:var(--ui-text);}
+  html[data-theme="dark"] :is(.auth-card>p,.person-profile-cpf,.person-profile-type,.company-profile-fact span,.company-profile-meta,.company-profile-description,.public-profile-cnpj,.public-profile-footer,.profile-product-sku,.profile-products-empty,.marketplace-image-placeholder,.geo-test-status,.geo-nearest-item small,.geo-data-note,.scale-description,.scale-capacity,.journey-scale,.connection-journey-head p,.journey-mission p,.workforce-callout p,.theme-mode-control span){color:var(--ui-muted);}
+  /* O cabeçalho tem superfície escura também no tema claro. */
+  .platform-brand small{color:#B0B3B8;}
+  html[data-theme="dark"] :is(.hero-card,.area-card,.grouped-section,.workforce-callout,.journey-scale,.ai-search-shell,.profile-product-card,.public-profile-consent){background:var(--ui-surface);color:var(--ui-text);border-color:var(--ui-border);}
+  html[data-theme="dark"] :is(.area-card.selected,.grouped-summary-num,.platform-hero-symbol,.geo-test-empty,.geo-test-controls button,.profile-product-editor,.profile-section-switch button,.company-profile-offer,.business-settings-select,.business-settings-readonly,.theme-mode-button){background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-border);}
+  html[data-theme="dark"] :is(.grouped-section,.review-section,.review-row,.nav-buttons,.company-profile-identity,.company-profile-tabs,.theme-mode-control,.business-settings-editor){border-color:var(--ui-border);}
+  html[data-theme="dark"] .company-profile-avatar{border-color:var(--ui-surface);}
+  html[data-theme="dark"] :is(.company-profile-tabs button,.company-profile-tabs button:hover){background:transparent;color:var(--ui-muted);}
+  html[data-theme="dark"] .company-profile-tabs button:hover{background:var(--ui-raised);color:var(--ui-text);}
+  html[data-theme="dark"] :is(.company-profile-tabs button.active,.survey-heading .settings-home-link,.scale-switcher .scale-current){color:var(--ui-link);}
+  html[data-theme="dark"] :is(.btn-outline,.survey-heading-actions .btn-ghost){background:var(--ui-raised);color:var(--ui-link);border-color:var(--ui-border);}
+  html[data-theme="dark"] :is(.btn-outline:hover,.survey-heading-actions .btn-ghost:hover){background:#3A3B3C;}
+  html[data-theme="dark"] :is(.btn-primary,.auth-submit,.cnpj-use-btn,.area-num,.profile-section-switch button.active,.geo-test-controls button.active){background:#075CE5;color:#fff;border-color:#075CE5;}
+  html[data-theme="dark"] :is(.btn-primary:hover,.auth-submit:hover,.cnpj-use-btn:hover){background:#064FCA;color:#fff;}
+  html[data-theme="dark"] #surveyWizard .btn-primary{background:#075CE5;color:#fff;border-color:#075CE5;}
+  html[data-theme="dark"] #surveyWizard .radio-row .chip.checked{background:#F4EA39;color:#252900;border-color:#F4EA39;}
+  html[data-theme="dark"] #surveyWizard .chip:not(.checked){background:var(--ui-raised);color:var(--ui-text);}
+  html[data-theme="dark"] .area-card.selected .area-num{background:#F4EA39;color:#252900;}
+  html[data-theme="dark"] :is(.auth-demo-note,.platform-note){background:#3B3520;color:#F0E6C8;border-color:var(--ui-warning);}
+  html[data-theme="dark"] :is(.tag-cadeia,.tag-oferta-servico,.company-profile-offer){background:#263951;color:#C3D6FF;}
+  html[data-theme="dark"] :is(.tag-complementar,.tag-oferta-produto){background:#3B3520;color:#FFD27A;}
+  html[data-theme="dark"] :is(.tag-indicacao,.tag-hibrida){background:#38304D;color:#DDD0FF;}
+  html[data-theme="dark"] .tag-parceria{background:#213D2D;color:#9BDEAC;}
+  html[data-theme="dark"] :is(.auth-error,.error-msg,.cnpj-status-erro,.remove-btn){color:var(--ui-danger);}
+  html[data-theme="dark"] :is(.success-box,.cnpj-status-ok){background:#213D2D;color:var(--ui-success);border-color:var(--ui-success);}
+  html[data-theme="dark"] .success-box :is(h2,p){color:var(--ui-success);}
+  html[data-theme="dark"] pre.jsonpreview{background:#141B25;color:#CFE3DF;border-color:var(--ui-border);}
+  html[data-theme="dark"] :is(.journey-progress,.workforce-bar){background:#3A3B3C;}
+  html[data-theme="dark"] .ai-search-result :is(h2,h3){color:var(--ui-text);}
+  html[data-theme="dark"] .ai-search-result a{color:var(--ui-link);}
+  html[data-theme="dark"] :is(button,a,summary):focus-visible{outline:2px solid #A8C7FA;outline-offset:3px;}
 </style>
 </head>
 <body>
@@ -1646,13 +1691,13 @@ function submitAvantePasswordChange(){
   var message=document.getElementById("passwordChangeMessage");
   if(next!==confirm){message.textContent="As senhas novas não coincidem.";return;}
   if(!authSession||!isAppsScriptApp()){message.textContent="Sua sessão expirou. Entre novamente.";return;}
-  message.style.color="#65676B";message.textContent="Atualizando senha…";
+  message.style.color="var(--ink-soft, #65676B)";message.textContent="Atualizando senha…";
   google.script.run.withSuccessHandler(function(result){
-    if(!result||!result.ok){message.style.color="#B42318";message.textContent=result&&result.error||"Não foi possível alterar a senha.";return;}
+    if(!result||!result.ok){message.style.color="var(--danger, #B42318)";message.textContent=result&&result.error||"Não foi possível alterar a senha.";return;}
     enterAvanteSession({username:result.username,token:result.token});
     document.getElementById("passwordChangeForm").reset();
     document.getElementById("passwordChangeDialog").close();
-  }).withFailureHandler(function(){message.style.color="#B42318";message.textContent="Falha ao atualizar a senha. Tente novamente.";}).changeAvantePassword(authSession.token,current,next);
+  }).withFailureHandler(function(){message.style.color="var(--danger, #B42318)";message.textContent="Falha ao atualizar a senha. Tente novamente.";}).changeAvantePassword(authSession.token,current,next);
 }
 function loadState(){
   try{
@@ -3266,7 +3311,7 @@ function renderPublicCompanyProfile(root,result){
   var avatar=h("div",{class:"company-profile-avatar public-avatar"});
   if(profile.avatarUrl){var img=h("img",{src:profile.avatarUrl,alt:"Logotipo de "+profile.name});avatar.appendChild(img);}else avatar.appendChild(h("span",{class:"company-avatar-letter"},[Array.from(profile.name||"A")[0]||"A"]));
   identity.appendChild(avatar);
-  identity.appendChild(h("div",{class:"company-profile-summary"},[h("h1",{},[profile.name]),h("p",{class:"company-profile-meta"},[[profile.city,profile.country].filter(Boolean).join(" · "),profile.areas.join(" · ")].filter(Boolean).join(" — ")),h("p",{class:"company-profile-description"},[profile.description||"Conheça os produtos e serviços desta empresa."])]));
+  identity.appendChild(h("div",{class:"company-profile-summary"},[h("h1",{},[profile.name]),h("p",{class:"company-profile-meta"},[[[profile.city,profile.country].filter(Boolean).join(" · "),profile.areas.join(" · ")].filter(Boolean).join(" — ")]),h("p",{class:"company-profile-description"},[profile.description||"Conheça os produtos e serviços desta empresa."])]));
   root.appendChild(identity);
   root.appendChild(h("p",{class:"company-profile-meta"},["Perfil autodeclarado. A publicação não comprova titularidade do CNPJ."]));
   var tabs=h("nav",{class:"company-profile-tabs","aria-label":"Seções do perfil público"}),panel=h("div",{});
@@ -3330,13 +3375,13 @@ function renderRevisao(container){
   container.appendChild(sectionTitle("Revisão final","Confira suas respostas antes de enviar. É possível voltar e editar qualquer etapa."));
 
   if(state.meta.sendStatus==="sending"){
-    container.appendChild(h("div",{class:"conditional show", style:"border-left-color:#0E5450;background:#EAF2EF;"},[
+    container.appendChild(h("div",{class:"conditional show", style:"border-left-color:var(--good);background:var(--paper-2);"},[
       h("p",{style:"margin:0;font-size:13.5px;"},["Enviando suas respostas para a planilha central…"])
     ]));
   }
   if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown"){
-    container.appendChild(h("div",{class:"conditional show", style:"border-left-color:#A5432F;background:#FBEAE5;"},[
-      h("p",{style:"margin:0;font-size:13.5px;color:#A5432F;"},[state.meta.sendError])
+    container.appendChild(h("div",{class:"conditional show", style:"border-left-color:var(--danger);background:var(--paper-2);"},[
+      h("p",{style:"margin:0;font-size:13.5px;color:var(--danger);"},[state.meta.sendError])
     ]));
   }
 
@@ -3873,7 +3918,7 @@ function renderConnectionJourney(){
       h("h2",{id:"connectionJourneyTitle"},["Missões de conexão"]),
       h("p",{},["Cada passo aproxima quem compra, vende e fornece. Comece pelas relações reais do seu negócio e amplie o alcance quando isso for viável. O foco é utilidade e reciprocidade, não quantidade de cadastros."])
     ]),
-    h("strong",{style:"color:#1D347B;font-size:13px;white-space:nowrap;"},[completed+" de "+missions.length+" etapas"])
+    h("strong",{style:"color:var(--ink, #1D347B);font-size:13px;white-space:nowrap;"},[completed+" de "+missions.length+" etapas"])
   ]));
   var progress=h("div",{class:"journey-progress",role:"progressbar","aria-label":"Progresso das missões de conexão","aria-valuemin":"0","aria-valuemax":String(missions.length),"aria-valuenow":String(completed)});
   progress.appendChild(h("span",{style:"width:"+(completed/missions.length*100)+"%;"}));
@@ -3906,7 +3951,7 @@ function renderConnectionJourney(){
     scopes.appendChild(h("span",{class:"journey-scale"},[item[0]+" · ",h("strong",{},[String(item[1])])]));
   });
   card.appendChild(scopes);
-  card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta empresas com localização informada. Os vínculos são os que os participantes declararam."]));
+  card.appendChild(h("p",{style:"margin:10px 0 0;color:var(--ink-soft, #65718B);font-size:11px;"},["O alcance conta empresas com localização informada. Os vínculos são os que os participantes declararam."]));
   var journeyAction=isBusinessRegistered()?"Atualizar minhas conexões":(completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro");
   card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[journeyAction]));
   return card;
@@ -5082,7 +5127,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
 document.getElementById("loginModeToggle").addEventListener("click",function(){setAvanteLoginMode(loginMode==="login"?"register":"login");});
 document.getElementById("registrationProfileType").addEventListener("change",updateRegistrationProfileFields);
 document.getElementById("registrationCpf").addEventListener("input",function(){this.value=this.value.replace(/[^\d.-]/g,"").slice(0,14);});
-function openPasswordChangeDialog(){document.getElementById("passwordChangeMessage").textContent="";document.getElementById("passwordChangeMessage").style.color="#B42318";document.getElementById("passwordChangeDialog").showModal();}
+function openPasswordChangeDialog(){document.getElementById("passwordChangeMessage").textContent="";document.getElementById("passwordChangeMessage").style.color="var(--danger, #B42318)";document.getElementById("passwordChangeDialog").showModal();}
 document.getElementById("accountSettingsShortcut").addEventListener("click",function(){showProgramSection("settings");});
 document.getElementById("businessSettingsHome").addEventListener("click",function(){showProgramSection("settings");});
 document.getElementById("adminNotificationsButton").addEventListener("click",function(){var panel=document.getElementById("adminNotificationsPanel"),open=panel.hidden;panel.hidden=!open;this.setAttribute("aria-expanded",open?"true":"false");if(open)refreshAdminNotifications();});
