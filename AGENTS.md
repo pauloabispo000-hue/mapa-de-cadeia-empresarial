@@ -12,3 +12,11 @@
 A continuidade do usuário é pelo ChatGPT/Codex. Consulte `CONTINUAR_NO_CHATGPT.md`.
 Para preparar o ambiente Cloud, consulte `CODEX_CLOUD.md` e execute `bash scripts/cloud-setup.sh` com Node.js 22.
 Ao terminar, informe claramente o resultado, a publicação e qualquer ação pendente do usuário.
+
+## Autonomia na entrega
+
+- Quando o usuário pedir implementar/corrigir e publicar, conclua a integração no main e acompanhe a publicação. Não encerre apenas com uma branch ou pedindo que ele abra/incorpore um PR.
+- Use `npm run release` após registrar a alteração em commit. O comando valida, verifica que origin/main é ancestral do commit, envia HEAD ao main sem force e acompanha o workflow.
+- Se optar por PR e sua criação falhar, registre o erro real (HTTP/mensagem, sem credenciais). Havendo autorização de publicação e permissão de push no main, use o comando acima. Não burle proteção de branch nem altere permissões de segurança.
+- Se a ferramenta/API de PR falhar, não conclua que o Git também está bloqueado. Verifique as capacidades disponíveis. Se faltar acesso de escrita, informe precisamente a operação bloqueada.
+- Uma tarefa que pede somente análise ou PR não autoriza publicar. Não envie credenciais Google ao ambiente Cloud; a publicação continua no GitHub Actions.

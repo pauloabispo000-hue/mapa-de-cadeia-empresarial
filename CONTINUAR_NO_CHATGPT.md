@@ -28,7 +28,7 @@ Documentação oficial: https://learn.chatgpt.com/docs/environments/cloud-enviro
 1. Comece a partir do `main` atualizado e descreva a alteração desejada.
 2. O Codex lê `AGENTS.md`; o guia técnico completo está em `DESENVOLVIMENTO.md`.
 3. Ao terminar a alteração, execute `npm run sync`, `npm run check` e `npm test`.
-4. Faça commit e envie uma branch/PR. Incorpore a alteração em `main` quando desejar publicá-la.
+4. Faça commit. Se o pedido incluir publicar, execute `npm run release`: ele valida, envia o commit ao `main` sem force e acompanha o workflow. Para pedidos somente de revisão, envie uma branch/PR.
 5. Confira o workflow **Mapeador - verificar e publicar** em **Actions**. O resumo
    informa commit, versão e link do aplicativo. Push sozinho não confirma publicação.
 6. Termine a resposta informando o resultado e se o usuário precisa intervir.
@@ -38,8 +38,9 @@ Mensagem sugerida para começar:
 > Trabalhe no repositório pauloabispo000-hue/mapa-de-cadeia-empresarial, a partir de main.
 > Leia AGENTS.md, DESENVOLVIMENTO.md e VISAO_DO_PROGRAMA.md. Faça esta alteração: [descrever].
 > Preserve os recursos atuais e a privacidade. Execute npm run sync, npm run check e npm test.
-> Faça commit, envie uma branch e abra um PR. Informe o resultado e qualquer ação pendente.
-> Quando a tarefa incluir publicar, acompanhe o workflow até confirmar a versão do Apps Script.
+> Faça commit e publique com npm run release. Se a API de PR falhar, use o push normal
+> autorizado ao main, respeitando as proteções da branch. Acompanhe o workflow até
+> confirmar a publicação e informe commit, versão do Apps Script e resultado.
 
 O trabalho em Codex Cloud pode continuar com o Chromebook desligado. Se preferir
 continuar esta sessão local pela ponte, o Chromebook, o Codex e a ponte precisam
@@ -88,3 +89,13 @@ Em 16/10/2026, a base foi alinhada ao código da versão @79 da implantação ex
 consultado pela API do Google. Essa versão inclui recursos que ainda não estavam no
 GitHub, como perfis de pessoas, backups e ajustes de interface. O conteúdo de dados
 e as credenciais do aplicativo não foram copiados.
+
+## Se a API impedir criar um PR
+
+Enviar uma branch, criar um PR e incorporar no main são operações diferentes.
+Guarde o erro HTTP e a mensagem exata, sem tokens. Com autorização para publicar,
+execute `npm run release` no checkout com a alteração commitada. Isso usa a
+credencial Git já disponível e não depende da API de criação de PR.
+Se o push for recusado por proteção de branch ou falta de acesso, não altere
+proteções nem prometa autonomia: informe a operação e a recusa exatas.
+O comando não instala autenticações e não concede permissões à conta Cloud.

@@ -17,7 +17,10 @@ Trabalhe a partir do `main` atualizado. Registre somente os arquivos da tarefa e
 um commit e envie a branch ao GitHub. Uma branch de trabalho/PR não publica em produção.
 Quando a alteração aprovada chegar a `main`, o workflow “Mapeador - verificar e publicar”
 faz a publicação na implantação Apps Script existente e confirma versão, commit e conteúdo.
-Quando a tarefa incluir publicar, acompanhe o workflow até o fim. Informe o commit,
+Quando a tarefa incluir publicar, integre a alteração no main e acompanhe o workflow até o fim.
+Use `npm run release` após o commit para validar, enviar HEAD ao main sem force e
+confirmar o workflow. Se a API de PR estiver indisponível, o push normal é uma alternativa
+para uma publicação autorizada, desde que permitido pelas proteções do repositório. Informe o commit,
 a versão Apps Script e o resultado. Um `git push` bem-sucedido não confirma publicação.
 Não declare publicação concluída se o workflow falhar ou faltar autenticação.
 
