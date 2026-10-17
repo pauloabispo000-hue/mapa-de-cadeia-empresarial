@@ -6,6 +6,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Consultar a implantação sem alterar código ou versão no Google
+        type: boolean
+        default: false
+      expected_revision:
+        description: Commit esperado na implantação (somente consulta)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -23,7 +32,7 @@ jobs:
         run: bash scripts/cloud-setup.sh
 
   publicar:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.verify_only)
     needs: verificar
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -38,9 +47,14 @@ jobs:
       - name: Publicar na implantação existente e conferir versão
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          AVANTE_VERIFY_ONLY: ${{ inputs.verify_only || false }}
+          AVANTE_EXPECTED_REVISION: ${{ inputs.expected_revision }}
         run: npm run deploy
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: mapeador-publicacao-${{ github.sha }}
-          path: deployment-result.json
+          path: |
+            deployment-result.json
+            deployment-error.json
           retention-days: 30

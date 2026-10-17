@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { publish } from '../scripts/deploy.mjs';
+import { publish, verifyDeployment, actionAnnotation } from '../scripts/deploy.mjs';
 import { validateSources } from '../scripts/check.mjs';
 
 const config = { scriptId: 'project', deploymentId: 'existing-deployment' };
@@ -63,4 +63,28 @@ test('commit inválido é rejeitado antes de qualquer chamada ao Google', async 
 test('verificação detecta erro no JavaScript da página antes da publicação', () => {
   const manifest = { runtimeVersion: 'V8', webapp: { executeAs: 'USER_DEPLOYING' }, oauthScopes: [] };
   assert.throws(() => validateSources('function doGet(){} function doPost(){}', '<script>const broken = ;</script>', manifest), SyntaxError);
+});
+
+
+test('consulta somente leitura confirma versão, commit e conteúdo sem gravar no Google', async () => {
+  const calls=[];
+  const api=async(method,path)=>{
+    calls.push({method,path});
+    assert.equal(method,'GET');
+    return path.startsWith('/deployments/')?{deploymentConfig:{scriptId:config.scriptId,description:`GitHub ${revision}`,versionNumber:84}}:{files};
+  };
+  const result=await verifyDeployment({api,files,revision,config});
+  assert.equal(result.version,84);assert.equal(result.verifiedOnly,true);
+  assert.equal(calls.length,2);
+});
+
+test('consulta não confirma versão com commit ou conteúdo divergente', async () => {
+  for (const corrupt of ['commit','content']) {
+    const api=async(method,path)=>path.startsWith('/deployments/')?{deploymentConfig:{scriptId:config.scriptId,description:corrupt==='commit'?'old':`GitHub ${revision}`,versionNumber:84}}:{files:[{...files[0],source:'wrong'}]};
+    await assert.rejects(verifyDeployment({api,files,revision,config}),corrupt==='commit'?/commit não corresponde/:/Versão publicada diverge/);
+  }
+});
+
+test('mensagens multilinha não injetam comandos nas anotações do Actions',()=>{
+  assert.equal(actionAnnotation('Erro 50%\n::notice::texto\r'), 'Erro 50%25%0A::notice::texto%0D');
 });

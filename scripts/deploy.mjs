@@ -9,6 +9,28 @@ export const sourceFiles = [
   ['Index', 'HTML', 'Apps Script/Index.html'],
 ];
 
+export async function verifyDeployment({ api, files, revision, config }) {
+  assert.match(revision, /^[a-f0-9]{40}$/i, 'Commit inválido');
+  const current = await api('GET', `/deployments/${encodeURIComponent(config.deploymentId)}`);
+  const deployed = current.deploymentConfig;
+  assert.equal(deployed.scriptId, config.scriptId, 'A implantação pertence a outro projeto');
+  assert.equal(deployed.description, `GitHub ${revision}`, 'O commit não corresponde à implantação');
+  assert(Number.isInteger(deployed.versionNumber), 'Versão numérica ausente');
+  const content = await api('GET', `/content?versionNumber=${deployed.versionNumber}`);
+  const actual = new Map(content.files.map(file => [file.name, file]));
+  assert.equal(actual.size, files.length, 'Arquivos da versão publicada divergem');
+  for (const file of files) {
+    assert.equal(actual.get(file.name)?.type, file.type, `Tipo divergente: ${file.name}`);
+    assert(actual.get(file.name)?.source === file.source, `Versão publicada diverge: ${file.name}`);
+  }
+  return { commit: revision, version: deployed.versionNumber, verifiedOnly: true,
+    deploymentId: config.deploymentId, url: `https://script.google.com/macros/s/${config.deploymentId}/exec?app=1` };
+}
+
+export function actionAnnotation(message) {
+  return String(message).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+}
+
 export async function publish({ api, files, revision, config }) {
   assert.match(revision, /^[a-f0-9]{40}$/i, 'Commit inválido');
   assert(config.scriptId && config.deploymentId, 'Projeto ou implantação ausente');
@@ -22,7 +44,7 @@ export async function publish({ api, files, revision, config }) {
   assert.equal(actual.size, files.length, 'Quantidade de arquivos enviados diverge');
   for (const file of files) {
     assert.equal(actual.get(file.name)?.type, file.type, `Tipo divergente: ${file.name}`);
-    assert.equal(actual.get(file.name)?.source, file.source, `Conteúdo divergente: ${file.name}`);
+    assert(actual.get(file.name)?.source === file.source, `Conteúdo divergente: ${file.name}`);
   }
   const version = await api('POST', '/versions', { description });
   assert(Number.isInteger(version.versionNumber), 'Versão não foi criada');
@@ -38,7 +60,7 @@ export async function publish({ api, files, revision, config }) {
   const deployed = await api('GET', `/content?versionNumber=${version.versionNumber}`);
   const verifiedFiles = new Map(deployed.files.map(f => [f.name, f]));
   assert.equal(verifiedFiles.size, files.length, 'Arquivos da versão publicada divergem');
-  for (const file of files) assert.equal(verifiedFiles.get(file.name)?.source, file.source, `Versão publicada diverge: ${file.name}`);
+  for (const file of files) assert(verifiedFiles.get(file.name)?.source === file.source, `Versão publicada diverge: ${file.name}`);
   return { commit: revision, version: version.versionNumber, previousVersion,
     deploymentId: config.deploymentId, url: `https://script.google.com/macros/s/${config.deploymentId}/exec?app=1` };
 }
@@ -47,8 +69,9 @@ async function main() {
   checkProject();
   const config = JSON.parse(readFileSync('config/apps-script.json', 'utf8'));
   const files = sourceFiles.map(([name, type, path]) => ({ name, type, source: readFileSync(path, 'utf8') }));
-  const revision = process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  if (process.env.GITHUB_ACTIONS === 'true') assert.equal(process.env.GITHUB_REF, 'refs/heads/main', 'Publicação permitida somente a partir de main');
+  const verifyOnly = process.env.AVANTE_VERIFY_ONLY === 'true';
+  const revision = (verifyOnly && process.env.AVANTE_EXPECTED_REVISION) || process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (process.env.GITHUB_ACTIONS === 'true' && !verifyOnly) assert.equal(process.env.GITHUB_REF, 'refs/heads/main', 'Publicação permitida somente a partir de main');
   assert(process.env.CLASPRC_JSON, 'Configure o secret CLASPRC_JSON no GitHub Actions');
   const credentials = JSON.parse(process.env.CLASPRC_JSON);
   const token = credentials.tokens?.default;
@@ -68,9 +91,16 @@ async function main() {
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (!response.ok) throw new Error(`Apps Script: ${method} ${path} falhou (HTTP ${response.status}). Consulte o acesso ao projeto e a API habilitada.`);
-    return response.json();
+    const data = await response.json();
+    if (method === 'GET' && path.startsWith('/deployments/') && data.deploymentConfig) {
+      const deployed = data.deploymentConfig;
+      const commit = /^GitHub ([a-f0-9]{40})$/i.exec(deployed.description || '')?.[1] || 'não identificado';
+      console.log(`::notice title=Implantação observada::Versão @${Number(deployed.versionNumber)}, commit ${commit}`);
+    }
+    return data;
   };
-  const result = await publish({ api, files, revision, config });
+  const result = await (verifyOnly ? verifyDeployment : publish)({ api, files, revision, config });
+  console.log(`::notice title=Implantação confirmada::Commit ${result.commit}, versão @${result.version}, somente leitura: ${verifyOnly}`);
   writeFileSync('deployment-result.json', JSON.stringify(result, null, 2) + '\n');
   console.log(`Publicado commit ${result.commit}, versão @${result.version}, implantação existente preservada.`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
@@ -78,5 +108,11 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
-  main().catch(error => { console.error(error.message); process.exitCode = 1; });
+  main().catch(error => {
+    const message = error.message;
+    console.error(message);
+    console.log(`::error title=Falha na publicação ou verificação::${actionAnnotation(message)}`);
+    writeFileSync('deployment-error.json', JSON.stringify({ message, commit: process.env.GITHUB_SHA || null }, null, 2) + '\n');
+    process.exitCode = 1;
+  });
 }
