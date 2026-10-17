@@ -98,6 +98,7 @@ test('busca de fornecedores e de compradores tem perguntas consecutivas e campos
   const ctx=vm.createContext({surveyMode:'research',state:{answers:{}},PAISES_OPTS:[],ESTADOS_OPTS:[],PERFIL_CLIENTES_OPTS:[],CATEGORIA_INSUMOS_OPTS:[],SEGMENTOS_OPTS:[]});
   vm.runInContext(questionsCode,ctx);
   const questions=ctx.activeConversationQuestions(), index=questions.findIndex(q=>q.key==='fornecedoresBuscados');
+  assert.equal(questions[index-1].key,'revendeProdutos');
   assert.equal(questions[index].prompt,'Que tipo de negócio você busca como fornecedor?');
   assert.equal(questions[index+1].prompt,'Que tipo de negócio você busca para se tornar um fornecedor dele?');
   assert.equal(questions[index+1].key,'clientesBuscados');
