@@ -86,7 +86,7 @@ test('pesquisa usa a pergunta exata e só pede os produtos/fontes após Sim',()=
   vm.runInContext(questionsCode,ctx);
   let q=ctx.activeConversationQuestions();
   assert(q.some(q=>q.prompt==='Você revende algum produto comprado de fornecedores?'));
-  assert(!ctx.conversationQuestions.some(q=>/O que essas empresas compram ou usam do seu negócio|Quais empresas compram de você|Como essas empresas usam ou revendem seus produtos ou serviços/.test(q.prompt)));
+  assert(!ctx.conversationQuestions.some(q=>/O que essas empresas compram ou usam do seu negócio|Quais empresas compram de você|Como essas empresas usam ou revendem seus produtos ou serviços|Que outros tipos de negócio seus clientes também costumam procurar/.test(q.prompt)));
   assert(!q.some(q=>['clientesSelecionados','categoriasClientes','usoOferta','revendaFornecedores'].includes(q.key)));
   ctx.state.answers.revendeProdutos='Sim';q=ctx.activeConversationQuestions();assert(q.some(q=>q.key==='revendaFornecedores'));
   ctx.state.answers.revendeProdutos='Não';assert(!ctx.activeConversationQuestions().some(q=>q.key==='revendaFornecedores'));
