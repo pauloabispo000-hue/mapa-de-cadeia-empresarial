@@ -94,3 +94,15 @@ CNPJ. Em `opportunities`, cada direção separa categorias e empresas com nome/C
 As respostas da antiga pergunta ampla (`oportunidadeSelecionada`) são preservadas
 sem atribuir automaticamente uma direção comercial. As intenções não confirmam
 relações comerciais e permanecem privadas.
+
+## Diagnóstico de publicação
+
+O workflow aceita `verify_only=true` e `expected_revision` para conferir a versão
+atual por operações GET, sem enviar código nem criar versão ou atualizar a
+implantação. A consulta confere projeto, commit e conteúdo dos arquivos. A
+credencial Google continua exclusivamente no Secret do GitHub Actions.
+
+Versão observada e confirmação ficam nas anotações do job, acessíveis pela API de
+check-runs, mesmo quando o proxy bloqueia o download dos logs. Falhas também geram
+anotação e `deployment-error.json`; o upload dos artefatos roda com `always()`.
+Uma consulta bem-sucedida não muda a conclusão histórica de um workflow anterior.
