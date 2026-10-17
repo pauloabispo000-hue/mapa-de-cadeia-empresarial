@@ -60,3 +60,17 @@ uma inferência em oferta confirmada. Trocar o tipo não deve apagar respostas a
 Valide as regras com `npm test`. O teste de interface opcional é
 `python tests/supplier-options.browser.py`, com Playwright para Python e Chromium;
 ele usa dados fictícios e bloqueia todas as chamadas externas.
+
+## Revenda e identificação de clientes
+
+A pesquisa pergunta “Você revende algum produto comprado de fornecedores?”.
+Somente “Sim” abre a seleção dos produtos já comprados e dos fornecedores. Não
+pergunte quem compra da empresa nem o que esses compradores usam. Preserve os
+dados legados, sem utilizá-los para criar novos clientes identificados.
+
+A consulta autenticada identifica compradores pelo CNPJ do fornecedor, finalidade
+de revenda e mesmo produto no catálogo da compradora. Exige consentimento
+específico para compartilhar nome, CNPJ e produtos com a conta do fornecedor; a
+relação permanece privada e identificada como declaração da compradora, sem
+confirmação do fornecedor. A declaração/edição mais recente pode revogar esse
+compartilhamento. A consulta não modifica planilhas nem perfis.

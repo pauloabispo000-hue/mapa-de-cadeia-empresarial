@@ -27,5 +27,20 @@ with sync_playwright() as p:
  assert page.locator('.supplier-purchases-card .combo-multi .combo-option').all_text_contents()==['Ajuste de roupas sob medida']
  page.locator('.supplier-purchases-card .combo-multi .combo-search').fill('Sistemas de alarme e câmeras')
  assert page.locator('.supplier-purchases-card .combo-multi .combo-option').count()==0
+ run("state.answers.revendeProdutos='Sim';state.business.ofertas=[{nome:'Produto fictício'}];state.fornecedores.lista[0].categorias=['Produto fictício'];window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
+ assert page.locator('#platformContent input[type=checkbox]').count()==2
+ assert page.locator('#platformContent input[type=checkbox]:checked').count()==0
+ page.locator('#platformContent label').filter(has_text='Revendo: Produto fictício').click()
+ page.locator('#platformContent label').filter(has_text='Autorizo informar').click()
+ assert run("state.fornecedores.lista[0].purchasePurposes['Produto fictício']")=='revenda'
+ assert run("state.fornecedores.lista[0].shareResaleWithSupplier") is True
+ run("window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
+ assert page.locator('#platformContent input[type=checkbox]:checked').count()==2
+ page.locator('#platformContent label').filter(has_text='Autorizo informar').click()
+ assert run("state.fornecedores.lista[0].shareResaleWithSupplier") is False
+ assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is True
+ run("state.answers.revendeProdutos='Não'")
+ assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is False
+ print('Navegador: revenda, consentimento e condição Sim/Não aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')
  b.close()

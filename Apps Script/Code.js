@@ -539,6 +539,80 @@ function getAvantePublicProducts(token, cnpj) {
   return profile.ok ? { ok: true, products: profile.profile.products || [] } : { ok: true, products: [] };
 }
 
+/** Compartilha somente a declaração de revenda consentida pela própria compradora. */
+function resaleProductsForSupplier_(payload, supplierCnpj) {
+  var answers = payload.answers || {}, business = payload.business || {};
+  if (answers.revendeProdutos !== "Sim") return [];
+  var offers = Object.create(null), products = [];
+  (Array.isArray(business.ofertas) ? business.ofertas : []).forEach(function(offer) {
+    var name = String(offer && offer.nome || "").trim();
+    if (name) offers[normalize_(name)] = true;
+  });
+  var suppliers = payload.suppliers && Array.isArray(payload.suppliers.lista) ? payload.suppliers.lista : [];
+  suppliers.forEach(function(supplier) {
+    if (normalizeCnpj_(supplier.cnpj) !== supplierCnpj || supplier.shareResaleWithSupplier !== true) return;
+    var purposes = supplier.purchasePurposes || {};
+    (Array.isArray(supplier.categorias) ? supplier.categorias : []).forEach(function(product) {
+      var name = String(product || "").trim();
+      if (purposes[name] === "revenda" && offers[normalize_(name)] && products.indexOf(name) < 0) products.push(name);
+    });
+  });
+  return products;
+}
+
+/** Consulta privada: clientes são identificados pela declaração da compradora, não por indicação do vendedor. */
+function getAvanteResaleCustomers(token, cnpj) {
+  var account = getAvanteSessionUser_(String(token || ""));
+  if (!account) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
+  cnpj = normalizeCnpj_(cnpj);
+  if (!validCnpj_(cnpj)) return { ok: false, error: "Informe o CNPJ do seu negócio para consultar seus clientes revendedores." };
+  var ss = getSpreadsheet_(), owners = Object.create(null), snapshots = Object.create(null);
+  var bindings = ss.getSheetByName(PROFILE_ACCOUNTS_SHEET_NAME);
+  var boundRows = bindings && bindings.getLastRow() > 1 ? bindings.getRange(2, 1, bindings.getLastRow() - 1, 2).getValues() : [];
+  boundRows.forEach(function(row) {
+    var key = normalizeCnpj_(row[0]);
+    if (key && row[1] && !owners[key]) owners[key] = String(row[1]).toLowerCase();
+  });
+  var responses = ss.getSheetByName(RESPONSE_SHEET_NAME);
+  var rows = responses && responses.getLastRow() > 1 ? responses.getRange(2, 1, responses.getLastRow() - 1, 8).getValues() : [];
+  rows.forEach(function(row) {
+    var buyerCnpj = normalizeCnpj_(row[3]), author = String(row[7] || "").toLowerCase(), payload;
+    if (!validCnpj_(buyerCnpj) || !author) return;
+    try { payload = JSON.parse(String(row[6] || "{}")); } catch (ignored) { return; }
+    if (normalizeCnpj_((payload.business || {}).cnpj) !== buyerCnpj) return;
+    // Na ausência de vínculo público, preserva a conta da primeira resposta autenticada.
+    if (!owners[buyerCnpj]) owners[buyerCnpj] = author;
+    if (owners[buyerCnpj] !== author) return;
+    var received = new Date(row[0]).getTime() || 0;
+    if (!snapshots[buyerCnpj] || received >= snapshots[buyerCnpj].date) snapshots[buyerCnpj] = { payload: payload, author: author, date: received };
+  });
+  if (owners[cnpj] !== account.toLowerCase()) return { ok: false, error: "Esta consulta é privada para a conta vinculada ao negócio." };
+  // Edições da pesquisa e revogações posteriores prevalecem sobre a resposta original.
+  var settings = ss.getSheetByName(AVANTE_SETTINGS_SHEET_NAME);
+  var settingsRows = settings && settings.getLastRow() > 1 ? settings.getRange(2, 1, settings.getLastRow() - 1, 4).getValues() : [];
+  settingsRows.forEach(function(row) {
+    var key = normalizeCnpj_(row[1]), current = snapshots[key], date = new Date(row[2]).getTime() || 0, data;
+    if (!current || String(row[0] || "").toLowerCase() !== current.author || date < current.date) return;
+    try { data = JSON.parse(String(row[3] || "{}")); } catch (ignored) { return; }
+    if (data.suppliers && Array.isArray(data.suppliers.lista)) current.payload.suppliers = data.suppliers;
+    if (data.answers) {
+      current.payload.answers = data.answers;
+      if (Array.isArray(data.answers.produtosSelecionados)) current.payload.business.ofertas = data.answers.produtosSelecionados.map(function(name) { return { nome: name }; });
+    }
+    current.date = date;
+  });
+  var customers = [];
+  Object.keys(snapshots).forEach(function(buyerCnpj) {
+    if (buyerCnpj === cnpj) return;
+    var snapshot = snapshots[buyerCnpj], products = resaleProductsForSupplier_(snapshot.payload, cnpj);
+    if (!products.length) return;
+    customers.push({ name: String(snapshot.payload.business.nome || "Empresa"), cnpj: buyerCnpj, products: products,
+      source: "Declarado pela empresa compradora", confirmedBySupplier: false });
+  });
+  customers.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  return { ok: true, customers: customers };
+}
+
 /** Lista solicitações pendentes somente para a conta administrativa autenticada. */
 function getAvantePendingNotifications(token) {
   var username = getAvanteSessionUser_(String(token || ""));
