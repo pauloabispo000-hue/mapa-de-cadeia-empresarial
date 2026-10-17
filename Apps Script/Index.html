@@ -1335,7 +1335,7 @@ function freshState(){
   return {
     meta:{ startedAt:new Date().toISOString(), submittedAt:null, sendStatus:"idle", sendError:"", shareDirectory:false, sharePublicProfile:false },
     contributedOptions:{}, contributions:[],
-    answers:{ negocioNome:"", cnpj:"", pais:"Brasil", estado:"", cidade:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", produtos:"", produtosSelecionados:[], tipoClientes:[], revendeProdutos:"", fornecedores:"", fornecedoresSelecionados:[], comprasFornecedores:"", comprasSelecionadas:[], clientes:"", clientesSelecionados:[], workforceActive:"", workforceVacancies:"", workforceRoles:"", usoOferta:"", categoriasClientes:[], complementares:"", complementaresSelecionados:[], indicacoes:"", vendaConjunta:"", faltaLocal:"", faltaLocalSelecionado:[], oportunidade:"", oportunidadeSelecionada:[], produtosClassificados:[] },
+    answers:{ negocioNome:"", cnpj:"", pais:"Brasil", estado:"", cidade:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", produtos:"", produtosSelecionados:[], tipoClientes:[], revendeProdutos:"", fornecedores:"", fornecedoresSelecionados:[], comprasFornecedores:"", comprasSelecionadas:[], clientes:"", clientesSelecionados:[], workforceActive:"", workforceVacancies:"", workforceRoles:"", usoOferta:"", categoriasClientes:[], complementares:"", complementaresSelecionados:[], indicacoes:"", vendaConjunta:"", empresasVendaConjunta:[], faltaLocal:"", faltaLocalSelecionado:[], oportunidade:"", oportunidadeSelecionada:[], produtosClassificados:[] },
     business:{ nome:"", cnpj:"", cnpjDados:null, pais:"Brasil", cidade:"", logradouroEmpresa:"", numeroEmpresa:"", cepEmpresa:"", enderecoEmpresa:"", tipoNegocioPrincipal:"", tipoNegocioPrincipalOutro:"", areaNecessidade:"", modeloNegocio:"", modeloNegocioSubitem:"", modeloNegocioOutro:"", tipoNegocio:[], tipoNegocioOutro:"", produtoCategorias:[], produtoDetalhe:"", segmento:"", segmentoOutro:"", perfilClientes:[], perfilClientesOutro:"", abrangencia:[], ofertas:[], profileCoverData:"", profileAvatarData:"" },
     fornecedores:{
       precisaAdquirirDetalhe:"",
@@ -3589,7 +3589,7 @@ function businessSettingSummary(item){
   if(item.readOnly&&key==="cnpj")return state.business.cnpj||a.cnpj?formatarCNPJ(state.business.cnpj||a.cnpj):"Não informado";
   if(item.type==="address")return [a.logradouroEmpresa,a.numeroEmpresa?"nº "+a.numeroEmpresa:"",a.cepEmpresa?"CEP "+formatBusinessCep(a.cepEmpresa):""].filter(Boolean).join(" · ")||a.enderecoEmpresa||"Não informado";
   if(key==="tipoNegocioPrincipal")return a.tipoNegocioPrincipal==="Outro"?(a.tipoNegocioPrincipalOutro||"Outro"):a.tipoNegocioPrincipal||"Não informado";
-  if(key==="fornecedoresSelecionados"||key==="clientesSelecionados")return (a[key]||[]).map(selectedCompanyDisplay).join(", ")||"Não informado";
+  if(key==="fornecedoresSelecionados"||key==="clientesSelecionados"||key==="empresasVendaConjunta")return (a[key]||[]).map(selectedCompanyDisplay).join(", ")||"Não informado";
   if(key==="comprasSelecionadas")return (state.fornecedores.lista||[]).map(function(s){return s.empresa+": "+(s.categorias||[]).join(", ");}).filter(function(text){return text.indexOf(": ")+2<text.length;}).join("; ")||"Não informado";
   var value=a[key];
   if(Array.isArray(value))return value.join(", ")||"Não informado";
@@ -3608,10 +3608,10 @@ function buildCompanySettingsEditor(key){
       if(!company){company={name:name,aliases:data.razaoSocial&&data.razaoSocial!==name?[data.razaoSocial]:[],cnpj:cnpj,city:[data.municipio,data.uf].filter(Boolean).join(" - "),areas:[],count:1,catalogSource:"lookup",status:data.situacao,offer:"",cnpjDados:data};sharedCompanies.push(company);}
       var label=companyOptionLabel(company);
       if(!selected.some(function(value){var found=findSharedCompanyBySelection(value);return found&&normalizarCNPJ(found.cnpj)===normalizarCNPJ(cnpj);}))selected.push(label);
-      if(key==="fornecedoresSelecionados")state.answers.fornecedores="";else state.answers.clientes="";
+      if(key==="fornecedoresSelecionados")state.answers.fornecedores="";else if(key==="clientesSelecionados")state.answers.clientes="";
       syncConversationAnswers();saveState();renderProgramSection();
     },
-    onChange:function(){if(key==="fornecedoresSelecionados")state.answers.fornecedores="";else state.answers.clientes="";syncConversationAnswers();saveState();}
+    onChange:function(){if(key==="fornecedoresSelecionados")state.answers.fornecedores="";else if(key==="clientesSelecionados")state.answers.clientes="";syncConversationAnswers();saveState();}
   });
   return control;
 }
@@ -4345,7 +4345,7 @@ var conversationQuestions = [
   {key:"revendeProdutos", prompt:"Você revende algum produto comprado de fornecedores?", kind:"dropdown", options:["Sim","Não"], placeholder:"Escolha uma resposta"},
   {key:"revendaFornecedores", prompt:"Quais produtos você revende e de quais fornecedores?", kind:"resale-purchases"},
   {key:"indicacoes", prompt:"Você costuma indicar outros negócios aos seus clientes, ou recebe indicações?", help:"Conte quais, se lembrar. Não precisa usar nenhum termo técnico.", placeholder:"Ex.: indico uma floricultura e recebo clientes de uma empresa de eventos"},
-  {key:"vendaConjunta", prompt:"Você já fez alguma oferta ou promoção junto com outro negócio?", kind:"dropdown", options:["Sim","Não","Não lembro"], placeholder:"Escolha uma resposta"},
+  {key:"empresasVendaConjunta", prompt:"Você já fez alguma oferta ou promoção junto com outro negócio?", kind:"companies", help:"Busque pelo nome ou CNPJ e selecione as empresas com que já fez uma oferta ou promoção conjunta. Se não fez, deixe sem seleção."},
   {key:"faltaLocalSelecionado", prompt:"O que você ou seus clientes precisam comprar ou contratar em outra cidade por não encontrar por perto?", kind:"multi", options:SEGMENTOS_OPTS, help:"Escolha as opções que se aplicam. Se não souber, deixe sem seleção."},
   {key:"oportunidadeSelecionada", prompt:"Que tipo de negócio você gostaria de conhecer?", kind:"multi", options:SEGMENTOS_OPTS, help:"Escolha empresas que poderiam ajudar a atender melhor, vender mais ou encontrar novos clientes."}
 ];
@@ -4480,7 +4480,8 @@ function syncConversationAnswers(){
   state.complementares.negociosQueClientesProcuramCategorias=(a.complementaresSelecionados||[]).slice();
   state.complementares.outrosProdutosClientesPrecisamDetalhe=a.complementares;
   state.complementares.indicaQuandoNaoTem=a.indicacoes ? "Sim" : "";
-  state.complementares.jaFezVendaConjunta=a.vendaConjunta ? (normalizeSearch(a.vendaConjunta)==="nao" ? "Não" : "Sim") : "";
+  state.complementares.empresasVendaConjunta=relatedCompanyEntries([],a.empresasVendaConjunta).map(function(entry){return {empresa:entry.name,cnpj:entry.cnpj};});
+  state.complementares.jaFezVendaConjunta=state.complementares.empresasVendaConjunta.length?"Sim":a.vendaConjunta ? (normalizeSearch(a.vendaConjunta)==="nao" ? "Não" : "Sim") : "";
   state.oportunidades.buscaForaMunicipioCategorias=(a.faltaLocalSelecionado||[]).slice();
   state.oportunidades.parceirosDesejadosCategorias=(a.oportunidadeSelecionada||[]).slice();
 }
@@ -4509,7 +4510,7 @@ function renderConversationReview(container){
         });
         return;
       }
-      var answer=q.kind==="resale-purchases"?(state.fornecedores.lista||[]).map(function(supplier){var products=(supplier.categorias||[]).filter(function(product){return supplier.purchasePurposes&&supplier.purchasePurposes[product]==="revenda";});return products.length?supplier.empresa+": "+products.join(", "):"";}).filter(Boolean).join("; "):String(state.answers[q.key]||"").trim();
+      var answer=q.kind==="resale-purchases"?(state.fornecedores.lista||[]).map(function(supplier){var products=(supplier.categorias||[]).filter(function(product){return supplier.purchasePurposes&&supplier.purchasePurposes[product]==="revenda";});return products.length?supplier.empresa+": "+products.join(", "):"";}).filter(Boolean).join("; "):q.kind==="companies"?(state.answers[q.key]||[]).map(selectedCompanyDisplay).join(", "):String(state.answers[q.key]||"").trim();
       if(answer) container.appendChild(h("div",{class:"review-row"},[
         h("div",{class:"rk"},[q.prompt]),h("div",{class:"rv"},[answer])
       ]));
@@ -4843,10 +4844,10 @@ function renderConversation(container){
       }
       if(q.kind==="companies"){
         var companyWrap=h("div",{});
-        companyWrap.appendChild(h("p",{class:"question-help"},["Sugestões públicas mostram empresas e soluções divulgadas por elas; isso não confirma uma relação comercial. Selecione uma empresa somente se ela realmente fornece para você ou compra de você. As fontes podem ser consultadas no catálogo inicial."]));
+        companyWrap.appendChild(h("p",{class:"question-help"},["Sugestões públicas mostram empresas e soluções divulgadas por elas; isso não confirma uma relação comercial. Selecione somente empresas que realmente participam da relação perguntada nesta etapa. As fontes podem ser consultadas no catálogo inicial."]));
         companyWrap.appendChild(h("p",{class:"question-help"},["O diretório público de Descalvado inclui 7.287 estabelecimentos com situação ativa na base de 02/10/2026, inclusive filiais. Situação cadastral não comprova operação atual nem oferta comercial. ",h("a",{href:"https://api.radar-cnpj.com/empresas/uf/SP/cidade/descalvado-f7e2f89fd1dcb5fa/index.json",target:"_blank",rel:"noopener noreferrer"},["Consultar fonte e data da base"])]));
         companyWrap.appendChild(buildComboMulti({
-          options:sharedCompanyOptions(),selectedArr:state.answers[q.key],placeholder:"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:false,
+          options:sharedCompanyOptions(),selectedArr:Array.isArray(state.answers[q.key])?state.answers[q.key]:(state.answers[q.key]=[]),placeholder:"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:false,
           noResultsText:"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",
           selectedLabel:selectedCompanyDisplay,
           onCnpjLookup:function(cnpj){return consultarCNPJPublico(cnpj);},

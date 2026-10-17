@@ -11,7 +11,7 @@ with sync_playwright() as p:
  page.route('**/*',lambda route:route.fulfill(body=src,content_type='text/html') if route.request.url=='http://127.0.0.1:8787/' else route.abort())
  page.goto('http://127.0.0.1:8787/')
  def run(s):return page.evaluate('(s)=>__filterTest(s)',s)
- run("document.body.classList.add('authenticated');authSession={username:'teste',token:'local-test'};isAppsScriptApp=()=>false;state=freshState();state.fornecedores.lista=[{empresa:'Fornecedor fictício',tipoEmpresa:'Confecção de roupas',categorias:[],itens:''}];findSharedCompanyBySelection=()=>null;window.testRoot=document.getElementById('platformContent');window.testRoot.innerHTML='';window.testRoot.appendChild(renderSupplierPurchases({options:CATEGORIA_INSUMOS_OPTS}));")
+ run("document.body.classList.add('authenticated');authSession={username:'teste',token:'local-test'};isAppsScriptApp=()=>false;state=freshState();window.__originalCompanyLookup=findSharedCompanyBySelection;state.fornecedores.lista=[{empresa:'Fornecedor fictício',tipoEmpresa:'Confecção de roupas',categorias:[],itens:''}];findSharedCompanyBySelection=()=>null;window.testRoot=document.getElementById('platformContent');window.testRoot.innerHTML='';window.testRoot.appendChild(renderSupplierPurchases({options:CATEGORIA_INSUMOS_OPTS}));")
  page.locator('.supplier-purchases-card .combo-multi .combo-toggle').click()
  actual=page.locator('.supplier-purchases-card .combo-multi .combo-option').all_text_contents()
  assert actual==['Uniformes e equipamentos de proteção (EPIs)','Vestuário corporativo'],actual
@@ -41,6 +41,18 @@ with sync_playwright() as p:
  assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is True
  run("state.answers.revendeProdutos='Não'")
  assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is False
+ # A promoção usa o catálogo de empresas, preservando respostas de clientes e o legado.
+ run("state=freshState();state.answers.vendaConjunta='Sim';state.answers.clientes='Cliente legado';sharedCompanies=[{name:'Parceira fictícia',aliases:[],cnpj:'11222333000181',city:'Cidade teste',areas:[],offers:[]}];findSharedCompanyBySelection=window.__originalCompanyLookup;window.testRoot.innerHTML='';window.testRoot.appendChild(buildCompanySettingsEditor('empresasVendaConjunta'));")
+ page.locator('#platformContent .combo-toggle').click()
+ page.locator('#platformContent .combo-search').fill('Parceira fictícia')
+ page.locator('#platformContent .combo-option').filter(has_text='Parceira fictícia').click()
+ assert run("state.answers.empresasVendaConjunta.length")==1
+ assert run("state.complementares.empresasVendaConjunta[0].empresa")=='Parceira fictícia'
+ assert run("state.complementares.empresasVendaConjunta[0].cnpj")=='11222333000181'
+ assert run("state.answers.clientes")=='Cliente legado'
+ assert run("state.answers.vendaConjunta")=='Sim'
+ assert run("businessSettingSummary({key:'empresasVendaConjunta'}).includes('Parceira fictícia')") is True
+ print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: revenda, consentimento e condição Sim/Não aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')
  b.close()

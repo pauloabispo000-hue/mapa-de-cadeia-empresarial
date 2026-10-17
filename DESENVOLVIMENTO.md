@@ -74,3 +74,10 @@ específico para compartilhar nome, CNPJ e produtos com a conta do fornecedor; a
 relação permanece privada e identificada como declaração da compradora, sem
 confirmação do fornecedor. A declaração/edição mais recente pode revogar esse
 compartilhamento. A consulta não modifica planilhas nem perfis.
+
+A pergunta sobre oferta ou promoção conjunta usa busca e seleção múltipla de
+empresas por nome/CNPJ, na pesquisa e nas configurações. As empresas selecionadas
+ficam em `answers.empresasVendaConjunta` e, com nome/CNPJ resolvidos, em
+`complementary.empresasVendaConjunta`. O campo legado `vendaConjunta` é preservado;
+respostas antigas “Sim/Não/Não lembro” não são nomes de empresas nem são migradas
+para a seleção. Essa resposta permanece privada.
