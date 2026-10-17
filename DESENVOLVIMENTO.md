@@ -64,8 +64,11 @@ ele usa dados fictícios e bloqueia todas as chamadas externas.
 ## Revenda e identificação de clientes
 
 A pesquisa pergunta “Você revende algum produto comprado de fornecedores?”.
-Somente “Sim” abre a seleção dos produtos já comprados e dos fornecedores. Não
-pergunte quem compra da empresa nem o que esses compradores usam. Preserve os
+A resposta tem dois campos de busca: produto comprado e empresa fornecedora
+daquele produto. A seleção da empresa registra a finalidade de revenda, sem uma
+etapa intermediária de Sim/Não. Os vínculos anteriores são preservados e podem
+ser removidos individualmente. Não pergunte quem compra da empresa nem o que
+esses compradores usam. Preserve os
 dados legados, sem utilizá-los para criar novos clientes identificados.
 
 A consulta autenticada identifica compradores pelo CNPJ do fornecedor, finalidade

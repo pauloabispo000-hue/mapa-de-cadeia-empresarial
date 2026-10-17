@@ -27,20 +27,24 @@ with sync_playwright() as p:
  assert page.locator('.supplier-purchases-card .combo-multi .combo-option').all_text_contents()==['Ajuste de roupas sob medida']
  page.locator('.supplier-purchases-card .combo-multi .combo-search').fill('Sistemas de alarme e câmeras')
  assert page.locator('.supplier-purchases-card .combo-multi .combo-option').count()==0
- run("state.answers.revendeProdutos='Sim';state.business.ofertas=[{nome:'Produto fictício'}];state.fornecedores.lista[0].categorias=['Produto fictício'];window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
- assert page.locator('#platformContent input[type=checkbox]').count()==2
- assert page.locator('#platformContent input[type=checkbox]:checked').count()==0
- page.locator('#platformContent label').filter(has_text='Revendo: Produto fictício').click()
- page.locator('#platformContent label').filter(has_text='Autorizo informar').click()
+ run("state.answers.revendeProdutos='';state.business.ofertas=[{nome:'Produto fictício'}];state.fornecedores.lista[0].categorias=['Produto fictício'];state.fornecedores.lista.push({empresa:'Outra fornecedora',categorias:['Outro produto']});window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
+ assert page.locator('.resale-supplier-field .combo-multi').count()==0
+ page.locator('.resale-purchases-fields summary').click()
+ page.locator('.resale-purchases-fields details .combo-search').fill('Produto fictício')
+ page.locator('.resale-purchases-fields details .combo-option').filter(has_text='Produto fictício').click()
+ page.locator('.resale-supplier-field .combo-toggle').click()
+ page.locator('.resale-supplier-field .combo-search').fill('Fornecedor fictício')
+ assert page.locator('.resale-supplier-field .combo-option').all_text_contents()==['Fornecedor fictício']
+ page.locator('.resale-supplier-field .combo-option').click()
  assert run("state.fornecedores.lista[0].purchasePurposes['Produto fictício']")=='revenda'
+ assert run("state.answers.revendeProdutos")=='Sim'
+ assert page.locator('.resale-supplier-field input[type=checkbox]:checked').count()==0
+ page.locator('.resale-supplier-field label').filter(has_text='Autorizo informar').click()
  assert run("state.fornecedores.lista[0].shareResaleWithSupplier") is True
- run("window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
- assert page.locator('#platformContent input[type=checkbox]:checked').count()==2
- page.locator('#platformContent label').filter(has_text='Autorizo informar').click()
- assert run("state.fornecedores.lista[0].shareResaleWithSupplier") is False
- assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is True
- run("state.answers.revendeProdutos='Não'")
- assert run("activeConversationQuestions().some(q=>q.key==='revendaFornecedores')") is False
+ run("saveState();state=loadState();window.testRoot.innerHTML='';window.testRoot.appendChild(renderResalePurchaseSelection());")
+ assert 'Produto fictício' in page.locator('.resale-selected-summary').inner_text()
+ page.locator('.resale-selected-summary button').click()
+ assert run("state.fornecedores.lista[0].purchasePurposes['Produto fictício']")==''
  # A promoção usa o catálogo de empresas, preservando respostas de clientes e o legado.
  run("state=freshState();state.answers.vendaConjunta='Sim';state.answers.clientes='Cliente legado';sharedCompanies=[{name:'Parceira fictícia',aliases:[],cnpj:'11222333000181',city:'Cidade teste',areas:[],offers:[]}];findSharedCompanyBySelection=window.__originalCompanyLookup;window.testRoot.innerHTML='';window.testRoot.appendChild(buildCompanySettingsEditor('empresasVendaConjunta'));")
  page.locator('#platformContent .combo-toggle').click()
@@ -72,6 +76,6 @@ with sync_playwright() as p:
  assert run("state.answers.clientesBuscados.length")==2
  print('Navegador: duas páginas, busca por CNPJ/nome/tipo e persistência independente aprovados.')
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
- print('Navegador: revenda, consentimento e condição Sim/Não aprovados.')
+ print('Navegador: dois campos de revenda, fornecedores compatíveis, consentimento, recarga e remoção aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')
  b.close()

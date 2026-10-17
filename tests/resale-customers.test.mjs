@@ -81,7 +81,7 @@ test('vendedor não cria clientes por meio do campo legado customers', () => {
 
 const html = readFileSync(new URL('../Apps Script/Index.html',import.meta.url),'utf8');
 const questionsCode = html.slice(html.indexOf('var conversationQuestions = ['),html.indexOf('function inferAreaFromText('));
-test('pesquisa usa a pergunta exata e só pede os produtos/fontes após Sim',()=>{
+test('pesquisa usa a pergunta exata com campos de produto e fornecedor',()=>{
   const ctx=vm.createContext({surveyMode:'research',state:{answers:{revendeProdutos:''}},PAISES_OPTS:[],ESTADOS_OPTS:[],PERFIL_CLIENTES_OPTS:[],CATEGORIA_INSUMOS_OPTS:[],SEGMENTOS_OPTS:[]});
   vm.runInContext(questionsCode,ctx);
   let q=ctx.activeConversationQuestions();
@@ -90,7 +90,7 @@ test('pesquisa usa a pergunta exata e só pede os produtos/fontes após Sim',()=
   assert.equal(promotion.kind,'companies');assert.equal(promotion.key,'empresasVendaConjunta');
   assert(!ctx.conversationQuestions.some(q=>/O que essas empresas compram ou usam do seu negócio|Quais empresas compram de você|Como essas empresas usam ou revendem seus produtos ou serviços|Que outros tipos de negócio seus clientes também costumam procurar/.test(q.prompt)));
   assert(!q.some(q=>['clientesSelecionados','categoriasClientes','usoOferta','revendaFornecedores'].includes(q.key)));
-  ctx.state.answers.revendeProdutos='Sim';q=ctx.activeConversationQuestions();assert(q.some(q=>q.key==='revendaFornecedores'));
+  ctx.state.answers.revendeProdutos='Sim';q=ctx.activeConversationQuestions();assert.equal(q.find(q=>q.key==='revendeProdutos').kind,'resale-purchases');assert(!q.some(q=>q.key==='revendaFornecedores'));
   ctx.state.answers.revendeProdutos='Não';assert(!ctx.activeConversationQuestions().some(q=>q.key==='revendaFornecedores'));
 });
 

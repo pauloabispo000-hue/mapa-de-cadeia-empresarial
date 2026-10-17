@@ -1743,7 +1743,7 @@ function chipGroup(name, options, selectedArr, multi, onChange){
   return row;
 }
 
-function comboField(options, value, placeholder, onSelect, filterFn, allowCustom){
+function comboField(options, value, placeholder, onSelect, filterFn, allowCustom, renderOnSelect){
   var MAX_VISIBLE = 40;
   var canAddCustom = allowCustom !== false;
   var showAll = false;
@@ -1792,7 +1792,7 @@ function comboField(options, value, placeholder, onSelect, filterFn, allowCustom
       btn.addEventListener("click", function(){
         onSelect(opt);
         det.removeAttribute("open");
-        renderCurrentStep();
+        if(renderOnSelect===false){value=opt;summary.querySelector(".combo-summary-text").textContent=opt;}else renderCurrentStep();
       });
       li.appendChild(btn);
       listEl.appendChild(li);
@@ -4346,8 +4346,7 @@ var conversationQuestions = [
   {key:"tipoClientes", prompt:"Quem costuma comprar de você?", kind:"multi", options:PERFIL_CLIENTES_OPTS, help:"Escolha todas as opções que se aplicam."},
   {key:"fornecedoresSelecionados", prompt:"De quais empresas você costuma comprar para manter seu negócio funcionando?", help:"Escolha fornecedores já identificados ou digite um nome novo. O CNPJ e a cidade são preenchidos quando já constam na base.", kind:"companies"},
   {key:"comprasSelecionadas", prompt:"O que você costuma comprar dessas empresas ou pessoas?", kind:"supplier-purchases", options:CATEGORIA_INSUMOS_OPTS.filter(function(x){return x.indexOf("Outro (")!==0;}), help:"Selecione os produtos ou serviços comprados de cada empresa."},
-  {key:"revendeProdutos", prompt:"Você revende algum produto comprado de fornecedores?", kind:"dropdown", options:["Sim","Não"], placeholder:"Escolha uma resposta"},
-  {key:"revendaFornecedores", prompt:"Quais produtos você revende e de quais fornecedores?", kind:"resale-purchases"},
+  {key:"revendeProdutos", prompt:"Você revende algum produto comprado de fornecedores?", kind:"resale-purchases", help:"Busque o produto e depois selecione a empresa que o fornece. Repita para informar outros produtos. Se não revende, deixe sem seleção."},
   {key:"indicacoes", prompt:"Você costuma indicar outros negócios aos seus clientes, ou recebe indicações?", help:"Conte quais, se lembrar. Não precisa usar nenhum termo técnico.", placeholder:"Ex.: indico uma floricultura e recebo clientes de uma empresa de eventos"},
   {key:"empresasVendaConjunta", prompt:"Você já fez alguma oferta ou promoção junto com outro negócio?", kind:"companies", help:"Busque pelo nome ou CNPJ e selecione as empresas com que já fez uma oferta ou promoção conjunta. Se não fez, deixe sem seleção."},
   {key:"faltaLocalSelecionado", prompt:"O que você ou seus clientes precisam comprar ou contratar em outra cidade por não encontrar por perto?", kind:"multi", options:SEGMENTOS_OPTS, help:"Escolha as opções que se aplicam. Se não souber, deixe sem seleção."},
@@ -4655,26 +4654,48 @@ function buildProductServicePicker(opts){
 // Regras de oferta, não de despesas do fornecedor. Uma área ampla não comprova
 // que a empresa ofereça todos os produtos de segurança, saúde, transporte etc.
 function renderResalePurchaseSelection(){
-  var wrap=h("div",{}), suppliers=(state.fornecedores.lista||[]).filter(function(s){return s.empresa&&(s.categorias||[]).length;});
+  var wrap=h("div",{class:"resale-purchases-fields"}), suppliers=(state.fornecedores.lista||[]).filter(function(s){return s.empresa&&(s.categorias||[]).length;});
   if(!suppliers.length)return h("p",{},["Informe primeiro os fornecedores e os produtos comprados na etapa de compras."]);
-  var offered=(state.business.ofertas||[]).map(function(offer){return normalizeSearch(offer.nome);});
-  suppliers.forEach(function(supplier){
-    if(!supplier.purchasePurposes||typeof supplier.purchasePurposes!=="object")supplier.purchasePurposes={};
-    var card=h("section",{class:"platform-card",style:"margin-bottom:14px;"},[h("h3",{},[supplier.empresa])]);
-    supplier.categorias.forEach(function(product){
-      var label=h("label",{class:"chip",style:"display:flex;margin:7px 0;"}),check=h("input",{type:"checkbox"});
-      check.checked=supplier.purchasePurposes[product]==="revenda";
-      check.addEventListener("change",function(){supplier.purchasePurposes[product]=check.checked?"revenda":"";saveState();});
-      label.appendChild(check);label.appendChild(document.createTextNode("Revendo: "+product));card.appendChild(label);
-      if(offered.indexOf(normalizeSearch(product))<0)card.appendChild(h("p",{class:"company-profile-meta"},["Para identificar o vínculo deste produto, cadastre também \""+product+"\" entre as ofertas do seu negócio."]));
-    });
-    var permission=h("label",{style:"display:flex;gap:8px;align-items:flex-start;margin-top:14px;"}),consent=h("input",{type:"checkbox"});
-    consent.checked=supplier.shareResaleWithSupplier===true;
-    consent.addEventListener("change",function(){supplier.shareResaleWithSupplier=consent.checked;saveState();});
-    permission.appendChild(consent);permission.appendChild(document.createTextNode("Autorizo informar a este fornecedor o nome e CNPJ do meu negócio e quais destes produtos revendo. Essa relação não será publicada no perfil público."));
-    card.appendChild(permission);wrap.appendChild(card);
-  });
-  return wrap;
+  var products=[];
+  suppliers.forEach(function(supplier){(supplier.categorias||[]).forEach(function(product){if(products.indexOf(product)<0)products.push(product);});});
+  var supplierField=h("div",{class:"resale-supplier-field"}), selectedSummary=h("div",{class:"resale-selected-summary"});
+  wrap.appendChild(fieldWrap("Qual produto você revende?",null,comboField(products,"","Buscar produto comprado...",function(product){renderSuppliers(product);},null,false,false)));
+  wrap.appendChild(supplierField);wrap.appendChild(selectedSummary);
+  function summary(){
+    selectedSummary.innerHTML="";
+    if(state.answers.revendeProdutos!=="Sim")return;
+    suppliers.forEach(function(supplier){(supplier.categorias||[]).forEach(function(product){
+      if(!supplier.purchasePurposes||supplier.purchasePurposes[product]!=="revenda")return;
+      selectedSummary.appendChild(h("p",{},[product+" — "+supplier.empresa,h("button",{type:"button",class:"btn-outline",onclick:function(){supplier.purchasePurposes[product]="";saveState();renderSuppliers(product);summary();}},["Remover"])]));
+    });});
+  }
+  function renderSuppliers(product){
+    supplierField.innerHTML="";
+    var matching=suppliers.filter(function(supplier){return supplier.categorias.indexOf(product)>-1;});
+    var labels=matching.map(function(supplier){return supplier.empresa+(supplier.cnpj?" — CNPJ "+formatarCNPJ(supplier.cnpj):"");});
+    var selected=labels.filter(function(label,i){return state.answers.revendeProdutos==="Sim"&&matching[i].purchasePurposes&&matching[i].purchasePurposes[product]==="revenda";});
+    supplierField.appendChild(fieldWrap("Qual empresa fornece o produto selecionado?",null,buildComboMulti({options:labels,selectedArr:selected,placeholder:"Buscar empresa fornecedora...",allowFreeText:false,strictFilter:true,onChange:function(){
+      if(state.answers.revendeProdutos!=="Sim")suppliers.forEach(function(supplier){Object.keys(supplier.purchasePurposes||{}).forEach(function(key){if(supplier.purchasePurposes[key]==="revenda")supplier.purchasePurposes[key]="";});});
+      state.answers.revendeProdutos="Sim";
+      matching.forEach(function(supplier,i){if(!supplier.purchasePurposes)supplier.purchasePurposes={};supplier.purchasePurposes[product]=selected.indexOf(labels[i])>-1?"revenda":"";});
+      saveState();summary();renderPermissions();
+    }})));
+    var permissions=h("div",{});supplierField.appendChild(permissions);
+    function renderPermissions(){
+      permissions.innerHTML="";
+      matching.forEach(function(supplier,i){
+        if(selected.indexOf(labels[i])<0)return;
+        var permission=h("label",{style:"display:flex;gap:8px;align-items:flex-start;margin-top:14px;"}),consent=h("input",{type:"checkbox"});
+        consent.checked=supplier.shareResaleWithSupplier===true;
+        consent.addEventListener("change",function(){supplier.shareResaleWithSupplier=consent.checked;saveState();});
+        permission.appendChild(consent);permission.appendChild(document.createTextNode("Autorizo informar a "+supplier.empresa+" o nome e CNPJ do meu negócio e quais destes produtos revendo. Essa relação não será publicada no perfil público."));permissions.appendChild(permission);
+      });
+    }
+    renderPermissions();
+    if(!(state.business.ofertas||[]).some(function(offer){return normalizeSearch(offer.nome)===normalizeSearch(product);}))supplierField.appendChild(h("p",{},["Cadastre também este produto entre as ofertas do seu negócio para identificar o vínculo de revenda."]));
+  }
+  supplierField.appendChild(h("p",{},["Selecione primeiro o produto para buscar os fornecedores correspondentes."]));
+  summary();return wrap;
 }
 
 function renderResaleCustomersCard(){
