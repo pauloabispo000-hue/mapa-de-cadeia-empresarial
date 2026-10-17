@@ -1,0 +1,13 @@
+{
+  "name": "mapeador-de-negocios",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "deploy": "node scripts/deploy.mjs"
+  }
+}

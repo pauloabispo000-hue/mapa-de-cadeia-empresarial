@@ -8,9 +8,19 @@
 6. No HTML do programa, substitua `COLE_AQUI_A_URL_DA_NOVA_IMPLANTACAO` em `APPS_SCRIPT_URL` pela URL copiada.
 7. Abra a página novamente. Ela carregará as opções de resposta e o diretório de empresas autorizadas para aparecer como sugestão. Novas respostas completas serão gravadas em `Respostas`; as contribuições de opções em `Opcoes`; empresas autorizadas em `Empresas`; e relações de fornecedores/clientes em `Relacoes`.
 
+## Backup online automático
+
+Depois de publicar o código que inclui o backup, execute `installPlatformBackup` uma vez no editor Apps Script e autorize o acesso ao Drive se solicitado. A função cria o primeiro backup e instala um gatilho diário para aproximadamente 02:00, no fuso do projeto. Cada cópia fica na pasta privada `Avante - backups da plataforma`, com uma cópia integral da planilha (incluindo contas e hashes de senha), uma cópia das imagens armazenadas no Drive e um manifesto com metadados não secretos. São mantidos 30 dias de backups; cópias mais antigas são movidas para a lixeira.
+
+Para criar uma cópia fora do horário automático, execute `backupPlatformNow`. Confira regularmente se a pasta contém backups recentes e se há espaço disponível no Drive. Chaves de API, senhas e tokens não entram no manifesto; ao restaurar um projeto, configure novamente essas credenciais nas propriedades do Apps Script. O código-fonte permanece versionado no repositório GitHub. A restauração dos dados é manual: copie a planilha de volta, revise os dados e atualize `MAPA_NEGOCIOS_SPREADSHEET_ID` nas propriedades do script antes de reabrir o Web App. Mantenha a pasta de backup privada, pois a planilha contém contas e hashes de senha.
+
 ## Contas e acesso ao Avante
 
 O aplicativo deve ser aberto pela URL da implantação com `?app=1` no final. Essa versão é servida pelo Apps Script e valida a senha no servidor; a página estática do GitHub encaminha para ela. Depois de publicar o código atualizado, o proprietário inicializa a conta administrativa executando `initializeAvanteAdmin` no editor Apps Script. A função cria a conta `admin.avante`; guarde a senha mostrada no registro da execução em local privado.
+
+## Catálogo público de produtos
+
+Na página inicial do perfil da empresa, abra a aba **Produtos** para cadastrar SKU, nome, descrição e foto. São aceitos até 40 produtos por empresa. Cada SKU deve ser único; cada produto precisa de foto, e as fotos são comprimidas no navegador (350 KB por arquivo; até 1,1 MB no total por envio). O catálogo é enviado junto com o perfil para revisão administrativa. As imagens permanecem privadas no Drive até a aprovação do perfil; depois, são publicadas como parte da aba **Produtos** no perfil público. A titularidade do CNPJ deve continuar sendo conferida manualmente antes de executar `approvePublicProfile`.
 
 Participantes podem criar suas próprias contas na tela de entrada, usando um nome de usuário de 3 a 32 caracteres e uma senha de 12 a 128 caracteres. Depois de entrar, podem trocar a própria senha pelo botão **Senha**, informando a senha atual. A troca invalida as outras sessões daquela conta. As contas e hashes com sal ficam na aba privada `ContasAvante`; nenhuma senha em texto é gravada. Sessões expiram após seis horas, e o endpoint de envio exige uma sessão válida.
 
