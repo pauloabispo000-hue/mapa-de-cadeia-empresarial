@@ -81,3 +81,13 @@ ficam em `answers.empresasVendaConjunta` e, com nome/CNPJ resolvidos, em
 `complementary.empresasVendaConjunta`. O campo legado `vendaConjunta` é preservado;
 respostas antigas “Sim/Não/Não lembro” não são nomes de empresas nem são migradas
 para a seleção. Essa resposta permanece privada.
+
+A busca de oportunidades tem duas etapas independentes: fornecedores procurados
+(`answers.fornecedoresBuscados`) e negócios aos quais o participante quer fornecer
+(`answers.clientesBuscados`). Ambas permitem buscar por CNPJ, nome da empresa ou
+tipo de negócio e selecionar várias opções. Tipos aparecem com o prefixo
+“Tipo de negócio:”; empresas usam o diretório compartilhado e consulta pública de
+CNPJ. Em `opportunities`, cada direção separa categorias e empresas com nome/CNPJ.
+As respostas da antiga pergunta ampla (`oportunidadeSelecionada`) são preservadas
+sem atribuir automaticamente uma direção comercial. As intenções não confirmam
+relações comerciais e permanecem privadas.

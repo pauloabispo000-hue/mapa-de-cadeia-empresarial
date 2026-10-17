@@ -52,6 +52,25 @@ with sync_playwright() as p:
  assert run("state.answers.clientes")=='Cliente legado'
  assert run("state.answers.vendaConjunta")=='Sim'
  assert run("businessSettingSummary({key:'empresasVendaConjunta'}).includes('Parceira fictícia')") is True
+ # Duas páginas distintas, com seleção de empresa por nome/CNPJ e de tipo.
+ for key,prompt in [('fornecedoresBuscados','Que tipo de negócio você busca como fornecedor?'),('clientesBuscados','Que tipo de negócio você busca para se tornar um fornecedor dele?')]:
+  run("currentStepIndex=activeConversationQuestions().findIndex(q=>q.key==='"+key+"');window.testRoot.innerHTML='';renderConversation(window.testRoot);")
+  assert page.locator('#platformContent h2').inner_text()==prompt
+  page.locator('#platformContent .combo-toggle').click()
+  page.locator('#platformContent .combo-search').fill('11222333000181')
+  page.locator('#platformContent .combo-option').filter(has_text='Parceira fictícia').click()
+  page.locator('#platformContent .combo-search').fill('Tipo de negócio:')
+  type_label=page.locator('#platformContent .combo-option').first.inner_text()
+  page.locator('#platformContent .combo-option').first.click()
+  assert run("state.answers."+key+".length")==2
+  assert run("state.oportunidades."+key+"Empresas[0].cnpj")=='11222333000181'
+  assert run("state.oportunidades."+key+"Categorias[0]")==type_label.removeprefix('Tipo de negócio: ')
+  assert run("buildExportObject().answers."+key+".length")==2
+ # Salvar e recarregar preserva as duas respostas independentes.
+ run("saveState();state=loadState();syncConversationAnswers();")
+ assert run("state.answers.fornecedoresBuscados.length")==2
+ assert run("state.answers.clientesBuscados.length")==2
+ print('Navegador: duas páginas, busca por CNPJ/nome/tipo e persistência independente aprovados.')
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: revenda, consentimento e condição Sim/Não aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')

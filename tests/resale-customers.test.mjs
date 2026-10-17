@@ -93,3 +93,14 @@ test('pesquisa usa a pergunta exata e só pede os produtos/fontes após Sim',()=
   ctx.state.answers.revendeProdutos='Sim';q=ctx.activeConversationQuestions();assert(q.some(q=>q.key==='revendaFornecedores'));
   ctx.state.answers.revendeProdutos='Não';assert(!ctx.activeConversationQuestions().some(q=>q.key==='revendaFornecedores'));
 });
+
+test('busca de fornecedores e de compradores tem perguntas consecutivas e campos independentes',()=>{
+  const ctx=vm.createContext({surveyMode:'research',state:{answers:{}},PAISES_OPTS:[],ESTADOS_OPTS:[],PERFIL_CLIENTES_OPTS:[],CATEGORIA_INSUMOS_OPTS:[],SEGMENTOS_OPTS:[]});
+  vm.runInContext(questionsCode,ctx);
+  const questions=ctx.activeConversationQuestions(), index=questions.findIndex(q=>q.key==='fornecedoresBuscados');
+  assert.equal(questions[index].prompt,'Que tipo de negócio você busca como fornecedor?');
+  assert.equal(questions[index+1].prompt,'Que tipo de negócio você busca para se tornar um fornecedor dele?');
+  assert.equal(questions[index+1].key,'clientesBuscados');
+  assert.equal(questions[index].kind,'business-targets');assert.equal(questions[index+1].kind,'business-targets');
+  assert(!questions.some(q=>q.prompt==='Que tipo de negócio você gostaria de conhecer?'));
+});
