@@ -3574,7 +3574,13 @@ function renderAccountSettingsPage(root){
   if(authSession&&String(authSession.username||"").toLowerCase()==="admin.avante"){
     var simulation=h("section",{class:"account-settings-card"},[h("h2",{},["Simulação administrativa"]),h("p",{},["Cadastro fictício com 00.000.000/0000-00. Respostas de teste ficam separadas e não publicam perfil nem entram nos indicadores reais."])]);
     var simulationStatus=h("p",{"role":"status"}),simulationButton=h("button",{type:"button",class:"platform-action"},[state.meta.simulation?"Voltar ao cadastro original":"Iniciar cadastro de demonstração"]);
-    simulationButton.addEventListener("click",function(){toggleAvanteSimulation(simulationButton,simulationStatus);});simulation.appendChild(simulationButton);simulation.appendChild(simulationStatus);grid.appendChild(simulation);
+    simulationButton.addEventListener("click",function(){toggleAvanteSimulation(simulationButton,simulationStatus);});simulation.appendChild(simulationButton);simulation.appendChild(simulationStatus);
+    var diagnosticStatus=h("p",{role:"status"}),diagnosticButton=h("button",{type:"button",class:"platform-action secondary"},["Diagnosticar configuração da IA"]);
+    diagnosticButton.addEventListener("click",function(){
+      if(!isAppsScriptApp()||!authSession||!authSession.token){diagnosticStatus.textContent="Entre na versão oficial com a conta administrativa.";return;}
+      diagnosticButton.disabled=true;diagnosticStatus.textContent="Consultando somente metadados do modelo, sem gerar resposta…";
+      google.script.run.withSuccessHandler(function(info){diagnosticButton.disabled=false;if(!info){diagnosticStatus.textContent="Diagnóstico sem resposta.";return;}diagnosticStatus.textContent="Modelo: "+(info.model||"não informado")+". HTTP: "+(info.httpStatus||"não recebido")+". "+(info.ok?"Metadados acessíveis e generateContent declarado; isso não comprova disponibilidade da geração.":info.error||"Diagnóstico não concluído.");}).withFailureHandler(function(){diagnosticButton.disabled=false;diagnosticStatus.textContent="Não foi possível consultar o diagnóstico. Nenhuma geração foi solicitada.";}).getAvanteAiDiagnostics(authSession.token);
+    });simulation.appendChild(diagnosticButton);simulation.appendChild(diagnosticStatus);grid.appendChild(simulation);
   }
   var business=h("section",{class:"account-settings-card","aria-label":"Dados do negócio"});
   business.appendChild(h("h2",{},[isBusinessRegistered()?"Dados do negócio":"Cadastro do negócio"]));
@@ -4466,6 +4472,7 @@ function renderSafeAiMarkdown(value){
   });
   return root;
 }
+var aiRemoteRetryAt=0;
 function submitAiSearch(query,input,status,result){
   query=String(query||"").trim();
   if(!query)return;
@@ -4475,8 +4482,12 @@ function submitAiSearch(query,input,status,result){
   var requestId=(input.avanteSearchId||0)+1;input.avanteSearchId=requestId;
   var matches=findKnownSupplierMatches(query);
   if(matches.length){input.disabled=false;status.textContent="";status.hidden=true;renderKnownSupplierMatches(matches,result);return;}
+  if(Date.now()<aiRemoteRetryAt){
+    input.disabled=false;status.textContent="A pesquisa remota está em pausa. Aguarde "+Math.ceil((aiRemoteRetryAt-Date.now())/1000)+" segundos antes de tentar novamente. A busca local continua disponível.";status.hidden=false;
+    result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela para esta pesquisa."]));return;
+  }
   input.disabled=true;status.textContent="Pesquisando…";status.hidden=false;result.hidden=true;result.innerHTML="";
-  var finished=false,timer=setTimeout(function(){fail("A pesquisa com IA excedeu o tempo de resposta.");},30000);
+  var finished=false,timer=setTimeout(function(){aiRemoteRetryAt=Date.now()+30000;fail("A pesquisa com IA excedeu o tempo de resposta na tela. A chamada no servidor pode ainda estar em andamento; aguarde antes de tentar novamente.");},30000);
   function fail(message){
     if(finished||input.avanteSearchId!==requestId)return;finished=true;clearTimeout(timer);input.disabled=false;
     var local=findKnownSupplierMatches(query);
@@ -4487,7 +4498,7 @@ function submitAiSearch(query,input,status,result){
   try{
   google.script.run.withSuccessHandler(function(response){
     if(finished||input.avanteSearchId!==requestId)return;
-    if(!response||!response.ok){fail(response&&response.error||"Não foi possível concluir a pesquisa com IA.");return;}
+    if(!response||!response.ok){if(response&&response.httpStatus===503)aiRemoteRetryAt=Date.now()+Math.min(120,Math.max(30,Number(response.retryAfterSeconds)||30))*1000;fail(response&&response.error||"Não foi possível concluir a pesquisa com IA.");return;}
     finished=true;clearTimeout(timer);input.disabled=false;
     status.textContent="";status.hidden=true;result.hidden=false;
     result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
@@ -4502,7 +4513,7 @@ function submitAiSearch(query,input,status,result){
     }
     input.focus();
   }).withFailureHandler(function(){
-    fail("Falha na comunicação com a pesquisa de IA.");
+    aiRemoteRetryAt=Date.now()+15000;fail("Falha na comunicação com a pesquisa de IA. Aguarde antes de tentar novamente.");
   }).runAvanteAiAssistant(authSession.token,{mode:"research",question:query});
   }catch(error){fail("Não foi possível iniciar a pesquisa com IA.");}
 }

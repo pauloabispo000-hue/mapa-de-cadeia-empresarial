@@ -83,4 +83,10 @@ with sync_playwright() as p:
  expect(page.locator('#platformContent .combo-search')).to_have_value('Atividade fictícia inédita')
  expect(page.locator('#platformContent .combo-freetext')).to_have_count(1)
  print('PDCA: proveniência, Markdown seguro, Escape/Fechar, foco, rolagem móvel e localidades oficiais aprovados; sem gravações ou requisições externas.')
+ run("closeAiSearchDialog();document.getElementById('surveyWizard').style.display='none';root.style.display='block';authSession={username:'admin.avante',token:'fake-admin-session'};isAppsScriptApp=()=>true;window.diagnosticCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.diagnosticSuccess=fn;return this},withFailureHandler(){return this},getAvanteAiDiagnostics(){window.diagnosticCalls++}}}};showProgramSection('settings');")
+ page.get_by_role('button',name='Diagnosticar configuração da IA').click()
+ assert run('window.diagnosticCalls')==1
+ run("window.diagnosticSuccess({ok:true,httpStatus:200,model:'gemini-3.8-flash',supportsGenerateContent:true})")
+ assert 'não comprova disponibilidade da geração' in page.locator('#platformContent').inner_text()
+ print('PDCA: diagnóstico administrativo distingue acesso a metadados de disponibilidade da geração.')
  b.close()

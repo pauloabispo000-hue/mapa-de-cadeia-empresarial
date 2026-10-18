@@ -199,4 +199,19 @@ with sync_playwright() as p:
  assert 'PADARIA FICTICIA' not in page.locator('#aiSearchResult').inner_text()
  assert page.locator('#aiSearchInput').is_enabled()
  print('Navegador: Enter encontra produto com localização pendente; HTTP 503 recupera resultados locais sem inventar ofertas ou enviar relações à IA.')
+ # 503 com metadados aciona pausa local, mas não bloqueia uma oferta do rascunho.
+ run("aiRemoteRetryAt=0;state.fornecedores.lista=[];sharedCompanies=[];")
+ page.locator('#aiSearchInput').fill('fornecedor de extintores')
+ page.locator('#aiSearchInput').press('Enter')
+ run("window.aiSuccess({ok:false,code:'AI_UNAVAILABLE',httpStatus:503,retryAfterSeconds:30,error:'Serviço indisponível (HTTP 503)'});window.callsBeforePause=window.aiCalls;")
+ page.locator('#aiSearchInput').fill('fornecedor de taxi')
+ page.locator('#aiSearchInput').press('Enter')
+ assert run('window.aiCalls===window.callsBeforePause') is True
+ assert 'Aguarde' in page.locator('#aiSearchStatus').inner_text()
+ run("state.fornecedores.lista=[{empresa:'OFERTAS FICTÍCIAS',categorias:['Vestuário corporativo']}];")
+ page.locator('#aiSearchInput').fill('vestuário corporativo')
+ page.locator('#aiSearchInput').press('Enter')
+ assert 'OFERTAS FICTÍCIAS' in page.locator('#aiSearchResult').inner_text()
+ assert run('window.aiCalls===window.callsBeforePause') is True
+ print('Navegador: pausa após HTTP 503 simulado limita chamadas sem impedir resultados locais.')
  b.close()

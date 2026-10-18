@@ -257,3 +257,44 @@ de apagá-la. Ajustes/foco agendados só atuam em controles abertos e conectados
 DOM. O fechamento do modal restaura foco e rolagem de forma imediata e idempotente,
 sem depender da ordem do evento nativo close. O teste PDCA reproduz a abertura
 tardia do combo com uma busca personalizada já preenchida.
+
+## PDCA — recorrência de HTTP 503 na IA
+
+Evidências fornecidas pelo usuário: a documentação oficial de
+https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash confirma a existência
+e estabilidade do código do modelo, com atualização em setembro/2026. Isso não
+confirma acesso desta chave/projeto nem disponibilidade do generateContent.
+https://ai.google.dev/gemini-api/docs/troubleshooting orienta backoff exponencial
+com jitter e máximo de tentativas para falhas transitórias. Estas páginas e a
+página pública de status retornaram CONNECT 403 neste ambiente; não houve validação
+independente das condições atuais do serviço nem consulta real de geração.
+
+O modelo padrão é mantido. A propriedade opcional GEMINI_MODEL permite configuração
+explícita pelo administrador, com validação de formato, sem mudar permissões ou
+expor a chave. Configurações → Simulação administrativa → Diagnosticar configuração
+da IA consulta somente os metadados do modelo pelo servidor, exige autenticação
+administrativa e não executa geração. Retorna presença da chave, modelo, HTTP e
+suporte declarado ao método; nunca retorna chave, headers ou corpo bruto de erro.
+HTTP 200 nos metadados não comprova disponibilidade da geração.
+
+O tratamento diferencia HTTP remoto, autorização, modelo, cota, JSON ilegível,
+contrato inválido, resposta vazia e falha de transporte. O estado do provedor é
+restrito a enumerações permitidas; mensagens brutas que podem conter dados privados
+não são retornadas. HTTP 503 reportado é anterior ao parser de resposta e não
+prova falha de Markdown ou ausência de credencial.
+
+Há no máximo duas tentativas de geração por ação, somente para 500/502/503/504,
+com backoff exponencial e jitter (primeira espera entre 500 e 750 ms, respeitando
+Retry-After). A segunda chamada não ocorre se a primeira levou mais de 5 segundos,
+Retry-After supera 2 segundos ou a cota se esgotou. Cada chamada consome cota. Não
+há retry de 400/401/403/404/429, contrato inválido ou erro de transporte de resultado
+incerto. A tela aplica pausa de 30 segundos após 503 ou timeout, mantendo busca
+local disponível. A espera interativa de 30 segundos não cancela UrlFetchApp já em
+execução; a segunda chamada ainda pode ultrapassar esse prazo. Retry é resiliência,
+não evidência de resolução da indisponibilidade.
+
+Validação de acesso real ao modelo e disponibilidade de geração depende da conta
+administrativa autenticada no Apps Script, usando a chave que já permanece nas
+Script Properties. Não solicitar ou copiar a chave, CLASPRC_JSON ou credenciais
+para o ambiente de desenvolvimento. Testes usam serviços e dados fictícios, sem
+chamadas reais ao Gemini ou gravações em cadastros reais.

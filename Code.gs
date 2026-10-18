@@ -300,7 +300,61 @@ function lookupCompanyCnpj(value) {
   return { ok: false, error: "Não foi possível consultar os dados deste CNPJ. " + failures.join("; ") };
 }
 
-/** Pesquisa e orientação empresarial com Gemini e Grounding na Busca Google.
+function avanteGeminiModel_(props){
+  var model=String(props.getProperty("GEMINI_MODEL")||"gemini-3.8-flash").trim().replace(/^models\//,"");
+  return /^[A-Za-z0-9._-]+$/.test(model)?model:"";
+}
+function avanteGeminiProviderStatus_(response){
+  try{var status=JSON.parse(response.getContentText()||"{}").error.status;
+    return ["UNAVAILABLE","RESOURCE_EXHAUSTED","NOT_FOUND","PERMISSION_DENIED","UNAUTHENTICATED","INVALID_ARGUMENT","DEADLINE_EXCEEDED","INTERNAL"].indexOf(status)>-1?status:"UNSPECIFIED";
+  }catch(ignored){return "UNSPECIFIED";}
+}
+function fetchAvanteGemini_(url,options,username){
+  var started=Date.now(),response,attempts=0,retrySkipped="";
+  for(var attempt=0;attempt<2;attempt++){
+    response=UrlFetchApp.fetch(url,options);attempts++;
+    var status=response.getResponseCode();
+    if([500,502,503,504].indexOf(status)<0||attempt===1)break;
+    if(Date.now()-started>5000){retrySkipped="INTERACTIVE_BUDGET";break;}
+    var retryAfter=0,headers=typeof response.getAllHeaders==="function"?response.getAllHeaders():{};
+    Object.keys(headers||{}).forEach(function(key){if(key.toLowerCase()==="retry-after"){
+      var value=String(headers[key]);retryAfter=/^\d+$/.test(value)?Number(value)*1000:Math.max(0,Date.parse(value)-Date.now())||0;
+    }});
+    if(retryAfter>2000){retrySkipped="RETRY_AFTER";break;}
+    // Cada tentativa de geração consome cota; nenhuma repetição ilimitada ou paralela.
+    if(consumeAvanteAiQuota_(username)!==true){retrySkipped="QUOTA_LIMIT";break;}
+    var delay=Math.max(500*Math.pow(2,attempt),retryAfter)+Math.floor(Math.random()*251);
+    Utilities.sleep(delay);
+  }
+  return {response:response,attempts:attempts,retrySkipped:retrySkipped};
+}
+function avanteGeminiFailure_(httpStatus,providerStatus){
+  var code="AI_HTTP_ERROR",message="O serviço de IA retornou HTTP "+httpStatus+". Informe esse código ao administrador se o problema persistir.";
+  if(httpStatus===503){code="AI_UNAVAILABLE";message="O serviço remoto de IA está indisponível (HTTP 503). Aguarde antes de tentar novamente. Se persistir, o administrador deve verificar a disponibilidade e o acesso ao modelo configurado.";}
+  else if(httpStatus===401||httpStatus===403){code="AI_AUTHORIZATION";message="A configuração de acesso à IA precisa ser verificada pelo administrador (HTTP "+httpStatus+"). Repetir a pesquisa não corrige essa configuração.";}
+  else if(httpStatus===404){code="AI_MODEL_NOT_FOUND";message="O modelo configurado não foi encontrado ou não está acessível (HTTP 404). O administrador deve conferir o modelo no projeto, sem trocar a chave por mensagem.";}
+  else if(httpStatus===429){code="AI_QUOTA";message="A cota do serviço de IA foi atingida (HTTP 429). Aguarde a liberação da cota antes de tentar novamente.";}
+  return {ok:false,code:code,httpStatus:httpStatus,providerStatus:providerStatus||"UNSPECIFIED",retryAfterSeconds:httpStatus===503?30:0,error:message};
+}
+/** Diagnóstico administrativo: consulta apenas metadados, sem gerar texto ou revelar a chave. */
+function getAvanteAiDiagnostics(token){
+  var account=getAvanteSessionUser_(String(token||""));
+  if(!isAvanteSimulationAdmin_(account))return {ok:false,error:"Diagnóstico disponível somente à conta administrativa autenticada."};
+  var props=PropertiesService.getScriptProperties(),model=avanteGeminiModel_(props),key=String(props.getProperty(GEMINI_API_KEY_PROPERTY)||"").trim();
+  var result={ok:true,keyConfigured:!!key,model:model,modelSource:props.getProperty("GEMINI_MODEL")?"Script Properties":"Código padrão",clientWaitSeconds:30,maximumAttempts:2,automaticRetries:1};
+  if(!key||!model){result.ok=false;result.error=!key?"A propriedade GEMINI_API_KEY não está configurada.":"A propriedade GEMINI_MODEL tem formato inválido.";return result;}
+  try{
+    var response=UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model),{method:"get",muteHttpExceptions:true,headers:{"x-goog-api-key":key,"Accept":"application/json"}});
+    result.httpStatus=response.getResponseCode();
+    if(result.httpStatus!==200){result.ok=false;result.providerStatus=avanteGeminiProviderStatus_(response);result.error="Não foi possível validar os metadados do modelo (HTTP "+result.httpStatus+").";return result;}
+    var data;try{data=JSON.parse(response.getContentText()||"{}");}catch(ignored){result.ok=false;result.error="Os metadados não retornaram JSON válido.";return result;}
+    result.supportsGenerateContent=Array.isArray(data.supportedGenerationMethods)&&data.supportedGenerationMethods.indexOf("generateContent")>-1;
+    result.ok=result.supportsGenerateContent;if(!result.ok)result.error="O modelo retornado não declara suporte a generateContent.";
+    return result;
+  }catch(ignored){result.ok=false;result.error="Falha de transporte ao consultar metadados. Nenhuma consulta de geração foi enviada.";return result;}
+}
+
+/** Pesquisa e orientação geral com Gemini, sem ferramenta de busca externa.
  * Não grava nem altera cadastros; devolve resposta e fontes para revisão do usuário.
  */
 function runAvanteAiAssistant(token, input) {
@@ -311,6 +365,8 @@ function runAvanteAiAssistant(token, input) {
   var apiKey = String(props.getProperty(GEMINI_API_KEY_PROPERTY) || "").trim();
   if (!apiKey) return { ok: false, error: "A pesquisa com IA ainda não foi configurada. O administrador precisa adicionar a chave Gemini nas propriedades do projeto Apps Script." };
 
+  var model=avanteGeminiModel_(props);
+  if(!model)return {ok:false,code:"AI_CONFIGURATION",error:"O administrador precisa corrigir o formato da propriedade GEMINI_MODEL."};
   var mode = String(input.mode || "research");
   if (mode !== "research" && mode !== "review") return { ok: false, error: "Tipo de solicitação inválido." };
   var question = String(input.question || "").trim().slice(0, 1000);
@@ -342,9 +398,9 @@ function runAvanteAiAssistant(token, input) {
     prompt = question;
   }
 
-  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent";
   try {
-    var response = UrlFetchApp.fetch(url, {
+    var remote = fetchAvanteGemini_(url, {
       method: "post", muteHttpExceptions: true,
       contentType: "application/json",
       headers: { "x-goog-api-key": apiKey, "Accept": "application/json" },
@@ -353,36 +409,34 @@ function runAvanteAiAssistant(token, input) {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 1200 }
       })
-    });
-    var status = response.getResponseCode();
-    if (status < 200 || status >= 300) {
-      if (status === 401 || status === 403) return { ok: false, error: "A chave Gemini não foi aceita ou não tem acesso à API. Confira a configuração do projeto." };
-      if (status === 429) return { ok: false, error: "A cota de pesquisas do Gemini foi atingida. Tente novamente mais tarde." };
-      console.warn("Gemini respondeu com HTTP " + status + "; o conteúdo da consulta não foi registrado.");
-      return { ok: false, error: "O serviço de pesquisa com IA não respondeu corretamente (HTTP " + status + "). Tente novamente." };
-    }
-    var data = JSON.parse(response.getContentText() || "{}");
-    var candidate = (data.candidates || [])[0] || {};
+    },username);
+    var response=remote.response,status=response.getResponseCode();
+    if(status<200||status>=300){var failure=avanteGeminiFailure_(status,avanteGeminiProviderStatus_(response));failure.attempts=remote.attempts;failure.retrySkipped=remote.retrySkipped;return failure;}
+    var data;
+    try{data=JSON.parse(response.getContentText()||"{}");}catch(ignored){return {ok:false,code:"AI_INVALID_JSON",httpStatus:status,error:"O serviço de IA retornou uma resposta ilegível. O administrador deve conferir o contrato da integração; isso não indica falta de fornecedores locais."};}
+    if(!Array.isArray(data.candidates))return {ok:false,code:"AI_INVALID_RESPONSE",httpStatus:status,error:"O serviço de IA não retornou o formato esperado. O administrador deve conferir a resposta da integração."};
+    var candidate = data.candidates[0] || {};
     var parts = candidate.content && candidate.content.parts || [];
-    var answer = parts.map(function(part) { return String(part.text || ""); }).filter(Boolean).join("\n").trim();
-    if (!answer) return { ok: false, error: "A pesquisa não retornou uma resposta. Reformule a consulta e tente novamente." };
+    if(!Array.isArray(parts))return {ok:false,code:"AI_INVALID_RESPONSE",httpStatus:status,error:"O serviço de IA retornou conteúdo fora do formato esperado. O administrador deve conferir o contrato da integração."};
+    var answer = parts.map(function(part) { return String(part&&part.text || ""); }).filter(Boolean).join("\n").trim();
+    if (!answer) return { ok: false, code:"AI_EMPTY_RESPONSE", error: "A pesquisa não retornou uma resposta. Reformule a consulta e tente novamente." };
     var metadata = candidate.groundingMetadata || {};
     var seen = {}, sources = [];
-    (metadata.groundingChunks || []).forEach(function(chunk) {
+    (Array.isArray(metadata.groundingChunks)?metadata.groundingChunks:[]).forEach(function(chunk) {
       var web = chunk && chunk.web || {}, uri = String(web.uri || "");
       if (!/^https?:\/\//i.test(uri) || seen[uri]) return;
       seen[uri] = true;
       sources.push({ title: String(web.title || uri).slice(0, 240), url: uri });
     });
     return {
-      ok: true, answer: answer.slice(0, 12000),
+      ok: true, attempts:remote.attempts, answer: answer.slice(0, 12000),
       sources: sources.slice(0, 12),
-      searchQueries: (metadata.webSearchQueries || []).map(function(value) { return String(value || "").slice(0, 240); }).slice(0, 8),
+      searchQueries: (Array.isArray(metadata.webSearchQueries)?metadata.webSearchQueries:[]).map(function(value) { return String(value || "").slice(0, 240); }).slice(0, 8),
       reviewedAt: new Date().toISOString(), mode: mode
     };
   } catch (error) {
     console.warn("Falha na pesquisa do Gemini; consulta omitida dos registros.");
-    return { ok: false, error: "Não foi possível concluir a pesquisa agora. Verifique a conexão e tente novamente." };
+    return {ok:false,code:"AI_TRANSPORT",error:"A chamada ao serviço de IA não pôde ser concluída. Pode haver falha de transporte ou tempo de resposta excedido. Não há confirmação da causa; aguarde antes de tentar novamente."};
   }
 }
 
