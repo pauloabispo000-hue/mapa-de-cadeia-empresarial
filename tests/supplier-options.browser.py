@@ -108,6 +108,24 @@ with sync_playwright() as p:
  assert run("state.answers.indicacoes")=='Texto antigo sem direção definida'
  assert run("state.complementares.lista[0].cnpj")=='11222333000181'
  assert run("buildExportObject().complementary.lista[0].meIndica") is True
+ # Empresa cadastrada antes só no rascunho, ausente do diretório público.
+ run("state=freshState();state.answers.fornecedoresSelecionados=['Fornecedor do rascunho — CNPJ 11.444.777/0001-61'];saveState();state=loadState();currentStepIndex=activeConversationQuestions().findIndex(q=>q.key==='indicacoes');window.testRoot.innerHTML='';renderConversation(window.testRoot);")
+ for key in ['empresasQueIndico','empresasQueMeIndicam']:
+  field=page.locator('[data-referral='+key+']')
+  field.locator('.combo-toggle').click()
+  field.locator('.combo-search').fill('Fornecedor do rascunho' if key=='empresasQueIndico' else '11444777000161')
+  assert field.locator('.combo-option').count()==1
+  field.locator('.combo-option').click()
+  field.locator('.combo-toggle').click()
+ assert run("state.complementares.lista[0].cnpj")=='11444777000161'
+ assert run("sharedCompanies.some(c=>c.name==='Fornecedor do rascunho')") is False
+ # Trocar o rascunho remove a empresa local dos resultados e não vaza para outro usuário.
+ run("state=freshState();window.testRoot.innerHTML='';renderConversation(window.testRoot);")
+ field=page.locator('[data-referral=empresasQueIndico]')
+ field.locator('.combo-toggle').click()
+ field.locator('.combo-search').fill('Fornecedor do rascunho')
+ assert field.locator('.combo-option').count()==0
+ print('Navegador: empresa do rascunho aparece por nome/CNPJ nas indicações, sem publicação nem vazamento entre rascunhos.')
  print('Navegador: dois campos de indicação, nome/CNPJ, direções independentes, remoção e persistência aprovados.')
  print('Navegador: duas páginas, busca por CNPJ/nome/tipo e persistência independente aprovados.')
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')

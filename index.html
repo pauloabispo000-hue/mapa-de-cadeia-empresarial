@@ -2364,7 +2364,7 @@ function buildComboMulti(opts){
     var typedCnpj=normalizarCNPJ(term),validCnpjSearch=typedCnpj.length===14&&validarCNPJ(typedCnpj);
     var base = baseOptions();
     var filtered = base.filter(function(o){
-      if(normalizeSearch(o).indexOf(norm)>-1)return true;
+      if(normalizeSearch(opts.searchText?opts.searchText(o):o).indexOf(norm)>-1)return true;
       if(!validCnpjSearch)return false;
       var optionCnpj=String(o).match(/CNPJ\s+([0-9A-Z./-]+)/i);
       return !!(optionCnpj&&normalizarCNPJ(optionCnpj[1])===typedCnpj);
@@ -3608,7 +3608,7 @@ function buildCompanySettingsEditor(key,onAdded){
     options:isBusinessTargetField(key)?businessTargetOptions():sharedCompanyOptions(),selectedArr:selected,placeholder:isBusinessTargetField(key)?"Buscar por CNPJ, nome da empresa ou tipo de negócio...":"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:isBusinessTargetField(key),
     freeTextValue:isBusinessTargetField(key)?function(value){return "Tipo de negócio: "+String(value).replace(/^Tipo de negócio:\s*/i,"").trim();}:null,
     freeTextLabel:function(value){return "＋ Adicionar tipo de negócio: "+String(value).replace(/^Tipo de negócio:\s*/i,"").trim();},
-    noResultsText:isBusinessTargetField(key)?"Nenhuma opção encontrada. Adicione o tipo de negócio digitado ou pesquise uma empresa pelo CNPJ.":"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",selectedLabel:selectedCompanyDisplay,
+    noResultsText:isBusinessTargetField(key)?"Nenhuma opção encontrada. Adicione o tipo de negócio digitado ou pesquise uma empresa pelo CNPJ.":"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",selectedLabel:selectedCompanyDisplay,searchText:companySearchMatcher(),
     onCnpjLookup:function(cnpj){return consultarCNPJPublico(cnpj);},
     onCnpjAdd:function(data,cnpj){
       var name=String(data.nomeFantasia||data.razaoSocial||"").trim()||"Empresa "+formatarCNPJ(cnpj);
@@ -4408,10 +4408,36 @@ function inferAreaFromText(value){
 function splitNames(value){
   return String(value||"").split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
 }
+function surveyCompanyCatalog(){
+  var companies=sharedCompanies.slice(), seen=Object.create(null);
+  companies.forEach(function(company){var cnpj=normalizarCNPJ(company.cnpj);seen[cnpj?"cnpj:"+cnpj:"name:"+normName(company.name)]=true;});
+  function add(value){
+    if(!value)return;
+    var name,cnpj,city;
+    if(typeof value==="string"){
+      if(/^Tipo de negócio:/i.test(value))return;
+      var match=value.match(/^(.*?)\s+[—–-]\s+CNPJ\s+([0-9A-Z./-]+)/i);
+      name=match?match[1].trim():value.split(/\s+·\s+/)[0].trim();cnpj=match?normalizarCNPJ(match[2]):"";
+    }else{name=String(value.empresa||value.nome||value.name||"").trim();cnpj=normalizarCNPJ(value.cnpj);city=value.cidade||value.city||"";}
+    if(!name)return;
+    var key=cnpj?"cnpj:"+cnpj:"name:"+normName(name);
+    if(seen[key]||(!cnpj&&companies.some(function(company){return normName(company.name)===normName(name);})))return;
+    seen[key]=true;companies.push({name:name,cnpj:cnpj,city:city||"",aliases:[],areas:[],catalogSource:"draft"});
+  }
+  var answers=state.answers||{};
+  [state.fornecedores,state.clientes,state.complementares].forEach(function(group){(group&&group.lista||[]).forEach(add);});
+  ["fornecedoresSelecionados","clientesSelecionados","empresasVendaConjunta","empresasQueIndico","empresasQueMeIndicam","fornecedoresBuscados","clientesBuscados"].forEach(function(key){(Array.isArray(answers[key])?answers[key]:[]).forEach(add);});
+  return companies;
+}
+function companySearchMatcher(){
+  var aliases=Object.create(null);
+  surveyCompanyCatalog().forEach(function(company){aliases[companyOptionLabel(company)]=Array.isArray(company.aliases)?company.aliases.join(" "):"";});
+  return function(value){return String(value)+" "+(aliases[value]||"");};
+}
 function findSharedCompanyBySelection(value){
   var selected=String(value||"").trim(), cnpjMatch=selected.match(/CNPJ\s+([0-9A-Z./-]+)/i);
   var digits=normalizarCNPJ(cnpjMatch?cnpjMatch[1]:selected);
-  return sharedCompanies.filter(function(company){
+  return surveyCompanyCatalog().filter(function(company){
     if(companyOptionLabel(company)===selected)return true;
     if(/^[0-9A-Z]{12}[0-9]{2}$/.test(digits)&&normalizarCNPJ(company.cnpj)===digits)return true;
     var name=selected.split(/\s+[—–-]\s+CNPJ\s+/i)[0].split(/\s+·\s+/)[0];
@@ -4584,7 +4610,7 @@ function companyOptionLabel(company){
   var sourceHint=company.catalogSource==="public"?" · sugestão pública: "+offer:company.catalogSource==="registry"?" · CNPJ ativo · atividade: "+offer:"";
   return company.name+(cnpj?" — CNPJ "+formatarCNPJ(cnpj):"")+(company.city?" · "+company.city:"")+sourceHint;
 }
-function sharedCompanyOptions(){ return sharedCompanies.map(companyOptionLabel); }
+function sharedCompanyOptions(){ return surveyCompanyCatalog().map(companyOptionLabel); }
 function addAnswerOption(key,rawValue,targetSupplier){
   if(!canAddAnswer(key))return false;
   var value=String(rawValue||"").trim();
@@ -4901,7 +4927,7 @@ function renderConversation(container){
         companyWrap.appendChild(buildComboMulti({
           options:sharedCompanyOptions(),selectedArr:Array.isArray(state.answers[q.key])?state.answers[q.key]:(state.answers[q.key]=[]),placeholder:"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:false,
           noResultsText:"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",
-          selectedLabel:selectedCompanyDisplay,
+          selectedLabel:selectedCompanyDisplay,searchText:companySearchMatcher(),
           onCnpjLookup:function(cnpj){return consultarCNPJPublico(cnpj);},
           onCnpjAdd:function(data,cnpj){
             var companyName=String(data.nomeFantasia||data.razaoSocial||"").trim();

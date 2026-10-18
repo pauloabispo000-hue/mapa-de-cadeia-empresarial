@@ -124,3 +124,24 @@ direções somente quando a empresa é selecionada nos dois campos.
 O texto legado `answers.indicacoes` é preservado e exibido para consulta, sem
 inferir empresas nem marcar automaticamente os dois sentidos. As respostas
 continuam privadas; nenhuma confirmação pela outra empresa é presumida.
+
+## Empresas nas opções de resposta
+
+O catálogo usado pelos seletores combina o diretório compartilhado com empresas
+presentes nas listas e seleções do rascunho atual. Essa combinação é local: não
+publica candidatos privados nem modifica `sharedCompanies`. Nome e CNPJ são
+preservados nas seleções posteriores; tipos de negócio não viram empresas. A
+busca inclui aliases do diretório, com índice criado uma vez por seletor.
+
+O envio confirmado salva o JSON completo em Respostas e candidatos do negócio,
+fornecedores, clientes e complementares na aba Empresas. O diretório público
+retornado por `readCompanies_` exige CNPJ válido e inclusão na propriedade
+`MAPA_NEGOCIOS_VERIFIED_PUBLIC_CNPJS`. Isso é separado da publicação automática
+de perfis públicos. O campo `shareDirectory` sozinho não libera candidatos.
+
+Limitações: empresas apenas em promoções ou intenções ficam no JSON completo, mas
+não são todas extraídas pelo indexador `saveCompanies_`. Edições em
+ConfiguracoesPerfil não atualizam esse índice. A busca de opções compartilhadas
+não confirma gravação de um registro específico: isso exige consultar a planilha
+privada com autorização. Não ampliar a exposição pública para corrigir buscas do
+próprio rascunho.
