@@ -298,3 +298,10 @@ administrativa autenticada no Apps Script, usando a chave que já permanece nas
 Script Properties. Não solicitar ou copiar a chave, CLASPRC_JSON ou credenciais
 para o ambiente de desenvolvimento. Testes usam serviços e dados fictícios, sem
 chamadas reais ao Gemini ou gravações em cadastros reais.
+
+O diagnóstico de metadados encerra a espera na interface após 20 segundos, libera
+o botão e descarta callbacks tardios, inclusive durante uma nova consulta manual.
+Timeout não valida nem invalida chave, permissões ou modelo; a chamada UrlFetchApp
+pode continuar no servidor. Não há repetição automática de metadados. Falha de
+comunicação/início e erros HTTP recebidos encerram o carregamento separadamente.
+O teste PDCA usa relógio e RPC simulados, sem consultar a chave/projeto reais.

@@ -3578,8 +3578,19 @@ function renderAccountSettingsPage(root){
     var diagnosticStatus=h("p",{role:"status"}),diagnosticButton=h("button",{type:"button",class:"platform-action secondary"},["Diagnosticar configuração da IA"]);
     diagnosticButton.addEventListener("click",function(){
       if(!isAppsScriptApp()||!authSession||!authSession.token){diagnosticStatus.textContent="Entre na versão oficial com a conta administrativa.";return;}
-      diagnosticButton.disabled=true;diagnosticStatus.textContent="Consultando somente metadados do modelo, sem gerar resposta…";
-      google.script.run.withSuccessHandler(function(info){diagnosticButton.disabled=false;if(!info){diagnosticStatus.textContent="Diagnóstico sem resposta.";return;}diagnosticStatus.textContent="Modelo: "+(info.model||"não informado")+". HTTP: "+(info.httpStatus||"não recebido")+". "+(info.ok?"Metadados acessíveis e generateContent declarado; isso não comprova disponibilidade da geração.":info.error||"Diagnóstico não concluído.");}).withFailureHandler(function(){diagnosticButton.disabled=false;diagnosticStatus.textContent="Não foi possível consultar o diagnóstico. Nenhuma geração foi solicitada.";}).getAvanteAiDiagnostics(authSession.token);
+      var settled=false,sessionToken=authSession.token,timer;
+      function finish(message){
+        if(settled)return;settled=true;clearTimeout(timer);diagnosticButton.disabled=false;diagnosticButton.removeAttribute("aria-busy");
+        if(diagnosticStatus.isConnected&&authSession&&authSession.token===sessionToken)diagnosticStatus.textContent=message;
+      }
+      diagnosticButton.disabled=true;diagnosticButton.setAttribute("aria-busy","true");diagnosticStatus.textContent="Consultando somente metadados do modelo, sem gerar resposta…";
+      timer=setTimeout(function(){finish("O diagnóstico excedeu 20 segundos de espera. A chamada no servidor pode continuar; isso não confirma nem invalida a chave, as permissões ou o modelo. Nenhuma repetição automática será feita.");},20000);
+      try{
+        google.script.run.withSuccessHandler(function(info){
+          if(!info){finish("Diagnóstico sem resposta. Não foi possível validar a configuração.");return;}
+          finish("Modelo: "+(info.model||"não informado")+". HTTP: "+(info.httpStatus||"não recebido")+". "+(info.ok?"Metadados acessíveis e generateContent declarado; isso não comprova disponibilidade da geração.":info.error||"Diagnóstico não concluído."));
+        }).withFailureHandler(function(){finish("Falha de comunicação ao consultar o diagnóstico. Não foi possível validar a chave, as permissões ou o modelo. Nenhuma geração foi solicitada.");}).getAvanteAiDiagnostics(sessionToken);
+      }catch(ignored){finish("Não foi possível iniciar a consulta do diagnóstico. Nenhuma configuração foi validada.");}
     });simulation.appendChild(diagnosticButton);simulation.appendChild(diagnosticStatus);grid.appendChild(simulation);
   }
   var business=h("section",{class:"account-settings-card","aria-label":"Dados do negócio"});
