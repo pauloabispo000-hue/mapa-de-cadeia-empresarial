@@ -26,3 +26,19 @@ test('um fragmento indisponível não descarta os demais dados do catálogo',asy
  await ctx.loadMunicipalDirectory();assert.equal(ctx.municipalCompanies.length,1);assert.equal(ctx.municipalDirectoryStatus.partial,true);
  assert.match(ctx.municipalDirectoryMessage(),/Catálogo parcial/);
 });
+
+
+test('fornecedor com cidade ausente continua útil sem inferir localização; UF na cidade é normalizada',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista[0].cidade='';
+ let results=ctx.findKnownSupplierMatches('Encontre fornecedores de pão em Descalvado');
+ assert.equal(results.length,1);assert.equal(results[0].city,'');
+ ctx.state.fornecedores.lista[0].cidade='Descalvado/SP';
+ results=ctx.findKnownSupplierMatches('Encontre fornecedores de pão em Descalvado');assert.equal(results.length,1);
+});
+
+test('pluralização preserva singular e plural para fornecedores e soluções',()=>{
+ const ctx=vm.createContext({});vm.runInContext(html.slice(html.indexOf('function quantityLabel('),html.indexOf('function renderNetworkPage(')),ctx);
+ assert.equal(ctx.supplierSolutionsLabel({suppliers:{one:1},solutions:{one:1}}),'1 fornecedor · 1 solução informada para este negócio');
+ assert.equal(ctx.quantityLabel(0,'solução','soluções'),'0 soluções');
+ assert.equal(ctx.quantityLabel(2,'fornecedor','fornecedores'),'2 fornecedores');
+});

@@ -148,7 +148,7 @@ with sync_playwright() as p:
  run("state=freshState();state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',cidade:'Descalvado',categorias:['Pão francês','Bolo','Biscoito','Salgado']}];state.fornecedores.lista[0].categorias.forEach(p=>CATEGORIA_INSUMO_AREA[p]='Alimentos/Medicamentos');document.getElementById('surveyWizard').style.display='none';window.testRoot.style.display='block';window.testRoot.innerHTML='';renderNetworkPage(window.testRoot,{companies:1,relationships:1,areas:[]},{},false);")
  assert page.locator('#selectedAreaTitle').inner_text()=='Alimentos/Medicamentos'
  initial=page.locator('#selectedAreaCount').inner_text()
- assert '1 fornecedores' in initial and '4 soluções' in initial,initial
+ assert '1 fornecedor · 4 soluções' in initial,initial
  assert 'PADARIA FICTICIA' in page.locator('#selectedAreaDetails').inner_text()
  page.locator('.platform-area-row').filter(has_text='Alimentos/Medicamentos').click()
  assert page.locator('#selectedAreaCount').inner_text()==initial
@@ -175,4 +175,28 @@ with sync_playwright() as p:
  assert run("state.answers.negocioNome")=='Cadastro original preservado'
  assert run("state.meta.simulation===true") is False
  print('Navegador: simulação administrativa usa CNPJ fictício sem consulta pública e restaura o cadastro original.')
+ # Reproduz Enter com cidade ausente e catálogo de Descalvado, sem chamada externa.
+ run("state=freshState();state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',cidade:'',categorias:['Pão francês']}];sharedCompanies=[{name:'Outro negócio',city:'Descalvado',offers:[{nome:'Leite'}]}];window.aiCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.aiSuccess=fn;return this},withFailureHandler(fn){window.aiFailure=fn;return this},runAvanteAiAssistant(token,payload){window.aiCalls++;window.aiPayload=payload}}}};openAiSearchDialog();")
+ page.locator('#aiSearchInput').fill('Encontre fornecedores de pão em Descalvado')
+ page.locator('#aiSearchInput').press('Enter')
+ assert 'PADARIA FICTICIA' in page.locator('#aiSearchResult').inner_text()
+ assert 'Localização não informada' in page.locator('#aiSearchResult').inner_text()
+ assert run('window.aiCalls')==0
+ # Dados chegam enquanto a IA está em voo: o 503 deve preservar resultado local útil.
+ run("state.fornecedores.lista=[];sharedCompanies=[];")
+ page.locator('#aiSearchInput').fill('Encontre fornecedores de pão em Descalvado')
+ page.locator('#aiSearchInput').press('Enter')
+ assert run('window.aiCalls')==1
+ run("state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',categorias:['Pão francês']}];window.aiSuccess({ok:false,error:'Serviço indisponível (HTTP 503)'});")
+ assert 'PADARIA FICTICIA' in page.locator('#aiSearchResult').inner_text()
+ assert 'IA está indisponível' in page.locator('#aiSearchStatus').inner_text()
+ assert 'PADARIA FICTICIA' not in run('JSON.stringify(window.aiPayload)')
+ run("state.fornecedores.lista=[];")
+ page.locator('#aiSearchInput').fill('fornecedor de extintores em Descalvado')
+ page.locator('#aiSearchInput').press('Enter')
+ run("window.aiSuccess({ok:false,error:'Serviço indisponível (HTTP 503)'});")
+ assert 'Nenhuma oferta correspondente' in page.locator('#aiSearchResult').inner_text()
+ assert 'PADARIA FICTICIA' not in page.locator('#aiSearchResult').inner_text()
+ assert page.locator('#aiSearchInput').is_enabled()
+ print('Navegador: Enter encontra produto com localização pendente; HTTP 503 recupera resultados locais sem inventar ofertas ou enviar relações à IA.')
  b.close()

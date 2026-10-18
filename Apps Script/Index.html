@@ -1397,6 +1397,7 @@ var municipalDirectoryStatus={loaded:false,count:0,expectedCount:7287,partial:fa
 var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
 var sharedNetwork = null;
+var sharedOptionsStatus="idle";
 var sharedWorkforce = {active:0,vacancies:0,businessesReported:0};
 var activeProgramSection = "overview";
 var discoveredResaleCustomers = [];
@@ -3233,19 +3234,26 @@ function refreshSharedCompanies(){
   });
 }
 function loadSharedOptions(){
-  loadMunicipalDirectory();
+  loadMunicipalDirectory();sharedOptionsStatus="loading";
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf("COLE_AQUI_")===0) return;
   var callbackName="__mapaOptions_"+uid().replace(/[^a-zA-Z0-9_$]/g,"");
   var script=document.createElement("script");
   var finished=false;
-  var timer=setTimeout(done,12000);
+  var timer=setTimeout(done,isAppsScriptApp()?30000:12000);
   function done(){
     if(finished)return;finished=true;clearTimeout(timer);
-    try{delete window[callbackName];}catch(e){window[callbackName]=undefined;}
+    window[callbackName]=function(){};
+    if(sharedOptionsStatus==="loading"){
+      sharedOptionsStatus="error";
+      if(!sharedNetwork)document.querySelectorAll('[data-network-value]').forEach(function(value){value.textContent="Indisponível";});
+      document.querySelectorAll('.shared-network-state').forEach(function(note){note.textContent="Totais agregados indisponíveis. Os fornecedores do seu rascunho continuam acessíveis.";});
+    }
     if(script.parentNode)script.parentNode.removeChild(script);
   }
   window[callbackName]=function(response){
+    if(finished)return;
     if(!response||!response.ok||!response.options){done();return;}
+    sharedOptionsStatus="ready";
     learnedSharedCompanies=Array.isArray(response.companies)?response.companies:[];
     refreshSharedCompanies();
     sharedNetwork=response.network||null;
@@ -3266,6 +3274,10 @@ function loadSharedOptions(){
     });
     syncConversationAnswers();saveState();renderCurrentStep();renderProgramSection();done();
   };
+  if(isAppsScriptApp()){
+    try{google.script.run.withSuccessHandler(window[callbackName]).withFailureHandler(done).getAvanteSharedOptions();}catch(error){done();}
+    return;
+  }
   script.onerror=done;
   script.src=APPS_SCRIPT_URL+(APPS_SCRIPT_URL.indexOf("?")>-1?"&":"?")+"callback="+encodeURIComponent(callbackName)+"&t="+Date.now();
   document.head.appendChild(script);
@@ -3280,7 +3292,8 @@ function loadPublicCompanyProfile(cnpj){
   var callbackName="__avanteProfile_"+uid().replace(/[^a-zA-Z0-9_$]/g,"");
   var script=document.createElement("script");
   var timer=setTimeout(function(){finish(null);},12000);
-  function finish(result){clearTimeout(timer);try{delete window[callbackName];}catch(e){}if(script.parentNode)script.parentNode.removeChild(script);renderPublicCompanyProfile(view,result);}
+  var finished=false;
+  function finish(result){if(finished)return;finished=true;clearTimeout(timer);window[callbackName]=function(){};if(script.parentNode)script.parentNode.removeChild(script);renderPublicCompanyProfile(view,result);}
   window[callbackName]=finish;
   script.src=APPS_SCRIPT_URL+(APPS_SCRIPT_URL.indexOf("?")>-1?"&":"?")+"perfil="+encodeURIComponent(cnpj)+"&callback="+encodeURIComponent(callbackName)+"&t="+Date.now();
   script.onerror=function(){finish(null);};document.head.appendChild(script);
@@ -4224,6 +4237,8 @@ function initializeGeographicTestMap(canvas,status,accuracyNote,nearestList){
   }).withFailureHandler(function(){status.textContent="Não foi possível conferir o limite mensal do mapa. Tente novamente.";}).reserveGoogleMapsMonthlyUsage(geocodingEvents);
 }
 
+function quantityLabel(count,singular,plural){return count+" "+(count===1?singular:plural);}
+function supplierSolutionsLabel(metric){var solutions=Object.keys(metric.solutions).length;return quantityLabel(Object.keys(metric.suppliers).length,"fornecedor","fornecedores")+" · "+quantityLabel(solutions,"solução","soluções")+(solutions===1?" informada":" informadas")+" para este negócio";}
 function renderNetworkPage(root,network,workforce,isOverview){
   var page=h("section",{class:"platform-page"});
   var registered=isBusinessRegistered();
@@ -4249,7 +4264,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
     page.appendChild(h("div",{class:"platform-hero"},[copy]));
   }
   var stats=h("div",{class:"platform-stats"});
-  [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Total agregado da rede"])]));});page.appendChild(stats);
+  [["Empresas na rede",network.companies||0],["Conexões informadas",network.relationships||0],["Caminhos entre empresas",network.twoStepChains||0],["Pessoas trabalhando",workforce.active||0]].forEach(function(item){stats.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{"data-network-value":"true"},[sharedNetwork?String(item[1]):sharedOptionsStatus==="error"?"Indisponível":"Carregando…"]),h("small",{},["Total agregado do servidor"])]));});page.appendChild(stats);
   if(isOverview) {page.appendChild(renderConnectionJourney());page.appendChild(renderResaleCustomersCard());}
   var grid=h("div",{class:"platform-grid"}), mapCard=h("div",{class:"platform-card"}), side=h("aside",{class:"platform-card"});
   mapCard.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Fornecedores por setor"]),h("p",{},["Escolha um setor para ver as conexões informadas."])] )]));
@@ -4289,7 +4304,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
     var group=svgNode("g",{class:"platform-area-node"+(active?" has-data":""),tabindex:"0",role:"button"});
     var poly=svgNode("polygon",{points:regularHex(cx,cy,rx,ry)},group),text=svgNode("text",{x:cx,y:cy+4},group);text.textContent=String(areaNumber(area)).padStart(2,"0");
     if(extraText){var title=svgNode("title",{},group);title.textContent=area.name+" — "+extraText;}
-    function select(){var title=document.getElementById("selectedAreaTitle"),count=document.getElementById("selectedAreaCount");if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=Object.keys(metric.suppliers).length+" fornecedores · "+Object.keys(metric.solutions).length+" soluções informadas para este negócio";else if(activeScaleIndex===1)count.textContent=(area.registeredOfferCompanies||0)+" empresas com oferta cadastrada · "+(area.registeredOffers||0)+" produtos ou serviços · "+(area.knownSupplierLinks||0)+" vínculos informados · meta teórica 144 soluções";else count.textContent="Área integrante de cada uma das 12 células teóricas do município.";}}
+    function select(){var title=document.getElementById("selectedAreaTitle"),count=document.getElementById("selectedAreaCount");if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.registeredOfferCompanies||0)+" empresas com oferta cadastrada · "+(area.registeredOffers||0)+" produtos ou serviços · "+(area.knownSupplierLinks||0)+" vínculos informados · meta teórica 144 soluções";else count.textContent="Área integrante de cada uma das 12 células teóricas do município.";}}
     group.addEventListener("click",select);group.addEventListener("keydown",function(evt){if(evt.key==="Enter"||evt.key===" "){evt.preventDefault();select();}});return group;
   }
   function renderScaleSchema(){
@@ -4339,7 +4354,7 @@ function renderNetworkPage(root,network,workforce,isOverview){
   var selectedAreaDetails=h("div",{class:"area-solution-details",id:"selectedAreaDetails"});side.appendChild(selectedAreaDetails);
   var list=h("div",{class:"platform-area-list",style:"margin-top:12px;"});
   function areaSummary(area){var metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{}};if(activeScaleIndex===0)return Object.keys(metric.suppliers).length+" forn. · "+Object.keys(metric.solutions).length+" sol.";if(activeScaleIndex===1)return (area.registeredOfferCompanies||0)+" empresas · "+(area.registeredOffers||0)+" ofertas · meta 144";return "12 áreas por célula";}
-  function selectArea(area){var title=page.querySelector("#"+"selectedAreaTitle"),count=page.querySelector("#selectedAreaCount"),details=page.querySelector("#selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=Object.keys(metric.suppliers).length+" fornecedores · "+Object.keys(metric.solutions).length+" soluções informadas para este negócio";else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos observados na rede · capacidade teórica de 144 soluções nesta área";else count.textContent="Esta área está presente em cada uma das 12 células comunitárias do modelo.";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução foi associada a esta área neste negócio ainda."]));}else if(activeScaleIndex===1)details.appendChild(h("p",{class:"scale-capacity"},["O modelo prevê 12 empresas por necessidade e até 144 soluções por área. A lista comunitária será formada por ofertas e vínculos confirmados pelos participantes."]));else details.appendChild(h("p",{class:"scale-capacity"},["O esquema municipal compõe 12 células comunitárias. Cada célula contém as 12 áreas e sua própria cobertura de empresas e soluções."]));}}
+  function selectArea(area){var title=page.querySelector("#"+"selectedAreaTitle"),count=page.querySelector("#selectedAreaCount"),details=page.querySelector("#selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos observados na rede · capacidade teórica de 144 soluções nesta área";else count.textContent="Esta área está presente em cada uma das 12 células comunitárias do modelo.";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução foi associada a esta área neste negócio ainda."]));}else if(activeScaleIndex===1)details.appendChild(h("p",{class:"scale-capacity"},["O modelo prevê 12 empresas por necessidade e até 144 soluções por área. A lista comunitária será formada por ofertas e vínculos confirmados pelos participantes."]));else details.appendChild(h("p",{class:"scale-capacity"},["O esquema municipal compõe 12 células comunitárias. Cada célula contém as 12 áreas e sua própria cobertura de empresas e soluções."]));}}
   function updateScaleSummary(){var title=document.getElementById("scaleSideTitle"),description=document.getElementById("scaleSideDescription"),selectedCount=document.getElementById("selectedAreaCount");if(title)title.textContent=activeScaleIndex===0?"Fornecedores por área":activeScaleIndex===1?"Soluções por área":"Células do município";if(description)description.textContent=activeScaleIndex===0?"Soluções e fornecedores informados por este negócio":activeScaleIndex===1?"Empresas e capacidade teórica por área":"12 células comunitárias, cada uma com as 12 áreas";if(selectedCount)selectArea(displayAreas[0]||first);Array.prototype.forEach.call(list.children,function(row,index){var count=row.querySelector(".platform-area-count");if(count&&displayAreas[index])count.textContent=areaSummary(displayAreas[index]);});}
   displayAreas.forEach(function(area,i){var row=h("button",{type:"button",class:"platform-area-row"},[h("span",{class:"platform-area-number"},[String(areaNumber(area,i)).padStart(2,"0")]),h("span",{class:"platform-area-name"},[area.name]),h("span",{class:"platform-area-count"},[areaSummary(area)])]);row.addEventListener("click",function(){selectArea(area);});list.appendChild(row);});side.appendChild(list);
   [scalePrev,scaleNext].forEach(function(button){button.addEventListener("click",updateScaleSummary);});
@@ -4370,12 +4385,13 @@ function findKnownSupplierMatches(query){
     if(company.catalogSource==="public"&&company.offer)offers.push(company.offer);
     if(offers.length)candidates.push({name:company.name,cnpj:company.cnpj||"",city:company.city||"",offers:offers,source:company.catalogSource==="public"?"Catálogo público da plataforma":"Ofertas cadastradas na plataforma"});
   });
-  var cities=candidates.map(function(company){return normalizeSearch(company.city).split(/\s[-–]\s/)[0];}).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
+  function cityName(value){return normalizeSearch(value).replace(/\s*[-–,/]\s*[a-z]{2}\s*$/,"").trim();}
+  var cities=candidates.map(function(company){return cityName(company.city);}).concat(["descalvado"]).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
   words=words.filter(function(word){return !cities.some(function(city){return city.split(/\s+/).indexOf(word)>-1;});});
   if(!words.length)return [];
   var seen=Object.create(null);
   return candidates.filter(function(company){
-    if(cities.length&&cities.indexOf(normalizeSearch(company.city).split(/\s[-–]\s/)[0])<0)return false;
+    if(cities.length&&cityName(company.city)&&cities.indexOf(cityName(company.city))<0)return false;
     var key=normalizarCNPJ(company.cnpj)||normalizeSearch(company.name);
     var text=searchable(company.name+" "+company.offers.join(" "));
     var matches=words.some(function(word){return text.indexOf(word)>-1;});
@@ -4386,7 +4402,7 @@ function renderKnownSupplierMatches(matches,result){
   result.hidden=false;result.innerHTML="";
   result.appendChild(h("h3",{},["Fornecedores encontrados na plataforma"]));
   matches.forEach(function(company){result.appendChild(h("div",{class:"platform-card"},[
-    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city,company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
+    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city||"Localização não informada: confirme atendimento na cidade procurada",company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
   ]));});
   result.appendChild(h("p",{class:"company-profile-meta"},["Confirme a disponibilidade diretamente com a empresa. As compras informadas não comprovam oferta atual."]));
   if(municipalDirectoryStatus.partial)result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
@@ -4397,12 +4413,23 @@ function submitAiSearch(query,input,status,result){
   if(!authSession||!authSession.token||!isAppsScriptApp()){
     status.textContent="Entre pela versão oficial da plataforma para pesquisar com IA.";status.hidden=false;return;
   }
+  var requestId=(input.avanteSearchId||0)+1;input.avanteSearchId=requestId;
   var matches=findKnownSupplierMatches(query);
   if(matches.length){input.disabled=false;status.textContent="";status.hidden=true;renderKnownSupplierMatches(matches,result);return;}
   input.disabled=true;status.textContent="Pesquisando…";status.hidden=false;result.hidden=true;result.innerHTML="";
+  var finished=false,timer=setTimeout(function(){fail("A pesquisa com IA excedeu o tempo de resposta.");},30000);
+  function fail(message){
+    if(finished||input.avanteSearchId!==requestId)return;finished=true;clearTimeout(timer);input.disabled=false;
+    var local=findKnownSupplierMatches(query);
+    if(local.length){renderKnownSupplierMatches(local,result);status.textContent="A IA está indisponível. Exibindo fornecedores e ofertas informados na plataforma.";}
+    else{result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela. Isso não significa que não existam fornecedores na região."]));status.textContent=message;}
+    status.hidden=false;input.focus();
+  }
+  try{
   google.script.run.withSuccessHandler(function(response){
-    input.disabled=false;
-    if(!response||!response.ok){status.textContent=response&&response.error||"Não foi possível concluir a pesquisa.";input.focus();return;}
+    if(finished||input.avanteSearchId!==requestId)return;
+    if(!response||!response.ok){fail(response&&response.error||"Não foi possível concluir a pesquisa com IA.");return;}
+    finished=true;clearTimeout(timer);input.disabled=false;
     status.textContent="";status.hidden=true;result.hidden=false;
     result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
     result.appendChild(h("p",{class:"ai-assistant-result"},[response.answer||""]));
@@ -4416,8 +4443,9 @@ function submitAiSearch(query,input,status,result){
     }
     input.focus();
   }).withFailureHandler(function(){
-    input.disabled=false;status.textContent="Falha na pesquisa. Tente novamente.";status.hidden=false;input.focus();
+    fail("Falha na comunicação com a pesquisa de IA.");
   }).runAvanteAiAssistant(authSession.token,{mode:"research",question:query});
+  }catch(error){fail("Não foi possível iniciar a pesquisa com IA.");}
 }
 
 function renderWorkforcePage(root,workforce){

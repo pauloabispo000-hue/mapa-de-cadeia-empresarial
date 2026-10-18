@@ -147,6 +147,11 @@ function prunePlatformBackups_(root, now) {
   }
 }
 
+/** Mesmo conjunto público do endpoint JSON; não inclui respostas ou relações individuais. */
+function getAvanteSharedOptions(){
+  return {ok:true,options:readOptions_(),companies:readCompanies_(),network:summarizeNetwork_(),workforce:summarizeWorkforce_()};
+}
+
 function doGet(e) {
   var params = e && e.parameter ? e.parameter : {};
   if (String(params.app || "") === "1") {
@@ -156,14 +161,14 @@ function doGet(e) {
       .addMetaTag("viewport", "width=device-width, initial-scale=1");
   }
   var profileCnpj = normalizeCnpj_(params.perfil || params.profile || "");
-  var data = profileCnpj ? readPublicProfile_(profileCnpj) : { ok: true, options: readOptions_(), companies: readCompanies_(), network: summarizeNetwork_(), workforce: summarizeWorkforce_() };
+  var data = profileCnpj ? readPublicProfile_(profileCnpj) : getAvanteSharedOptions();
   var callback = e && e.parameter ? String(e.parameter.callback || "") : "";
   var json = JSON.stringify(data);
   if (callback) {
     if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(callback)) {
       return ContentService.createTextOutput("invalid callback").setMimeType(ContentService.MimeType.TEXT);
     }
-    return ContentService.createTextOutput(callback + "(" + json + ");")
+    return ContentService.createTextOutput("(function(){var f="+JSON.stringify(callback)+".split('.').reduce(function(o,k){return o&&o[k];},globalThis);if(typeof f==='function')f("+json+");})();")
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);

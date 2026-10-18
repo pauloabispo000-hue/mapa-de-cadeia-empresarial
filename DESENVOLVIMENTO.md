@@ -206,3 +206,25 @@ As páginas Perfil e Produtos, durante a simulação, mostram uma prévia fictí
 atalhos para editar o cadastro, sem chamar APIs de publicação ou carregar catálogo
 real para o identificador de teste. O publicador também recusa explicitamente esse
 identificador e orienta usar o cadastro de demonstração, antes de gravar dados.
+
+## PDCA — busca local e inicialização pública
+
+A busca mantém fornecedores com produto informado e cidade ausente, identificando
+que a localização precisa ser confirmada. Cidades explicitamente diferentes são
+filtradas; sufixos de UF são normalizados. A lista local é consultada novamente
+se a IA retornar erro, falhar na comunicação ou exceder 30 segundos, aproveitando
+dados carregados durante a chamada sem inventar ofertas. Relações privadas do
+rascunho não são enviadas ao serviço externo.
+
+No Apps Script, a inicialização das opções públicas usa getAvanteSharedOptions
+via google.script.run. O fallback JSONP mantém callback inofensivo após timeout,
+ignora respostas tardias e o servidor só chama funções existentes. Perfis públicos
+também ignoram respostas tardias para não sobrescrever a interface após timeout.
+
+Totais não carregados aparecem como Carregando/Indisponível, não zero. Os totais
+agregados vêm do cadastro e relações persistidos no servidor, enquanto setores
+empresariais usam o rascunho atual. Em consulta pública durante este ciclo, o
+endpoint retornou 10 empresas indexadas, 5 relações, 0 opções públicas de empresas
+e 0 ofertas autorizadas por área. Não foram alteradas as autorizações do diretório,
+nem inferido defeito nos indicadores com zero. A pluralização distingue fornecedor,
+fornecedores, solução e soluções.
