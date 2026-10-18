@@ -3123,7 +3123,7 @@ function normalizeSurveySubmissionState(meta){
   if(meta.sendStatus==="sending"||(meta.submittedAt&&!meta.responseId)){
     if(meta.submittedAt)meta.unverifiedSubmittedAt=meta.submittedAt;
     meta.submittedAt=null;meta.sendStatus="unknown";
-    meta.sendError="Há um envio anterior sem confirmação verificável. Seu rascunho foi preservado. Confira o resultado na plataforma antes de reenviar.";
+    meta.sendError="Pesquisa → Revisão e envio: falta o recibo de confirmação do servidor para o envio anterior. Isso não identifica uma resposta incorreta. Seu rascunho foi preservado; não reenvie enquanto o resultado for desconhecido.";
   }
 }
 
@@ -3160,6 +3160,31 @@ function submitSurveyDraft(){
     state.meta.sendStatus=error.outcomeUnknown?"unknown":"error";state.meta.sendError=error.message;
     saveState();renderCurrentStep();
   });
+}
+
+function renderSurveySendIssue(){
+  var box=h("div",{class:"error-msg show","role":"alert"});
+  box.appendChild(h("p",{},[state.meta.sendError||"Não foi possível confirmar o envio."]));
+  if(state.meta.sendStatus!=="unknown")return box;
+  box.appendChild(h("p",{},["Local: Pesquisa → Revisão e envio. A pendência está na confirmação de gravação, e não em um campo identificado da pesquisa."]));
+  var status=h("p",{"role":"status","aria-live":"polite"}),link=h("a",{href:"#confirmacao-envio"},["Verificar confirmação deste envio"]);
+  var pending=false;
+  link.addEventListener("click",function(event){
+    event.preventDefault();if(pending)return;
+    box.id="confirmacao-envio";
+    if(!authSession||!authSession.token||!isAppsScriptApp()){status.textContent="Abra a versão oficial e entre na mesma conta usada no envio para consultar a confirmação. Seu rascunho foi preservado.";return;}
+    pending=true;link.setAttribute("aria-disabled","true");status.textContent="Consultando o recibo no servidor, sem reenviar respostas…";
+    var token=authSession.token,payload=buildExportObject(),snapshot=JSON.stringify(payload),finished=false;
+    function finish(result){
+      if(finished)return;finished=true;clearTimeout(timer);pending=false;link.removeAttribute("aria-disabled");
+      if(!authSession||authSession.token!==token||JSON.stringify(buildExportObject())!==snapshot){status.textContent="A conta ou o rascunho mudou. Consulte novamente para verificar as respostas atuais.";return;}
+      if(!result||!result.ok){status.textContent=result&&result.error||"Não foi possível consultar o recibo. O resultado permanece desconhecido; seu rascunho foi preservado e não houve reenvio.";return;}
+      try{applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();}catch(error){status.textContent=error.message;}
+    }
+    var timer=setTimeout(function(){finish(null);},30000);
+    try{google.script.run.withSuccessHandler(finish).withFailureHandler(function(){finish(null);}).getAvanteSurveyReceipt(token,payload);}catch(error){finish(null);}
+  });
+  box.appendChild(link);box.appendChild(status);return box;
 }
 
 function loadMunicipalDirectory(){
@@ -3339,9 +3364,7 @@ function renderRevisao(container){
     ]));
   }
   if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown"){
-    container.appendChild(h("div",{class:"conditional show", style:"border-left-color:#A5432F;background:#FBEAE5;"},[
-      h("p",{style:"margin:0;font-size:13.5px;color:#A5432F;"},[state.meta.sendError])
-    ]));
+    container.appendChild(renderSurveySendIssue());
   }
 
   var b = state.business;
@@ -4553,7 +4576,7 @@ function renderConversationReview(container){
       h("p",{class:"question-help"},["Você pode voltar para ajustar qualquer resposta antes de enviar."])
     ]));
     if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown") {
-      container.appendChild(h("p",{class:"error-msg show"},[state.meta.sendError]));
+      container.appendChild(renderSurveySendIssue());
       container.appendChild(h("button",{type:"button",class:"btn-outline",onclick:function(){downloadFile("rascunho_pesquisa.json",JSON.stringify(buildExportObject(),null,2),"application/json");}},["Baixar rascunho JSON"]));
     }
     activeConversationQuestions().forEach(function(q){

@@ -431,6 +431,29 @@ function doPost(e) {
 }
 
 /** Mesmo processamento para HTTP e RPC autenticado, com confirmação das etapas persistidas. */
+/** Consulta autenticada e somente leitura; nunca reenvia nem publica o perfil. */
+function getAvanteSurveyReceipt(token, expected) {
+  var account=getAvanteSessionUser_(String(token||""));
+  if(!account)return {ok:false,error:"Sessão expirada. Entre novamente na sua conta para consultar o recibo."};
+  expected=expected||{};
+  var started=String(expected.meta&&expected.meta.startedAt||"");
+  if(!started)return {ok:false,error:"Este rascunho não tem identificador de início. Não é possível confirmar automaticamente; preserve o rascunho e solicite suporte."};
+  function canonical(value){
+    if(Array.isArray(value))return value.map(canonical);
+    if(value&&typeof value==="object"){var result={};Object.keys(value).sort().forEach(function(key){result[key]=canonical(value[key]);});return result;}
+    return value;
+  }
+  function signature(payload){return JSON.stringify(canonical({answers:payload.answers,business:payload.business,suppliers:payload.suppliers,complementary:payload.complementary,opportunities:payload.opportunities}));}
+  var ss=getSpreadsheet_(),sheet=ss.getSheetByName(RESPONSE_SHEET_NAME),matches=[];
+  if(sheet&&sheet.getLastRow()>1)sheet.getRange(2,1,sheet.getLastRow()-1,8).getValues().forEach(function(row){
+    if(String(row[7]||"").toLowerCase()!==String(account).toLowerCase())return;
+    var stored;try{stored=JSON.parse(String(row[6]||""));}catch(ignored){return;}
+    if(String(stored.meta&&stored.meta.startedAt||"")===started&&signature(stored)===signature(expected)&&String(row[1]||""))matches.push(String(row[1]));
+  });
+  if(matches.length!==1)return {ok:false,error:matches.length?"Há mais de um recibo correspondente. Não reenvie; preserve o rascunho e solicite suporte.":"Não foi localizado um recibo correspondente a estas respostas nesta conta. Isso não comprova que o envio falhou. Preserve o rascunho e não reenvie enquanto o resultado for desconhecido."};
+  return {ok:true,responsesSaved:true,responseId:matches[0],profilePublished:null};
+}
+
 function submitAvanteSurvey(token, payload) {
   var account = getAvanteSessionUser_(String(token || ""));
   if (!account) return { ok: false, responsesSaved: false, profilePublished: false, error: "Acesso expirado. Entre novamente no Avante." };

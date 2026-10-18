@@ -145,3 +145,13 @@ ConfiguracoesPerfil não atualizam esse índice. A busca de opções compartilha
 não confirma gravação de um registro específico: isso exige consultar a planilha
 privada com autorização. Não ampliar a exposição pública para corrigir buscas do
 próprio rascunho.
+
+## Envio sem confirmação
+
+O aviso identifica “Pesquisa → Revisão e envio” e esclarece que a falta de recibo
+não identifica um campo incorreto. O link “Verificar confirmação deste envio”
+consulta `getAvanteSurveyReceipt` com autenticação, sem reenviar ou publicar.
+A consulta exige uma única resposta da mesma conta, identificador de início e
+conteúdo correspondente ao rascunho. Ausência, ambiguidade, mudança de conta ou
+de respostas e falha de comunicação mantêm o resultado desconhecido. Um recibo
+confirma respostas salvas, nunca a publicação do perfil por inferência.

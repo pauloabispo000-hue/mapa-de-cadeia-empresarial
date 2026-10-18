@@ -131,4 +131,16 @@ with sync_playwright() as p:
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: dois campos de revenda, fornecedores compatíveis, consentimento, recarga e remoção aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')
+ run("state=freshState();state.meta.sendStatus='unknown';state.meta.sendError='Sem recibo';isAppsScriptApp=()=>true;window.receiptCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.receiptSuccess=fn;return this},withFailureHandler(fn){return this},getAvanteSurveyReceipt(){window.receiptCalls++}}}};window.testRoot.innerHTML='';window.testRoot.appendChild(renderSurveySendIssue());")
+ assert 'Pesquisa → Revisão e envio' in page.locator('#platformContent').inner_text()
+ page.get_by_role('link',name='Verificar confirmação deste envio').click()
+ assert run('window.receiptCalls')==1
+ run("window.receiptSuccess({ok:false,error:'Não foi localizado um recibo correspondente.'})")
+ assert run("state.meta.sendStatus")=='unknown'
+ assert 'Não foi localizado' in page.locator('#platformContent').inner_text()
+ page.get_by_role('link',name='Verificar confirmação deste envio').click()
+ run("window.receiptSuccess({ok:true,responsesSaved:true,responseId:'receipt-local',profilePublished:null})")
+ assert run("state.meta.responsesSaved") is True
+ assert run("state.meta.profilePublicationUnknown") is True
+ print('Navegador: aviso identifica etapa, link consulta recibo sem reenvio e confirma apenas resposta explícita.')
  b.close()
