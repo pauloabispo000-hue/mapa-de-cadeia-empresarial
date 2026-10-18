@@ -148,8 +148,9 @@ próprio rascunho.
 
 ## Envio sem confirmação
 
-O aviso identifica “Pesquisa → Revisão e envio” e esclarece que a falta de recibo
-não identifica um campo incorreto. O link “Verificar confirmação deste envio”
+O aviso informa “Ainda não conseguimos confirmar o recebimento das suas respostas.
+Seu rascunho está salvo.”, inclusive para mensagens antigas persistidas. Evita
+repetir explicações técnicas na interface. O link “Verificar recebimento”
 consulta `getAvanteSurveyReceipt` com autenticação, sem reenviar ou publicar.
 A consulta exige uma única resposta da mesma conta, identificador de início e
 conteúdo correspondente ao rascunho. Ausência, ambiguidade, mudança de conta ou

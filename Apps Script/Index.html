@@ -3123,7 +3123,7 @@ function normalizeSurveySubmissionState(meta){
   if(meta.sendStatus==="sending"||(meta.submittedAt&&!meta.responseId)){
     if(meta.submittedAt)meta.unverifiedSubmittedAt=meta.submittedAt;
     meta.submittedAt=null;meta.sendStatus="unknown";
-    meta.sendError="Pesquisa → Revisão e envio: falta o recibo de confirmação do servidor para o envio anterior. Isso não identifica uma resposta incorreta. Seu rascunho foi preservado; não reenvie enquanto o resultado for desconhecido.";
+    meta.sendError="Ainda não conseguimos confirmar o recebimento das suas respostas. Seu rascunho está salvo.";
   }
 }
 
@@ -3164,10 +3164,9 @@ function submitSurveyDraft(){
 
 function renderSurveySendIssue(){
   var box=h("div",{class:"error-msg show","role":"alert"});
-  box.appendChild(h("p",{},[state.meta.sendError||"Não foi possível confirmar o envio."]));
+  box.appendChild(h("p",{},[state.meta.sendStatus==="unknown"?"Ainda não conseguimos confirmar o recebimento das suas respostas. Seu rascunho está salvo.":state.meta.sendError||"Não foi possível confirmar o envio."]));
   if(state.meta.sendStatus!=="unknown")return box;
-  box.appendChild(h("p",{},["Local: Pesquisa → Revisão e envio. A pendência está na confirmação de gravação, e não em um campo identificado da pesquisa."]));
-  var status=h("p",{"role":"status","aria-live":"polite"}),link=h("a",{href:"#confirmacao-envio"},["Verificar confirmação deste envio"]);
+  var status=h("p",{"role":"status","aria-live":"polite"}),link=h("a",{href:"#confirmacao-envio"},["Verificar recebimento"]);
   var pending=false;
   link.addEventListener("click",function(event){
     event.preventDefault();if(pending)return;
