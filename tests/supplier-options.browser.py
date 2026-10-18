@@ -145,4 +145,15 @@ with sync_playwright() as p:
  assert run("state.meta.responsesSaved") is True
  assert page.locator('#btnNext').inner_text()=='Respostas salvas ✓'
  print('Navegador: um botão Enviar respostas, confirmação explícita e nenhuma etapa manual de recibo.')
+ run("state=freshState();state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',cidade:'Descalvado',categorias:['Pão francês','Bolo','Biscoito','Salgado']}];state.fornecedores.lista[0].categorias.forEach(p=>CATEGORIA_INSUMO_AREA[p]='Alimentos/Medicamentos');document.getElementById('surveyWizard').style.display='none';window.testRoot.style.display='block';window.testRoot.innerHTML='';renderNetworkPage(window.testRoot,{companies:1,relationships:1,areas:[]},{},false);")
+ assert page.locator('#selectedAreaTitle').inner_text()=='Alimentos/Medicamentos'
+ initial=page.locator('#selectedAreaCount').inner_text()
+ assert '1 fornecedores' in initial and '4 soluções' in initial,initial
+ assert 'PADARIA FICTICIA' in page.locator('#selectedAreaDetails').inner_text()
+ page.locator('.platform-area-row').filter(has_text='Alimentos/Medicamentos').click()
+ assert page.locator('#selectedAreaCount').inner_text()==initial
+ run("window.testRoot.innerHTML='';window.aiInput=document.createElement('input');window.aiStatus=document.createElement('p');window.aiResult=document.createElement('div');window.testRoot.append(aiInput,aiStatus,aiResult);window.google={script:{run:{withSuccessHandler(){throw Error('A busca local não deve chamar IA externa');}}}};submitAiSearch('Encontre fornecedores de pão em Descalvado',aiInput,aiStatus,aiResult);")
+ assert 'PADARIA FICTICIA' in page.locator('#platformContent').inner_text()
+ assert 'Pão francês' in page.locator('#platformContent').inner_text()
+ print('Navegador: contadores e fornecedores corretos desde a abertura e busca local sem chamada externa de IA.')
  b.close()

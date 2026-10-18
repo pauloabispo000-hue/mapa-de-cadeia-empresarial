@@ -167,3 +167,22 @@ observada durante uma tentativa. Estados antigos sem esse indicador não geram
 alerta só por serem desconhecidos. O rascunho e a chave de tentativa permanecem
 preservados, sem declarar sucesso. Iniciar nova tentativa ou receber confirmação
 limpa o indicador. Uma falha real usa linguagem simples, sem etapa de recibo.
+
+## Busca de fornecedores e cobertura municipal
+
+A pesquisa consulta primeiro fornecedores do rascunho e ofertas disponíveis no
+catálogo compartilhado, sem enviar relações privadas à IA. Resultados locais
+mostram sua origem; CNAE sem oferta declarada não comprova produto vendido.
+Na ausência de correspondência local, a resposta de IA é identificada como
+orientação geral. Disponibilidade deve ser confirmada com a empresa.
+
+O painel de setores seleciona inicialmente uma área com fornecedores, quando
+existir, e preenche contadores e detalhes após inserir o painel na página.
+
+O índice municipal lista apenas fragmentos existentes e informa separadamente
+os indisponíveis. Em 18/10/2026, o arquivo empresas-descalvado-07.json não existe
+no histórico do checkout, com lacuna de 500 registros: 6.787 disponíveis dos
+7.287 previstos. A fonte pública retornou CONNECT 403 nesta execução. Não gerar
+registros substitutos. O carregador tolera falhas individuais e informa cobertura
+parcial, mantendo os demais dados. O teste de integridade confere existência e
+contagens dos arquivos anunciados.

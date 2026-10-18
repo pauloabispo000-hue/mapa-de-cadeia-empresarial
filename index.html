@@ -1393,6 +1393,7 @@ var PUBLIC_COMPANY_CATALOG = [
   ,{name:"IBG Cryo — unidade Descalvado", aliases:["IBG CRYO INDUSTRIA DE GASES LTDA","IBG Cryo"], cnpj:"74481011000177", city:"Descalvado", areas:["Matérias-primas/Reciclagens"], offer:"gases industriais, medicinais e especiais; a página oficial confirma unidade da IBG em Descalvado, sem detalhar quais gases são produzidos ou distribuídos nessa unidade", sourceUrl:"https://ce.ibg.com.br/filiais/", sourceName:"IBG — produtos e unidade Descalvado", catalogSource:"public"}
 ];
 var municipalCompanies = [];
+var municipalDirectoryStatus={loaded:false,count:0,expectedCount:7287,partial:false};
 var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
 var sharedNetwork = null;
@@ -3169,13 +3170,20 @@ function renderSurveySendIssue(){
 }
 
 function loadMunicipalDirectory(){
-  fetch(APP_PUBLIC_ASSET_BASE+"empresas-descalvado.json").then(function(response){if(!response.ok)throw new Error("Catálogo municipal indisponível");return response.json();}).then(function(directory){
-    return Promise.all((directory.shards||[]).map(function(shard){return fetch(APP_PUBLIC_ASSET_BASE+shard.file).then(function(response){if(!response.ok)throw new Error("Falha ao carregar "+shard.file);return response.json();});})).then(function(pages){
-      municipalCompanies=pages.reduce(function(all,page){return all.concat(page.companies||[]);},[]).map(function(record){return {name:record.name||record.legalName,aliases:record.legalName&&record.legalName!==record.name?[record.legalName]:[],cnpj:record.cnpj,city:directory.municipality,areas:[],offer:record.cnae||"atividade econômica não informada",catalogSource:"registry",status:record.status,cnae:record.cnae,secondaryCnaes:record.secondaryCnaes||[],sourceUrl:"https://api.radar-cnpj.com/empresas/cnpj/"+record.cnpj+"/index.json"};}).filter(function(company){return company.name&&company.cnpj;});
+  return fetch(APP_PUBLIC_ASSET_BASE+"empresas-descalvado.json").then(function(response){if(!response.ok)throw new Error("Catálogo municipal indisponível");return response.json();}).then(function(directory){
+    return Promise.allSettled((directory.shards||[]).map(function(shard){return fetch(APP_PUBLIC_ASSET_BASE+shard.file).then(function(response){if(!response.ok)throw new Error("Falha ao carregar "+shard.file);return response.json();});})).then(function(pages){
+      municipalCompanies=pages.filter(function(page){return page.status==="fulfilled";}).reduce(function(all,page){return all.concat(page.value.companies||[]);},[]).map(function(record){return {name:record.name||record.legalName,aliases:record.legalName&&record.legalName!==record.name?[record.legalName]:[],cnpj:record.cnpj,city:directory.municipality,areas:[],offer:record.cnae||"atividade econômica não informada",catalogSource:"registry",status:record.status,cnae:record.cnae,secondaryCnaes:record.secondaryCnaes||[],sourceUrl:"https://api.radar-cnpj.com/empresas/cnpj/"+record.cnpj+"/index.json"};}).filter(function(company){return company.name&&company.cnpj;});
+      municipalDirectoryStatus={loaded:true,count:municipalCompanies.length,expectedCount:Number(directory.expectedCount||directory.count||0),partial:pages.some(function(page){return page.status==="rejected";})||(directory.unavailableShards||[]).length>0||municipalCompanies.length<Number(directory.expectedCount||directory.count||0)};
       refreshSharedCompanies();
       if(activeProgramSection==="survey")renderCurrentStep();
+      document.querySelectorAll('.municipal-directory-status').forEach(function(note){if(note.firstChild)note.firstChild.textContent=municipalDirectoryMessage()+" ";});
+      return municipalDirectoryStatus;
     });
-  }).catch(function(error){console.warn("Catálogo de Descalvado não carregado:",error);});
+  }).catch(function(){municipalDirectoryStatus={loaded:true,count:municipalCompanies.length,expectedCount:7287,partial:true};document.querySelectorAll('.municipal-directory-status').forEach(function(note){if(note.firstChild)note.firstChild.textContent=municipalDirectoryMessage()+" ";});return municipalDirectoryStatus;});
+}
+function municipalDirectoryMessage(){
+  if(!municipalDirectoryStatus.loaded)return "Carregando o diretório de Descalvado. A base tem referência em 02/10/2026; situação cadastral e CNAE não comprovam oferta atual.";
+  return municipalDirectoryStatus.count+" estabelecimentos disponíveis de "+municipalDirectoryStatus.expectedCount+" previstos na base de 02/10/2026. "+(municipalDirectoryStatus.partial?"Catálogo parcial: algumas empresas podem não aparecer. ":"")+"Situação cadastral e CNAE não comprovam oferta atual.";
 }
 function refreshSharedCompanies(){
   sharedCompanies=PUBLIC_COMPANY_CATALOG.slice();
@@ -4296,17 +4304,17 @@ function renderNetworkPage(root,network,workforce,isOverview){
   sectorViewButton.addEventListener("click",function(){wrap.hidden=false;geoPanel.hidden=true;sectorViewButton.classList.add("active");geoViewButton.classList.remove("active");});
   geoViewButton.addEventListener("click",function(){wrap.hidden=true;geoPanel.hidden=false;sectorViewButton.classList.remove("active");geoViewButton.classList.add("active");if(!geoPanel.getAttribute("data-loaded")){geoPanel.setAttribute("data-loaded","1");initializeGeographicTestMap(geoCanvas,geoStatus,geoAccuracy,geoNearest);}});
   mapCard.appendChild(h("div",{class:"platform-note"},["A capacidade de 144 soluções por área é teórica. A cobertura observada soma ofertas cadastradas pelas empresas e vínculos informados pelos participantes; o CNAE, sozinho, não confirma uma oferta. As células comunitárias e municipais ainda são uma estrutura conceitual até que haja localização e associação das empresas a cada célula."]));
-  var first=displayAreas[0]||{name:AREAS_12[11].nome,knownSupplierLinks:0};
+  var first=displayAreas.filter(function(area){return Object.keys(businessAreaMetrics[area.name].suppliers).length>0;})[0]||displayAreas[0]||{name:AREAS_12[11].nome,knownSupplierLinks:0};
   side.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{id:"scaleSideTitle"},["Áreas atendidas"]),h("p",{id:"scaleSideDescription"},["Soluções e fornecedores informados por este negócio"])] )]));
   side.appendChild(h("div",{class:"platform-empty"},[h("strong",{id:"selectedAreaTitle"},[first.name]),h("div",{id:"selectedAreaCount",style:"margin-top:4px;"},["0 fornecedores · 0 soluções informadas para este negócio"])]));
   var selectedAreaDetails=h("div",{class:"area-solution-details",id:"selectedAreaDetails"});side.appendChild(selectedAreaDetails);
   var list=h("div",{class:"platform-area-list",style:"margin-top:12px;"});
   function areaSummary(area){var metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{}};if(activeScaleIndex===0)return Object.keys(metric.suppliers).length+" forn. · "+Object.keys(metric.solutions).length+" sol.";if(activeScaleIndex===1)return (area.registeredOfferCompanies||0)+" empresas · "+(area.registeredOffers||0)+" ofertas · meta 144";return "12 áreas por célula";}
-  function selectArea(area){var title=document.getElementById("selectedAreaTitle"),count=document.getElementById("selectedAreaCount"),details=document.getElementById("selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=Object.keys(metric.suppliers).length+" fornecedores · "+Object.keys(metric.solutions).length+" soluções informadas para este negócio";else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos observados na rede · capacidade teórica de 144 soluções nesta área";else count.textContent="Esta área está presente em cada uma das 12 células comunitárias do modelo.";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução foi associada a esta área neste negócio ainda."]));}else if(activeScaleIndex===1)details.appendChild(h("p",{class:"scale-capacity"},["O modelo prevê 12 empresas por necessidade e até 144 soluções por área. A lista comunitária será formada por ofertas e vínculos confirmados pelos participantes."]));else details.appendChild(h("p",{class:"scale-capacity"},["O esquema municipal compõe 12 células comunitárias. Cada célula contém as 12 áreas e sua própria cobertura de empresas e soluções."]));}}
+  function selectArea(area){var title=page.querySelector("#"+"selectedAreaTitle"),count=page.querySelector("#selectedAreaCount"),details=page.querySelector("#selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=Object.keys(metric.suppliers).length+" fornecedores · "+Object.keys(metric.solutions).length+" soluções informadas para este negócio";else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos observados na rede · capacidade teórica de 144 soluções nesta área";else count.textContent="Esta área está presente em cada uma das 12 células comunitárias do modelo.";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução foi associada a esta área neste negócio ainda."]));}else if(activeScaleIndex===1)details.appendChild(h("p",{class:"scale-capacity"},["O modelo prevê 12 empresas por necessidade e até 144 soluções por área. A lista comunitária será formada por ofertas e vínculos confirmados pelos participantes."]));else details.appendChild(h("p",{class:"scale-capacity"},["O esquema municipal compõe 12 células comunitárias. Cada célula contém as 12 áreas e sua própria cobertura de empresas e soluções."]));}}
   function updateScaleSummary(){var title=document.getElementById("scaleSideTitle"),description=document.getElementById("scaleSideDescription"),selectedCount=document.getElementById("selectedAreaCount");if(title)title.textContent=activeScaleIndex===0?"Fornecedores por área":activeScaleIndex===1?"Soluções por área":"Células do município";if(description)description.textContent=activeScaleIndex===0?"Soluções e fornecedores informados por este negócio":activeScaleIndex===1?"Empresas e capacidade teórica por área":"12 células comunitárias, cada uma com as 12 áreas";if(selectedCount)selectArea(displayAreas[0]||first);Array.prototype.forEach.call(list.children,function(row,index){var count=row.querySelector(".platform-area-count");if(count&&displayAreas[index])count.textContent=areaSummary(displayAreas[index]);});}
-  displayAreas.forEach(function(area,i){var row=h("button",{type:"button",class:"platform-area-row"},[h("span",{class:"platform-area-number"},[String(areaNumber(area,i)).padStart(2,"0")]),h("span",{class:"platform-area-name"},[area.name]),h("span",{class:"platform-area-count"},[areaSummary(area)])]);row.addEventListener("click",function(){selectArea(area);});list.appendChild(row);});side.appendChild(list);selectArea(first);
+  displayAreas.forEach(function(area,i){var row=h("button",{type:"button",class:"platform-area-row"},[h("span",{class:"platform-area-number"},[String(areaNumber(area,i)).padStart(2,"0")]),h("span",{class:"platform-area-name"},[area.name]),h("span",{class:"platform-area-count"},[areaSummary(area)])]);row.addEventListener("click",function(){selectArea(area);});list.appendChild(row);});side.appendChild(list);
   [scalePrev,scaleNext].forEach(function(button){button.addEventListener("click",updateScaleSummary);});
-  grid.appendChild(mapCard);grid.appendChild(side);page.appendChild(grid);root.appendChild(page);
+  grid.appendChild(mapCard);grid.appendChild(side);page.appendChild(grid);root.appendChild(page);selectArea(first);
 }
 
 function openAiSearchDialog(){
@@ -4318,17 +4326,56 @@ function openAiSearchDialog(){
   setTimeout(function(){input.focus();},20);
 }
 
+function findKnownSupplierMatches(query){
+  var stop=["encontre","encontrar","busco","buscar","procuro","quero","preciso","fornecedor","fornecedores","empresa","empresas","produto","produtos","servico","servicos","onde","quem","vende","vender","comprar","compra","para","com","uma","uns","das","dos","de","do","da","em","e","o","a"];
+  function searchable(value){return normalizeSearch(value).replace(/\bpaes\b/g,"pao");}
+  var words=searchable(query).split(/[^a-z0-9]+/).filter(function(word){return word.length>1&&stop.indexOf(word)<0;});
+  if(!words.length)return [];
+  var candidates=[];
+  (state.fornecedores.lista||[]).forEach(function(supplier){
+    if(!supplier.empresa)return;
+    candidates.push({name:supplier.empresa,cnpj:supplier.cnpj||"",city:supplier.cidade||"",offers:(supplier.categorias||[]).slice(),source:"Compras informadas por você nesta pesquisa"});
+  });
+  sharedCompanies.forEach(function(company){
+    var offers=(company.offers||[]).map(function(offer){return offer.nome||offer.name||"";}).filter(Boolean);
+    if(company.catalogSource==="public"&&company.offer)offers.push(company.offer);
+    if(offers.length)candidates.push({name:company.name,cnpj:company.cnpj||"",city:company.city||"",offers:offers,source:company.catalogSource==="public"?"Catálogo público da plataforma":"Ofertas cadastradas na plataforma"});
+  });
+  var cities=candidates.map(function(company){return normalizeSearch(company.city).split(/\s[-–]\s/)[0];}).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
+  words=words.filter(function(word){return !cities.some(function(city){return city.split(/\s+/).indexOf(word)>-1;});});
+  if(!words.length)return [];
+  var seen=Object.create(null);
+  return candidates.filter(function(company){
+    if(cities.length&&cities.indexOf(normalizeSearch(company.city).split(/\s[-–]\s/)[0])<0)return false;
+    var key=normalizarCNPJ(company.cnpj)||normalizeSearch(company.name);
+    var text=searchable(company.name+" "+company.offers.join(" "));
+    var matches=words.some(function(word){return text.indexOf(word)>-1;});
+    if(!matches||seen[key])return false;seen[key]=true;return true;
+  }).slice(0,20);
+}
+function renderKnownSupplierMatches(matches,result){
+  result.hidden=false;result.innerHTML="";
+  result.appendChild(h("h3",{},["Fornecedores encontrados na plataforma"]));
+  matches.forEach(function(company){result.appendChild(h("div",{class:"platform-card"},[
+    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city,company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
+  ]));});
+  result.appendChild(h("p",{class:"company-profile-meta"},["Confirme a disponibilidade diretamente com a empresa. As compras informadas não comprovam oferta atual."]));
+  if(municipalDirectoryStatus.partial)result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
+}
 function submitAiSearch(query,input,status,result){
   query=String(query||"").trim();
   if(!query)return;
   if(!authSession||!authSession.token||!isAppsScriptApp()){
     status.textContent="Entre pela versão oficial da plataforma para pesquisar com IA.";status.hidden=false;return;
   }
+  var matches=findKnownSupplierMatches(query);
+  if(matches.length){input.disabled=false;status.textContent="";status.hidden=true;renderKnownSupplierMatches(matches,result);return;}
   input.disabled=true;status.textContent="Pesquisando…";status.hidden=false;result.hidden=true;result.innerHTML="";
   google.script.run.withSuccessHandler(function(response){
     input.disabled=false;
     if(!response||!response.ok){status.textContent=response&&response.error||"Não foi possível concluir a pesquisa.";input.focus();return;}
     status.textContent="";status.hidden=true;result.hidden=false;
+    result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
     result.appendChild(h("p",{class:"ai-assistant-result"},[response.answer||""]));
     if(response.searchQueries&&response.searchQueries.length)result.appendChild(h("p",{class:"company-profile-meta"},["Pesquisas: "+response.searchQueries.join(" · ")]));
     var sources=response.sources||[];
@@ -4926,7 +4973,7 @@ function renderConversation(container){
       if(q.kind==="companies"){
         var companyWrap=h("div",{});
         companyWrap.appendChild(h("p",{class:"question-help"},["Sugestões públicas mostram empresas e soluções divulgadas por elas; isso não confirma uma relação comercial. Selecione somente empresas que realmente participam da relação perguntada nesta etapa. As fontes podem ser consultadas no catálogo inicial."]));
-        companyWrap.appendChild(h("p",{class:"question-help"},["O diretório público de Descalvado inclui 7.287 estabelecimentos com situação ativa na base de 02/10/2026, inclusive filiais. Situação cadastral não comprova operação atual nem oferta comercial. ",h("a",{href:"https://api.radar-cnpj.com/empresas/uf/SP/cidade/descalvado-f7e2f89fd1dcb5fa/index.json",target:"_blank",rel:"noopener noreferrer"},["Consultar fonte e data da base"])]));
+        companyWrap.appendChild(h("p",{class:"question-help municipal-directory-status"},[municipalDirectoryMessage()+" ",h("a",{href:"https://api.radar-cnpj.com/empresas/uf/SP/cidade/descalvado-f7e2f89fd1dcb5fa/index.json",target:"_blank",rel:"noopener noreferrer"},["Consultar fonte e data da base"])]));
         companyWrap.appendChild(buildComboMulti({
           options:sharedCompanyOptions(),selectedArr:Array.isArray(state.answers[q.key])?state.answers[q.key]:(state.answers[q.key]=[]),placeholder:"Buscar pelo nome ou CNPJ da empresa...",allowFreeText:false,
           noResultsText:"Empresa não encontrada. Pesquise pelo CNPJ para consultar e adicionar.",
