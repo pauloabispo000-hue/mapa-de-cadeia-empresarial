@@ -500,3 +500,15 @@ Validação: npm test e tests/informative-profiles.browser.py, além das três s
 anteriores. A nova suíte usa os próprios cinco registros das fontes oficiais,
 com rede bloqueada. Verifica catálogo, fonte por campo, dados ausentes, Tamanduá
 único, ausência de conta/opt-in, rota compartilhável e separação de identidades.
+
+## Correção visual dos perfis informativos
+
+A página compartilhável de perfil informativo usa contêiner público próprio, com
+cabeçalho Avante e link Voltar ao Avante, em vez de auth-card. O cartão de login
+limitava a largura a 480 px e a altura à janela, deixando o restante em rolagem
+interna; títulos/links ainda herdavam cores inadequadas no escuro. O perfil agora
+usa até 1120 px, rolagem do documento e grade de dois campos por linha no desktop,
+com uma coluna no celular. Cores de texto, fontes, títulos e links são escopadas
+por tema, com contraste mínimo 4,5 verificado nos cinco perfis em 1366 e 360 px.
+O teste alcança o último link pela rolagem normal e confere navegação acessível.
+Não muda autenticação, sessão, dados, contatos, CNPJs pendentes ou permissões.

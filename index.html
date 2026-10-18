@@ -846,6 +846,28 @@
   #aiSearchDialog .ai-assistant-result p{white-space:pre-wrap;}
   #aiSearchDialog .ai-assistant-result hr{border:0;border-top:1px solid var(--search-border);margin:12px 0;}
   @media(max-width:640px){#aiSearchDialog{width:calc(100% - 16px);margin:8px auto;max-height:calc(100dvh - 16px);}#aiSearchDialog .ai-search-shell{max-height:calc(100dvh - 18px);}}
+  /* Perfis informativos são páginas públicas, com rolagem do documento. */
+  .informative-company-profile,.informative-public-page{--info-bg:#F0F2F5;--info-card:#FFFFFF;--info-text:#1C1E21;--info-muted:#4B5563;--info-link:#174EA6;--info-border:#CBD5E1;color:var(--info-text);}
+  html[data-theme="dark"] .informative-company-profile,html[data-theme="dark"] .informative-public-page{--info-bg:#18191A;--info-card:#242526;--info-text:#F1F3F5;--info-muted:#D1D5DB;--info-link:#A8C7FA;--info-border:#697078;}
+  #loginScreen.informative-public-page{display:block;min-height:100vh;padding:0 0 32px;background:var(--info-bg);}
+  .informative-public-header{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px max(16px,calc((100% - 1120px)/2));background:var(--info-card);border-bottom:1px solid var(--info-border);}
+  .informative-public-header .informative-public-brand{font:900 23px/1.2 Arial,sans-serif;letter-spacing:.1em;text-decoration:none;}
+  .informative-public-header a{color:var(--info-link);font-weight:700;padding:10px 12px;border-radius:8px;}
+  .informative-public-header a:focus-visible,.informative-company-profile a:focus-visible{outline:3px solid var(--info-link);outline-offset:4px;border-radius:3px;}
+  .informative-public-content{width:min(1120px,calc(100% - 32px));max-height:none;overflow:visible;margin:24px auto;}
+  .informative-company-profile{background:var(--info-card);border:1px solid var(--info-border);padding:clamp(16px,3vw,32px);border-radius:14px;min-width:0;overflow-wrap:anywhere;}
+  .informative-company-profile h1,.informative-company-profile h2,.informative-company-profile h3{color:var(--info-text);font-family:var(--sans);line-height:1.3;}
+  .informative-company-profile h1{font-size:clamp(24px,3vw,34px);margin:0 0 16px;}
+  .informative-company-profile h2{font-size:21px;}
+  .informative-company-profile h3{font-size:16px;margin:0 0 10px;}
+  .informative-company-profile p{color:var(--info-text);margin:0 0 12px;}
+  .informative-company-profile .company-profile-meta{color:var(--info-muted);font-size:13px;line-height:1.6;}
+  .informative-company-profile a{color:var(--info-link);text-decoration:underline;text-underline-offset:2px;}
+  .informative-fields-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:24px 0;}
+  .informative-profile-field{min-width:0;padding:18px;border:1px solid var(--info-border);border-radius:10px;}
+  .informative-registry-pending{background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);box-shadow:none;}
+  @media(max-width:640px){.informative-public-header{padding:16px;align-items:flex-start;}.informative-public-content{width:calc(100% - 24px);margin:16px auto;}.informative-fields-grid{grid-template-columns:1fr;gap:12px;}.informative-company-profile{padding:16px;}.informative-profile-field{padding:14px;}}
+
 </style>
 </head>
 <body>
@@ -3322,13 +3344,15 @@ function renderInformativeCompanyProfile(root,result){
   root.appendChild(h("p",{class:"company-profile-meta"},["PERFIL INFORMATIVO EXTERNO — NÃO REIVINDICADO. Não representa cadastro, validação, autorização ou titularidade pela empresa. Não possui conta ou recebimento de mensagens habilitado por este registro."]));
   root.appendChild(h("p",{class:"company-profile-meta"},["ID: "+profile.id+". Observações de 18/10/2026 fornecidas pelo usuário; a página Facebook não foi revalidada nesta tarefa. Dados podem ter mudado."]));
   var labels={name:"Nome na página",category:"Categoria observada",description:"Resumo informativo próprio",address:"Endereço na página",phone:"Telefone público",email:"E-mail empresarial público",whatsapp:"WhatsApp público",hours:"Horário informado",service:"Serviço informado",activityEvidence:"Evidência de atividade na página"};
+  var fieldsGrid=h("div",{class:"informative-fields-grid"});
   Object.keys(labels).forEach(function(key){var field=fields[key]||{},row=h("section",{class:"informative-profile-field"});row.appendChild(h("h3",{},[labels[key]]));row.appendChild(h("p",{},[field.value||"Não coletado — pendente"]));if(field.note)row.appendChild(h("p",{class:"company-profile-meta"},[field.note]));
     if(field.source){var source=supplierSafeUrl(field.source.url);row.appendChild(h("p",{class:"company-profile-meta"},["Fonte: Facebook · observação relatada em "+field.source.observedAt+(field.status==="editorial_summary"?" · resumo editorial, não declaração de validação":"")+". ",source?h("a",{href:source,target:"_blank",rel:"noopener noreferrer"},["Abrir página de origem"]):""]));}
     if(key==="phone"&&field.value){var digits=field.value.replace(/\D/g,"");if(/^\d{10,13}$/.test(digits))row.appendChild(h("a",{href:"tel:"+digits},["Abrir telefone informado"]));}
     if(key==="whatsapp"&&field.value){var phone=field.value.replace(/\D/g,"");if(/^55\d{10,11}$/.test(phone))row.appendChild(h("a",{href:"https://wa.me/"+phone,target:"_blank",rel:"noopener noreferrer"},["Abrir WhatsApp informado (sem envio automático)"]));}
     if(key==="email"&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(field.value||""))row.appendChild(h("a",{href:"mailto:"+field.value},["Abrir endereço de e-mail (sem envio automático)"]));
-    root.appendChild(row);
+    fieldsGrid.appendChild(row);
   });
+  root.appendChild(fieldsGrid);
   var registry=h("section",{class:"platform-card informative-registry-pending"});registry.appendChild(h("h2",{},["Vínculo com CNPJ pendente"]));registry.appendChild(h("p",{},[profile.registryLink.reason]));registry.appendChild(h("p",{class:"company-profile-meta"},["Os CNPJs abaixo são candidatos do diretório Avante; não foram declarados no Facebook e não estão vinculados a este perfil."]));
   (profile.registryLink.candidates||[]).forEach(function(candidate){registry.appendChild(h("p",{},[formatarCNPJ(candidate.cnpj)+" — "+candidate.name+" · "+candidate.legalName+" · "+candidate.municipality]));registry.appendChild(h("p",{class:"company-profile-meta"},["Fonte: "+candidate.source+"; referência "+candidate.referenceDate+". Endereço cadastral não disponível para confronto. Não comprova correspondência com a página."]));});root.appendChild(registry);
   root.appendChild(h("p",{class:"company-profile-meta"},["Não confirmados: "+(profile.unconfirmed||[]).join("; ")+". Não foram reutilizados fotos, logos, avaliações, comentários ou seguidores."]));
@@ -3339,7 +3363,10 @@ function renderInformativeCompanyCatalog(profiles){
   profiles.forEach(function(profile){var row=h("details",{class:"informative-catalog-item"}),content=h("div",{});row.appendChild(h("summary",{},[profile.fields.name.value+" — não reivindicado"]));row.appendChild(content);var loaded=false;row.addEventListener("toggle",function(){if(row.open&&!loaded){loaded=true;renderInformativeCompanyProfile(content,{ok:true,informativeProfile:profile});}});section.appendChild(row);});return section;
 }
 function loadInformativeCompanyProfile(id){
-  var screen=document.getElementById("loginScreen"),form=document.getElementById("loginForm");if(form)form.style.display="none";var view=h("div",{class:"auth-card"},[h("p",{},["Carregando perfil informativo…"])]);screen.appendChild(view);
+  var screen=document.getElementById("loginScreen"),form=document.getElementById("loginForm");if(form)form.style.display="none";
+  screen.classList.add("informative-public-page");screen.setAttribute("aria-label","Perfil público informativo");
+  var home=APPS_SCRIPT_URL+(APPS_SCRIPT_URL.indexOf("?")>-1?"&":"?")+"app=1",header=h("nav",{class:"informative-public-header","aria-label":"Navegação do perfil público"},[h("a",{href:home,target:"_top",class:"informative-public-brand","aria-label":"Avante — início"},["AVANTE"]),h("a",{href:home,target:"_top"},["Voltar ao Avante"])]);
+  var view=h("main",{class:"informative-public-content",tabindex:"-1"},[h("p",{},["Carregando perfil informativo…"])]);screen.appendChild(header);screen.appendChild(view);
   var finished=false,script=null,callback="__avanteInformative_"+uid(),timer=setTimeout(function(){finish(null);},15000);
   function finish(value){if(finished)return;finished=true;clearTimeout(timer);window[callback]=function(){};if(script&&script.parentNode)script.remove();renderInformativeCompanyProfile(view,value);}
   if(isAppsScriptApp()){try{google.script.run.withSuccessHandler(finish).withFailureHandler(function(){finish(null);}).getAvanteInformativeProfile(id);}catch(ignored){finish(null);}return;}
