@@ -38,6 +38,7 @@ test('só confirma sucesso depois da resposta autenticada do servidor', async ()
   assert.equal(JSON.parse(f.saved[0]).meta.sendStatus, 'sending');
   f.success(receipt()); await pending;
   assert.equal(f.state.meta.sendStatus, 'ok');
+  assert.equal(f.state.meta.sendFailureObserved,false);
   assert.equal(f.state.meta.responsesSaved, true);
   assert(f.state.meta.submittedAt);
   assert.equal(f.ctx.surveySubmissionSummary(f.state.meta).profile, 'O perfil não foi publicado neste envio.');
@@ -67,6 +68,7 @@ test('falha de comunicação preserva rascunho sem repetir envio automaticamente
   const f = fixture(), original = JSON.stringify(f.state.answers);
   const pending = f.ctx.submitSurveyDraft(); f.failure(); await pending;
   assert.equal(f.state.meta.sendStatus, 'unknown');
+  assert.equal(f.state.meta.sendFailureObserved,true);
   assert.equal(f.state.meta.submittedAt, null);
   assert.equal(JSON.stringify(f.state.answers), original);
   assert.equal(f.calls.length, 1);
@@ -80,6 +82,7 @@ test('timeout não repete o envio e ignora retorno tardio após marcar resultado
   f.timeout(); await pending;
   f.success(receipt());
   assert.equal(f.state.meta.sendStatus, 'unknown');
+  assert.equal(f.state.meta.sendFailureObserved,true);
   assert.equal(f.state.meta.submittedAt, null);
   assert.equal(f.calls.length, 1);
 });
@@ -89,6 +92,7 @@ test('retorno incompleto ou resultado de escrita desconhecido não produz falso 
     const f = fixture(), pending = f.ctx.submitSurveyDraft();
     f.success(result); await pending;
     assert.equal(f.state.meta.sendStatus, 'unknown');
+  assert.equal(f.state.meta.sendFailureObserved,true);
     assert.equal(f.state.meta.submittedAt, null);
     assert.equal(f.calls.length, 1);
   }
@@ -119,6 +123,7 @@ test('recarga preserva o rascunho sem gerar reenvio automático', async () => {
     const f = fixture(); Object.assign(f.state.meta, meta);
     f.ctx.normalizeSurveySubmissionState(f.state.meta);
     assert.equal(f.state.meta.sendStatus, 'unknown');
+    assert.equal(f.state.meta.sendFailureObserved,false);
     assert.equal(f.state.meta.submittedAt, null);
     assert.equal(f.calls.length, 0);
   }

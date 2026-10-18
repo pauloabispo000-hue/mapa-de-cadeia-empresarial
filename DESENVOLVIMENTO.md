@@ -161,3 +161,9 @@ escrita. Respostas legadas sem chave podem ser reconhecidas pela mesma conta,
 início do rascunho e conteúdo equivalente. IDs locais e valores vazios de
 campos novos não impedem o reconhecimento; mudanças reais e consentimento são
 considerados. A confirmação reaproveitada não presume publicação do perfil.
+
+O aviso de envio só aparece quando `meta.sendFailureObserved` registra uma falha
+observada durante uma tentativa. Estados antigos sem esse indicador não geram
+alerta só por serem desconhecidos. O rascunho e a chave de tentativa permanecem
+preservados, sem declarar sucesso. Iniciar nova tentativa ou receber confirmação
+limpa o indicador. Uma falha real usa linguagem simples, sem etapa de recibo.

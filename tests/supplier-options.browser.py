@@ -134,6 +134,9 @@ with sync_playwright() as p:
  run("state=freshState();state.meta.sendStatus='unknown';state.meta.sendError='Sem recibo';isAppsScriptApp=()=>true;window.sendCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.sendSuccess=fn;return this},withFailureHandler(fn){return this},submitAvanteSurvey(token,payload){window.sendCalls++;window.sentAttempt=payload.meta.submissionId}}}};currentStepIndex=activeConversationQuestions().length;document.body.classList.add('authenticated');renderCurrentStep();document.getElementById('surveyWizard').style.display='flex';document.getElementById('platformContent').style.display='none';")
  assert page.get_by_role('link',name='Verificar recebimento').count()==0
  assert page.get_by_role('link',name='Revisar alterações do rascunho').count()==0
+ assert page.locator('#stepContent [role=alert]').count()==0
+ run("state.meta.sendFailureObserved=true;renderCurrentStep();")
+ assert 'Não conseguimos verificar se suas respostas foram recebidas. Tente novamente.' in page.locator('#stepContent').inner_text()
  assert page.locator('#btnNext').inner_text()=='Enviar respostas'
  page.locator('#btnNext').click()
  assert run('window.sendCalls')==1

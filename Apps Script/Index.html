@@ -3119,6 +3119,7 @@ function sendToSheet(payload){
 }
 
 function normalizeSurveySubmissionState(meta){
+  if(meta.sendFailureObserved!==true)meta.sendFailureObserved=false;
   // Recibos antigos e envios interrompidos não comprovam persistência no servidor.
   if(meta.sendStatus==="sending"||(meta.submittedAt&&!meta.responseId)){
     if(meta.submittedAt)meta.unverifiedSubmittedAt=meta.submittedAt;
@@ -3142,7 +3143,7 @@ function applySurveySubmissionResult(meta,result){
   meta.responseId=result.responseId;meta.responsesSaved=true;meta.submittedAt=new Date().toISOString();
   meta.profilePublished=result.profilePublished===true;meta.profilePublicationUnknown=result.profilePublished===null;
   meta.publishedProfileCnpj=result.profilePublished===true?String(result.profileCnpj||""):"";
-  meta.sendStatus=result.ok?"ok":"partial";meta.sendError=result.ok?"":String(result.error||"Uma etapa do processamento não foi concluída.");
+  meta.sendFailureObserved=false;meta.sendStatus=result.ok?"ok":"partial";meta.sendError=result.ok?"":String(result.error||"Uma etapa do processamento não foi concluída.");
 }
 
 function surveySubmissionSummary(meta){
@@ -3152,18 +3153,19 @@ function surveySubmissionSummary(meta){
 
 function submitSurveyDraft(){
   if(state.meta.sendStatus==="sending"||state.meta.responsesSaved===true)return Promise.resolve();
-  if(!state.meta.submissionId)state.meta.submissionId=uid();state.meta.sendStatus="sending";state.meta.sendError="";saveState();renderCurrentStep();
+  if(!state.meta.submissionId)state.meta.submissionId=uid();state.meta.sendStatus="sending";state.meta.sendFailureObserved=false;state.meta.sendError="";saveState();renderCurrentStep();
   var payload=buildExportObject();
   return sendToSheet(payload).then(function(result){
     applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();
   }).catch(function(error){
-    state.meta.sendStatus=error.outcomeUnknown?"unknown":"error";state.meta.sendError=error.message;
+    state.meta.sendFailureObserved=true;state.meta.sendStatus=error.outcomeUnknown?"unknown":"error";state.meta.sendError=error.message;
     saveState();renderCurrentStep();
   });
 }
 
 function renderSurveySendIssue(){
-  return h("div",{class:"error-msg show","role":"alert"},[h("p",{},[state.meta.sendStatus==="unknown"?"Não foi possível concluir a confirmação. Seu rascunho está salvo. Clique em Enviar respostas para tentar novamente com segurança.":state.meta.sendError||"Não foi possível enviar as respostas."])]);
+  if(state.meta.sendFailureObserved!==true)return h("div",{hidden:true});
+  return h("div",{class:"error-msg show","role":"alert"},[h("p",{},[state.meta.sendStatus==="unknown"?"Não conseguimos verificar se suas respostas foram recebidas. Tente novamente.":state.meta.sendError||"Não foi possível enviar as respostas."])]);
 }
 
 function loadMunicipalDirectory(){
