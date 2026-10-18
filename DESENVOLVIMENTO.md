@@ -373,3 +373,27 @@ sob clique explícito e sessão autenticada, usando as fontes públicas já supo
 (BrasilAPI/Minha Receita). Retorna somente identidade, município, situação e fonte,
 sem gravar dados. Tem prazo interativo de 20 segundos, descarte tardio e nenhuma
 repetição automática. CNPJ consultado não certifica licença, oferta ou entrega.
+
+## PDCA — precisão e evidência por candidato
+
+O registro público 12.911.593/0001-27 tem CNAE principal 5611203 e secundário
+1091102 no catálogo versionado. O secundário explica sua seleção para panificação;
+não comprova produto vendido. O cartão agora mostra o campo que provocou o match,
+o código/descrição quando disponível, o termo relacionado e a fonte específica.
+Perfis/ofertas públicas, compras privadas do próprio rascunho e registros cadastrais
+têm procedências distintas. A referência municipal é 02/10/2026; não é uma consulta
+cadastral atual. Consulta de CNPJ continua separada da comprovação de oferta.
+
+Busca por palavras inteiras evita coincidências por substring. Panificação usa
+termos explícitos e os CNAEs 1091101, 1091102 e 4721102, inclusive secundários;
+comércio/alimentos genéricos sem oferta ou atividade específica não entram apenas
+pela área ampla. Oferta real correspondente permanece válida mesmo em atividade
+cadastral ampla. O ordenamento preserva prioridade por oferta/compra e região,
+e passa a diferenciar força de correspondência principal, secundária ou por nome.
+Desempate final por nome é informado. Não se confirma entrega ou atacado.
+
+O corte silencioso em 30 foi removido: a busca calcula todos os candidatos únicos,
+mostra total e exibe páginas adicionais de 30 via Mostrar mais, sem novas chamadas
+de IA/CNPJ. HTTP 429 mantém resultados, evidências e paginação; não há retry de 429,
+troca de chave/modelo ou tentativa de contornar cotas. A descoberta externa não
+foi validada nesta rodada; os testes usam fixtures e catálogo público versionado.

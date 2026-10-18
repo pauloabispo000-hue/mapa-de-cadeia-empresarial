@@ -93,3 +93,24 @@ test('atualizar catálogo após retirar perfil não retém oferta no registro mu
  const ctx=vm.createContext({PUBLIC_COMPANY_CATALOG:[base],municipalCompanies:[municipal],learnedSharedCompanies:[],publishedSupplierCompanies:[{name:'Empresa fictícia',cnpj:municipal.cnpj,offers:[{nome:'Oferta retirada'}],profilePublished:true}],normalizarCNPJ:s=>String(s||''),normName:normalizeSearch});
  vm.runInContext(html.slice(html.indexOf('function refreshSharedCompanies('),html.indexOf('function loadSharedOptions(')),ctx);ctx.refreshSharedCompanies();assert.equal(ctx.sharedCompanies[1].offers.length,1);assert.equal(municipal.offers,undefined);ctx.publishedSupplierCompanies=[];ctx.refreshSharedCompanies();assert.equal(ctx.sharedCompanies[1].offers.length,0);assert.equal(ctx.sharedCompanies[1].profilePublished,undefined);assert.equal(base.offers,undefined);
 });
+
+test('panificação expõe CNAE principal/secundário e exclui alimentos/comércio genéricos sem evidência',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=[
+ {name:'A secundária',city:'Descalvado',catalogSource:'registry',cnae:'5611203 · Lanchonetes, casas de chá, de sucos e similares',secondaryCnaes:['5620104','5620102','1091102']},
+ {name:'Z principal',city:'Descalvado',catalogSource:'registry',cnae:'1091102 · Fabricação de produtos de padaria e confeitaria com predominância de produção própria'},
+ {name:'Mercado genérico',city:'Descalvado',catalogSource:'registry',cnae:'Comércio varejista de alimentos em geral'},
+ {name:'Restaurante genérico',city:'Descalvado',catalogSource:'registry',cnae:'Restaurantes e similares'},
+ {name:'Mercado com oferta real',city:'Descalvado',offers:[{nome:'Pão francês'}],cnae:'Comércio genérico'}];
+ const r=ctx.findSupplierCandidates('fornecedores de pão em Descalvado');
+ assert.equal(r.length,3);assert.equal(r[0].name,'Mercado com oferta real');assert.equal(r[1].name,'Z principal');assert.equal(r[2].name,'A secundária');assert.equal(r[2].matchEvidence[0].kind,'CNAE secundário');assert.match(r[2].matchEvidence[0].text,/1091102/);assert.match(r[0].matchEvidence[0].text,/Pão francês/);assert.equal(r[2].source,'Diretório municipal de Descalvado — Dados Abertos do CNPJ');
+});
+test('busca mantém todos os resultados após ordenação, sem corte silencioso em 30',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=Array.from({length:65},(_,i)=>({name:'Padaria fictícia '+String(i).padStart(2,'0'),cnpj:String(i+1),city:'Descalvado',catalogSource:'registry',cnae:'1091102'}));
+ const r=ctx.findSupplierCandidates('pão em Descalvado');assert.equal(r.length,65);assert(r.every(c=>c.matchEvidence.length));
+});
+test('registro online citado tem evidência secundária no catálogo versionado, sem comprovar produto',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];
+ const index=JSON.parse(readFileSync(new URL('../empresas-descalvado.json',import.meta.url),'utf8'));
+ const record=index.shards.flatMap(shard=>JSON.parse(readFileSync(new URL('../'+shard.file,import.meta.url),'utf8')).companies).find(c=>c.cnpj==='12911593000127');
+ ctx.sharedCompanies=[{...record,city:'Descalvado',catalogSource:'registry'}];const r=ctx.findSupplierCandidates('pão em Descalvado');assert.equal(r.length,1);assert.equal(r[0].evidenceType,'registry');assert(r[0].matchEvidence.some(e=>e.kind==='CNAE secundário'&&e.text.includes('1091102')));assert.equal(r[0].offers.length,0);
+});

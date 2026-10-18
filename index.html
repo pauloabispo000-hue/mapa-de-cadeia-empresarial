@@ -3212,7 +3212,7 @@ function renderSurveySendIssue(){
 function loadMunicipalDirectory(){
   return fetch(APP_PUBLIC_ASSET_BASE+"empresas-descalvado.json").then(function(response){if(!response.ok)throw new Error("Catálogo municipal indisponível");return response.json();}).then(function(directory){
     return Promise.allSettled((directory.shards||[]).map(function(shard){return fetch(APP_PUBLIC_ASSET_BASE+shard.file).then(function(response){if(!response.ok)throw new Error("Falha ao carregar "+shard.file);return response.json();});})).then(function(pages){
-      municipalCompanies=pages.filter(function(page){return page.status==="fulfilled";}).reduce(function(all,page){return all.concat(page.value.companies||[]);},[]).map(function(record){return {name:record.name||record.legalName,aliases:record.legalName&&record.legalName!==record.name?[record.legalName]:[],cnpj:record.cnpj,city:directory.municipality,areas:[],offer:record.cnae||"atividade econômica não informada",catalogSource:"registry",status:record.status,cnae:record.cnae,secondaryCnaes:record.secondaryCnaes||[],sourceUrl:"https://api.radar-cnpj.com/empresas/cnpj/"+record.cnpj+"/index.json"};}).filter(function(company){return company.name&&company.cnpj;});
+      municipalCompanies=pages.filter(function(page){return page.status==="fulfilled";}).reduce(function(all,page){return all.concat(page.value.companies||[]);},[]).map(function(record){return {name:record.name||record.legalName,aliases:record.legalName&&record.legalName!==record.name?[record.legalName]:[],cnpj:record.cnpj,city:directory.municipality,areas:[],offer:record.cnae||"atividade econômica não informada",catalogSource:"registry",registrySource:"Diretório municipal de Descalvado — Dados Abertos do CNPJ",registryDate:directory.registryDate||"2026-10-02",status:record.status,cnae:record.cnae,secondaryCnaes:record.secondaryCnaes||[],sourceUrl:"https://api.radar-cnpj.com/empresas/cnpj/"+record.cnpj+"/index.json"};}).filter(function(company){return company.name&&company.cnpj;});
       municipalDirectoryStatus={loaded:true,count:municipalCompanies.length,expectedCount:Number(directory.expectedCount||directory.count||0),partial:pages.some(function(page){return page.status==="rejected";})||(directory.unavailableShards||[]).length>0||municipalCompanies.length<Number(directory.expectedCount||directory.count||0)};
       refreshSharedCompanies();
       if(activeProgramSection==="survey")renderCurrentStep();
@@ -3247,9 +3247,9 @@ function refreshSharedCompanies(){
     if(!duplicate.cnpj&&company.cnpj)duplicate.cnpj=company.cnpj;
     if(!duplicate.city&&company.city)duplicate.city=company.city;
     if(!duplicate.status&&company.status)duplicate.status=company.status;
-    if(!duplicate.cnae&&company.cnae)duplicate.cnae=company.cnae;
+    if(!duplicate.cnae&&company.cnae){duplicate.cnae=company.cnae;duplicate.cnaeSource=company.registrySource||"Diretório compartilhado autorizado";duplicate.cnaeDate=company.registryDate||"";}
     if(!duplicate.cnaeCodigo&&company.cnaeCodigo)duplicate.cnaeCodigo=company.cnaeCodigo;
-    if((!duplicate.cnaesSecundarios||!duplicate.cnaesSecundarios.length)&&(company.cnaesSecundarios||company.secondaryCnaes))duplicate.cnaesSecundarios=company.cnaesSecundarios||company.secondaryCnaes;
+    if((!duplicate.cnaesSecundarios||!duplicate.cnaesSecundarios.length)&&(!duplicate.secondaryCnaes||!duplicate.secondaryCnaes.length)&&(company.cnaesSecundarios||company.secondaryCnaes)){duplicate.cnaesSecundarios=company.cnaesSecundarios||company.secondaryCnaes;duplicate.secondaryCnaeSource=company.registrySource||"Diretório compartilhado autorizado";duplicate.secondaryCnaeDate=company.registryDate||"";}
     if(!duplicate.cnpjDados&&company.cnpjDados)duplicate.cnpjDados=company.cnpjDados;
     if(!duplicate.offer&&company.offer)duplicate.offer=company.offer;
     if(company.profilePublished){duplicate.profilePublished=true;duplicate.updatedAt=company.updatedAt||"";}
@@ -4441,33 +4441,44 @@ function findSupplierCandidates(query){
     var offers=(company.offers||[]).map(function(offer){return typeof offer==="string"?offer:offer&&(offer.nome||offer.name)||"";}).filter(Boolean);
     if(company.catalogSource==="public"&&company.offer)offers.push(company.offer);
     var identity=parseCompanyLabel(company.name);
-    candidates.push({name:identity.name,cnpj:company.cnpj||identity.cnpj,city:company.city||"",citedCity:company.citedCity||identity.citedCity,offers:offers,evidenceType:offers.length?"offer":"registry",activity:[company.cnae,company.offer].concat(company.aliases||[],company.secondaryCnaes||company.cnaesSecundarios||[]).join(" "),serviceCities:company.serviceCities||[],source:company.profilePublished?"Perfil público autodeclarado":company.catalogSource==="public"?"Catálogo público da plataforma":"Diretório cadastral / ofertas compartilhadas autorizadas",sourceUrl:company.sourceUrl||"",profilePublished:company.profilePublished===true,updatedAt:company.updatedAt||"",registryStatus:company.status||""});
+    candidates.push({name:identity.name,cnpj:company.cnpj||identity.cnpj,city:company.city||"",citedCity:company.citedCity||identity.citedCity,offers:offers,evidenceType:offers.length?"offer":"registry",activity:[company.cnae,company.offer].concat(company.aliases||[],company.secondaryCnaes||company.cnaesSecundarios||[]).join(" "),primaryCnae:company.cnae||"",primaryCnaeSource:company.cnaeSource||company.registrySource||"",primaryCnaeDate:company.cnaeDate||company.registryDate||"",secondaryCnaeSource:company.secondaryCnaeSource||company.registrySource||"",secondaryCnaeDate:company.secondaryCnaeDate||company.registryDate||"",secondaryCnaes:company.secondaryCnaes||company.cnaesSecundarios||[],aliases:company.aliases||[],registrySource:company.registrySource||(company.catalogSource==="registry"?"Diretório municipal de Descalvado — Dados Abertos do CNPJ":"Diretório compartilhado autorizado"),registryDate:company.registryDate||"",serviceCities:company.serviceCities||[],source:company.profilePublished?"Perfil público autodeclarado":company.catalogSource==="public"?"Catálogo público referenciado da plataforma":company.catalogSource==="registry"?"Diretório municipal de Descalvado — Dados Abertos do CNPJ":company.catalogSource==="lookup"?"Consulta pública de CNPJ":"Diretório compartilhado autorizado",sourceUrl:company.sourceUrl||"",profilePublished:company.profilePublished===true,updatedAt:company.updatedAt||"",registryStatus:company.status||""});
   });
   var text=norm(query),cities=candidates.map(function(company){return city(company.city||company.citedCity);}).concat(["descalvado"]).filter(function(value){return value.length>2&&text.indexOf(value)>-1;});
   var location=text.match(/\b(?:em|para|atende(?:r)?(?:\s+em)?)\s+([a-z][a-z\s-]+)\s*[?.!]?$/);
   if(location&&!cities.length){var locationCity=city(location[1]);if(locationCity&&cities.indexOf(locationCity)<0)cities.push(locationCity);}
   var words=text.split(/[^a-z0-9]+/).filter(function(word){return word.length>1&&stop.indexOf(word)<0&&!cities.some(function(value){return value.split(/\s+/).indexOf(word)>-1;});});
   if(!words.length)return [];
-  function match(value){var search=norm(value);return words.every(function(word){return search.indexOf(word)>-1;});}
-  function compatible(company){
-    var activity=norm(company.name+" "+company.activity);
-    if(match(activity))return true;
-    // Correspondência de atividade gera apenas candidato, nunca oferta confirmada.
-    var groups=[{terms:["pao","panificacao","padaria"],pattern:/panifica|padaria|\b(?:1091101|1091102|4721102)\b/},{terms:["vestuario","roupa","uniforme"],pattern:/confecc|vestuario|roupa|uniforme/}];
-    return groups.some(function(group){return words.some(function(word){return group.terms.indexOf(word)>-1;})&&group.pattern.test(activity)&&words.every(function(word){return group.terms.indexOf(word)>-1||["frances","corporativo","congelado","hamburguer"].indexOf(word)>-1;});});
+  function match(value){var tokens=norm(value).split(/[^a-z0-9]+/);return words.every(function(word){return tokens.indexOf(word)>-1;});}
+  var breadCodes={"1091101":"Fabricação de produtos de panificação industrial","1091102":"Fabricação de produtos de padaria e confeitaria com predominância de produção própria","4721102":"Padaria e confeitaria com predominância de revenda"};
+  function activityEvidence(value,kind){
+    var raw=String(value||""),normalized=norm(raw),code=(raw.match(/\b\d{7}\b/)||[])[0]||"",bread=words.some(function(word){return ["pao","panificacao","padaria"].indexOf(word)>-1;});
+    if(match(raw))return {kind:kind,text:raw,term:words.join(" "),weight:kind==="CNAE principal"?16:12};
+    var breadMatch=bread&&(breadCodes[code]||/\b(?:panificacao|padaria|padarias)\b/.test(normalized));
+    var clothing=words.some(function(word){return ["vestuario","roupa","uniforme"].indexOf(word)>-1;})&&/\b(?:confeccao|confeccoes|vestuario|roupa|roupas|uniforme|uniformes)\b/.test(normalized);
+    var allowed=bread?["pao","panificacao","padaria","frances","congelado","hamburguer"]:["vestuario","roupa","uniforme","corporativo"];
+    if((breadMatch||clothing)&&words.every(function(word){return allowed.indexOf(word)>-1;}))return {kind:kind,text:breadCodes[code]?code+" · "+breadCodes[code]:raw,term:bread?"pão / panificação":"vestuário / confecção",weight:kind==="CNAE principal"?14:10};
+    return null;
   }
   var matched=candidates.filter(function(company){
     if(company.registryStatus&&/baixad|inapt|suspens|nula/i.test(company.registryStatus))return false;
-    var offerMatch=company.offers.some(match),nameMatch=match(company.name+" "+company.cnpj);
-    if(!offerMatch){if(!nameMatch&&!compatible(company))return false;company.evidenceType="registry";company.offers=[];}
-    company.matchedOffers=company.offers.filter(match);
+    var offerMatch=company.offers.some(match),nameMatch=match(company.name+" "+company.cnpj),evidence=[];
+    if(offerMatch){company.offers.filter(match).forEach(function(offer){evidence.push({kind:company.evidenceType==="purchase"?"Compra informada por você":"Oferta declarada/referenciada",text:offer,term:words.join(" "),weight:30});});}
+    else{
+      var primary=activityEvidence(company.primaryCnae,"CNAE principal");if(primary)evidence.push(primary);
+      (company.secondaryCnaes||[]).forEach(function(value){var item=activityEvidence(value,"CNAE secundário");if(item)evidence.push(item);});
+      if(!evidence.length&&nameMatch)evidence.push({kind:"Nome empresarial",text:company.name,term:words.join(" "),weight:2});
+      if(!evidence.length)(company.aliases||[]).some(function(alias){if(match(alias)){evidence.push({kind:"Nome alternativo",text:alias,term:words.join(" "),weight:1});return true;}return false;});
+      if(!evidence.length)return false;company.evidenceType="registry";company.offers=[];company.source=company.registrySource||company.source;
+    }
+    evidence.forEach(function(item){item.source=item.kind==="CNAE principal"?company.primaryCnaeSource||company.registrySource:item.kind==="CNAE secundário"?company.secondaryCnaeSource||company.registrySource:company.source;item.date=item.kind==="CNAE principal"?company.primaryCnaeDate:item.kind==="CNAE secundário"?company.secondaryCnaeDate:"";});
+    company.matchEvidence=evidence;company.matchedOffers=company.offers.filter(match);
     var current=city(company.city||company.citedCity),delivery=(company.serviceCities||[]).some(function(value){return cities.indexOf(city(value))>-1;});
     company.region=!cities.length?"unspecified":delivery?"delivery":!current?"unknown":cities.indexOf(current)>-1?"local":"outside";
-    company.score=(company.evidenceType==="offer"?100:company.evidenceType==="purchase"?70:20)+(company.region==="delivery"?35:company.region==="local"?25:0)+(offerMatch?15:0);
+    company.score=(company.evidenceType==="offer"?100:company.evidenceType==="purchase"?70:20)+(company.region==="delivery"?35:company.region==="local"?25:0)+(evidence[0].weight||0);
     return true;
   }).sort(function(a,b){return b.score-a.score||a.name.localeCompare(b.name);});
   var seen=Object.create(null);
-  return matched.filter(function(company){var key=normalizarCNPJ(company.cnpj)||norm(company.name);if(seen[key])return false;seen[key]=true;return true;}).slice(0,30);
+  return matched.filter(function(company){var key=normalizarCNPJ(company.cnpj)||norm(company.name);if(seen[key])return false;seen[key]=true;return true;});
 }
 function supplierSafeUrl(value){try{var url=new URL(String(value||""));return url.protocol==="https:"||url.protocol==="http:"?url.href:"";}catch(ignored){return "";}}
 function supplierRegistrationControl(cnpj){
@@ -4484,20 +4495,28 @@ function supplierRegistrationControl(cnpj){
 function renderKnownSupplierMatches(matches,result){
   result.hidden=false;result.innerHTML="";
   result.appendChild(h("h3",{},["Fornecedores e candidatos encontrados"]));
-  matches.forEach(function(company){
+  var shown=0,pageSize=30,summary=h("p",{class:"company-profile-meta",role:"status"}),cards=h("div",{}),more=h("button",{type:"button",class:"platform-action secondary"},["Mostrar mais 30 resultados"]);
+  result.appendChild(summary);result.appendChild(cards);
+  function appendPage(){
+  matches.slice(shown,shown+pageSize).forEach(function(company){
     var offer=company.evidenceType!=="registry",card=h("div",{class:"platform-card"});
     card.appendChild(h("strong",{},[company.name]));
-    card.appendChild(h("p",{},[offer?(company.matchedOffers&&company.matchedOffers.length?company.matchedOffers:company.offers).join(" · "):"Atividade compatível — produto, atacado e disponibilidade ainda não confirmados"]));
+    card.appendChild(h("p",{},[offer?(company.matchedOffers&&company.matchedOffers.length?company.matchedOffers:company.offers).join(" · "):company.matchEvidence&&company.matchEvidence[0]&&/^Nome/.test(company.matchEvidence[0].kind)?"Nome correspondente — atividade, produto e disponibilidade não confirmados":"Atividade compatível — produto, atacado e disponibilidade ainda não confirmados"]));
+    (company.matchEvidence||[]).forEach(function(evidence){card.appendChild(h("p",{class:"company-profile-meta supplier-match-evidence"},["Correspondência: "+evidence.kind+" — "+evidence.text+". Termo relacionado: "+evidence.term+". Fonte: "+evidence.source+(evidence.date?". Referência cadastral: "+evidence.date:"")+"."]));});
+    if(company.evidenceType==="registry")card.appendChild(h("p",{class:"company-profile-meta"},["Fonte da atividade: "+company.source+(company.registryDate?". Referência cadastral: "+company.registryDate:"")+". Atividade cadastrada não comprova que o produto é vendido."]));
     var place=company.city?"Localização informada no cadastro: "+company.city:company.citedCity?"Localização citada no nome/seleção: "+company.citedCity+". Sem localização estruturada; confirme atendimento.":"Localização não informada: confirme atendimento na cidade procurada";
     var delivery=company.region==="delivery"?"Atendimento à cidade declarado; confirme condições":company.region==="outside"?"Empresa de outra cidade; entrega na região não confirmada":"Sede/localização não comprova entrega ou venda no atacado";
-    card.appendChild(h("p",{class:"company-profile-meta"},[[place,delivery,company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source,company.updatedAt?"Atualização: "+company.updatedAt:""].filter(Boolean).join(" · ")]));
+    card.appendChild(h("p",{class:"company-profile-meta supplier-location-meta"},[[place,delivery,company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source,company.updatedAt?"Atualização: "+company.updatedAt:""].filter(Boolean).join(" · ")]));
     var source=supplierSafeUrl(company.sourceUrl);
     if(source)card.appendChild(h("a",{href:source,target:"_blank",rel:"noopener noreferrer"},["Abrir fonte pública"]));
     if(company.profilePublished&&APPS_SCRIPT_URL){var profile=APPS_SCRIPT_URL+(APPS_SCRIPT_URL.indexOf("?")>-1?"&":"?")+"perfil="+encodeURIComponent(company.cnpj);card.appendChild(h("p",{},[h("a",{href:profile,target:"_blank",rel:"noopener noreferrer"},["Abrir perfil e produtos"])]));}
     if(company.cnpj)card.appendChild(supplierRegistrationControl(company.cnpj));
     if(company.cnpj)card.appendChild(h("p",{},[h("a",{href:"https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp",target:"_blank",rel:"noopener noreferrer"},["Conferir situação cadastral na Receita Federal"])]));
-    result.appendChild(card);
+    cards.appendChild(card);
   });
+  shown=Math.min(shown+pageSize,matches.length);summary.textContent="Exibindo "+shown+" de "+matches.length+" resultados no catálogo disponível. Ordem: oferta/compra declarada, localização/atendimento informado e força da correspondência; desempate por nome. "+(shown<matches.length?"Há mais resultados; use Mostrar mais, sem nova chamada externa.":"Todos os resultados desta busca foram exibidos.");more.hidden=shown>=matches.length;
+  }
+  more.addEventListener("click",appendPage);appendPage();result.appendChild(more);
   result.appendChild(h("p",{class:"company-profile-meta"},["Ofertas são autodeclaradas ou referenciadas na fonte; compras informadas não comprovam oferta atual. CNPJ ativo não comprova licença sanitária, estoque, preço ou entrega. Relações privadas não são enviadas à busca externa."]));
   result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
 }
