@@ -57,3 +57,10 @@ test('resposta lenta não inicia nova tentativa que pode superar o prazo interat
  const f=fixture({status:503});let clock=0;f.ctx.Date={now:()=>{clock+=6000;return clock;}};
  const r=f.ctx.runAvanteAiAssistant('user',{question:'Teste'});assert.equal(r.attempts,1);assert.equal(r.retrySkipped,'INTERACTIVE_BUDGET');
 });
+
+
+test('recusa de conteúdo em resposta válida não é classificada como defeito de contrato nem repetida',()=>{
+ const f=fixture({body:{promptFeedback:{blockReason:'SAFETY'}}});
+ const r=f.ctx.runAvanteAiAssistant('user',{question:'Consulta fictícia'});
+ assert.equal(r.code,'AI_CONTENT_REJECTED');assert.equal(f.calls.length,1);assert.equal(f.delays.length,0);
+});

@@ -414,6 +414,7 @@ function runAvanteAiAssistant(token, input) {
     if(status<200||status>=300){var failure=avanteGeminiFailure_(status,avanteGeminiProviderStatus_(response));failure.attempts=remote.attempts;failure.retrySkipped=remote.retrySkipped;return failure;}
     var data;
     try{data=JSON.parse(response.getContentText()||"{}");}catch(ignored){return {ok:false,code:"AI_INVALID_JSON",httpStatus:status,error:"O serviço de IA retornou uma resposta ilegível. O administrador deve conferir o contrato da integração; isso não indica falta de fornecedores locais."};}
+    if(data.promptFeedback&&data.promptFeedback.blockReason)return {ok:false,code:"AI_CONTENT_REJECTED",httpStatus:status,error:"O serviço não gerou conteúdo para esta solicitação. Reformule a consulta; isso não indica ausência de fornecedores locais."};
     if(!Array.isArray(data.candidates))return {ok:false,code:"AI_INVALID_RESPONSE",httpStatus:status,error:"O serviço de IA não retornou o formato esperado. O administrador deve conferir a resposta da integração."};
     var candidate = data.candidates[0] || {};
     var parts = candidate.content && candidate.content.parts || [];
