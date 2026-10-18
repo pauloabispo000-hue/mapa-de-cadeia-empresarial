@@ -828,6 +828,24 @@
   html[data-theme="dark"] .password-dialog h2,html[data-theme="dark"] .password-dialog p{color:#E4E6EB;}
   html[data-theme="dark"] #passwordChangeCancel{background:#3A3B3C;color:#E4E6EB;}
   html[data-theme="dark"] .ai-search-result,html[data-theme="dark"] .ai-assistant-status{color:#E4E6EB;}
+
+  #aiSearchDialog{--search-bg:#fff;--search-card:#F3F4F6;--search-text:#1C1E21;--search-muted:#4B5563;--search-border:#CBD5E1;--search-link:#174EA6;background:var(--search-bg);color:var(--search-text);margin:16px auto;max-height:calc(100dvh - 32px);overflow:auto;border-radius:14px;}
+  html[data-theme="dark"] #aiSearchDialog{--search-bg:#18191A;--search-card:#242526;--search-text:#F1F3F5;--search-muted:#D1D5DB;--search-border:#697078;--search-link:#A8C7FA;}
+  #aiSearchDialog .ai-search-shell{background:var(--search-bg);color:var(--search-text);border-color:var(--search-border);max-height:calc(100dvh - 34px);display:flex;flex-direction:column;gap:8px;}
+  #aiSearchDialog .ai-search-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;}
+  #aiSearchDialog .ai-search-header h2{margin:0;font:600 18px Arial,sans-serif;color:var(--search-text);}
+  #aiSearchClose{background:var(--search-card);color:var(--search-text);border:1px solid var(--search-border);border-radius:8px;padding:9px 14px;cursor:pointer;}
+  #aiSearchClose:focus-visible{outline:3px solid var(--search-link);outline-offset:2px;}
+  #aiSearchDialog #aiSearchInput{background:var(--search-card);color:var(--search-text);border-color:var(--search-border);flex-shrink:0;}
+  #aiSearchDialog .ai-search-result{color:var(--search-text);max-height:none;min-height:0;overflow:auto;overscroll-behavior:contain;}
+  #aiSearchDialog .platform-card{background:var(--search-card);color:var(--search-text);border-color:var(--search-border);}
+  #aiSearchDialog .company-profile-meta,#aiSearchDialog .ai-assistant-status{color:var(--search-muted);}
+  #aiSearchDialog .ai-search-result h2,#aiSearchDialog .ai-search-result h3,#aiSearchDialog .ai-search-result h4{color:var(--search-text);}
+  #aiSearchDialog .ai-search-result a{color:var(--search-link);}
+  #aiSearchDialog .ai-assistant-result{white-space:normal;overflow-wrap:anywhere;line-height:1.55;}
+  #aiSearchDialog .ai-assistant-result p{white-space:pre-wrap;}
+  #aiSearchDialog .ai-assistant-result hr{border:0;border-top:1px solid var(--search-border);margin:12px 0;}
+  @media(max-width:640px){#aiSearchDialog{width:calc(100% - 16px);margin:8px auto;max-height:calc(100dvh - 16px);}#aiSearchDialog .ai-search-shell{max-height:calc(100dvh - 18px);}}
 </style>
 </head>
 <body>
@@ -912,8 +930,9 @@
     <div class="password-dialog-actions"><button type="button" id="passwordChangeCancel">Cancelar</button><button type="submit" id="passwordChangeSubmit">Salvar senha</button></div>
   </form>
 </dialog>
-<dialog id="aiSearchDialog" class="ai-search-dialog" aria-label="Pesquisa com inteligência artificial">
+<dialog id="aiSearchDialog" class="ai-search-dialog" aria-labelledby="aiSearchTitle">
   <form id="aiSearchForm" class="ai-search-shell">
+    <header class="ai-search-header"><h2 id="aiSearchTitle">Pesquisa na plataforma</h2><button id="aiSearchClose" type="button" aria-label="Fechar pesquisa">Fechar</button></header>
     <input id="aiSearchInput" type="search" maxlength="1000" autocomplete="off" placeholder="Pergunte à IA sobre um negócio..." aria-label="Pesquisar com inteligência artificial">
     <p id="aiSearchStatus" class="ai-assistant-status" aria-live="polite" hidden></p>
     <section id="aiSearchResult" class="ai-search-result" aria-live="polite" hidden></section>
@@ -1758,9 +1777,16 @@ function chipGroup(name, options, selectedArr, multi, onChange){
   return row;
 }
 
-function comboField(options, value, placeholder, onSelect, filterFn, allowCustom, renderOnSelect){
+function normalizeLocality(value){
+  var text=normalizeSearch(String(value||"")).replace(/\s+/g," ").trim();
+  var suffix=text.match(/^(.*?)(?:\s*[-–/,]\s*|\s+)([a-z]{2})$/);
+  if(suffix&&UF_LABELS[suffix[2].toUpperCase()])return suffix[1].trim();
+  return text;
+}
+function comboField(options, value, placeholder, onSelect, filterFn, allowCustom, renderOnSelect, optionNormalizer){
   var MAX_VISIBLE = 40;
   var canAddCustom = allowCustom !== false;
+  var normalizeOption=optionNormalizer||normalizeSearch;
   var showAll = false;
   var det = h("details",{class:"combo"});
   var stopTrackingPanel = null;
@@ -1796,9 +1822,9 @@ function comboField(options, value, placeholder, onSelect, filterFn, allowCustom
   }
   function renderList(query){
     listEl.innerHTML = "";
-    var norm = normalizeSearch(query);
+    var norm = normalizeOption(query);
     var base = baseOptions();
-    var filtered = norm ? base.filter(function(o){ return normalizeSearch(o).indexOf(norm) > -1; }) : base;
+    var filtered = norm ? base.filter(function(o){ return normalizeOption(o).indexOf(norm) > -1; }) : base;
     var capped = filtered.slice(0, MAX_VISIBLE);
     if(capped.length===0&&!String(query||"").trim())listEl.appendChild(h("li",{class:"combo-empty"},["Nenhum resultado encontrado."]));
     capped.forEach(function(opt){
@@ -1816,8 +1842,8 @@ function comboField(options, value, placeholder, onSelect, filterFn, allowCustom
       listEl.appendChild(h("li",{class:"combo-more"},["+"+(filtered.length-MAX_VISIBLE)+" resultados — continue digitando para refinar"]));
     }
     var customValue=String(query||"").trim();
-    var existsInList=customValue&&(options||[]).some(function(option){return normalizeSearch(option)===normalizeSearch(customValue);});
-    var alreadySelected=customValue&&normalizeSearch(value)===normalizeSearch(customValue);
+    var existsInList=customValue&&(options||[]).some(function(option){return normalizeOption(option)===normalizeOption(customValue);});
+    var alreadySelected=customValue&&normalizeOption(value)===normalizeOption(customValue);
     if(canAddCustom&&customValue&&!existsInList&&!alreadySelected){
       var customLi=h("li",{}),customBtn=h("button",{type:"button",class:"combo-option combo-freetext"},["＋ Adicionar opção: "+customValue]);
       customBtn.addEventListener("click",function(){onSelect(customValue);det.removeAttribute("open");renderCurrentStep();});
@@ -3698,12 +3724,12 @@ function buildBusinessSettingEditor(item){
   if(q.kind==="multi")return buildComboMulti({options:optionsWithContributions(key,q.options),selectedArr:state.answers[key],placeholder:"Escolha uma ou mais opções...",allowFreeText:true,freeTextLabel:function(value){return "＋ Adicionar opção: "+value;},onFreeTextAdd:canAddAnswer(key)?function(value){addAnswerOption(key,value);}:null,filterFn:(key==="produtosSelecionados"||key==="categoriasClientes")?filterSegmentosProprios:null,onChange:function(){syncConversationAnswers();saveState();}});
   if(q.kind==="dropdown"){
     var opts=key==="estado"&&state.answers.pais!=="Brasil"?["Não se aplica"]:q.options;
-    return comboField(opts,state.answers[key],q.placeholder||"Escolha uma opção...",function(value){state.answers[key]=value;if(key==="pais"&&value!=="Brasil"){state.answers.estado="";state.answers.cidade="";}if(key==="estado")state.answers.cidade="";syncConversationAnswers();saveState();});
+    return comboField(opts,state.answers[key],q.placeholder||"Escolha uma opção...",function(value){state.answers[key]=value;if(key==="pais"&&value!=="Brasil"){state.answers.estado="";state.answers.cidade="";}if(key==="estado")state.answers.cidade="";syncConversationAnswers();saveState();},null,false,undefined,normalizeLocality);
   }
   if(q.kind==="city"){
     if(state.answers.pais!=="Brasil")return textInput(state.answers.cidade,"Digite o nome da cidade",function(value){state.answers.cidade=value;syncConversationAnswers();saveState();});
     var uf=String(state.answers.estado||"").slice(-2),cities=uf?CIDADES_BRASIL.filter(function(city){return city.slice(-2)===uf;}):CIDADES_BRASIL;
-    return comboField(cities,state.answers.cidade,q.placeholder,function(value){state.answers.cidade=value;syncConversationAnswers();saveState();});
+    return comboField(cities,state.answers.cidade,q.placeholder,function(value){state.answers.cidade=value;syncConversationAnswers();saveState();},null,false,undefined,normalizeLocality);
   }
   if(q.kind==="number"){
     control=h("input",{type:"number",min:"0",step:"1",inputmode:"numeric",placeholder:q.placeholder||"0",class:"text-input"});control.value=state.answers[key]||"";
@@ -4361,15 +4387,24 @@ function renderNetworkPage(root,network,workforce,isOverview){
   grid.appendChild(mapCard);grid.appendChild(side);page.appendChild(grid);root.appendChild(page);selectArea(first);
 }
 
+var aiSearchOpener=null,aiSearchBodyOverflow="",aiSearchModalActive=false;
 function openAiSearchDialog(){
   var dialog=document.getElementById("aiSearchDialog"),form=document.getElementById("aiSearchForm");
   if(!dialog||!form)return;
   var input=document.getElementById("aiSearchInput"),status=document.getElementById("aiSearchStatus"),result=document.getElementById("aiSearchResult");
+  input.avanteSearchId=(input.avanteSearchId||0)+1;input.disabled=false;
   input.value="";status.textContent="";status.hidden=true;result.innerHTML="";result.hidden=true;
-  if(!dialog.open)dialog.showModal();
+  if(!dialog.open){aiSearchOpener=document.activeElement;aiSearchBodyOverflow=document.body.style.overflow;aiSearchModalActive=true;document.body.style.overflow="hidden";dialog.showModal();}
   setTimeout(function(){input.focus();},20);
 }
 
+function finishAiSearchDialog(){
+  var dialog=document.getElementById("aiSearchDialog");if(!aiSearchModalActive||dialog.open)return;
+  aiSearchModalActive=false;document.body.style.overflow=aiSearchBodyOverflow;
+  var input=document.getElementById("aiSearchInput");input.avanteSearchId=(input.avanteSearchId||0)+1;input.disabled=false;
+  if(aiSearchOpener&&aiSearchOpener.isConnected)aiSearchOpener.focus();
+}
+function closeAiSearchDialog(){document.getElementById("aiSearchDialog").close();finishAiSearchDialog();}
 function findKnownSupplierMatches(query){
   var stop=["encontre","encontrar","busco","buscar","procuro","quero","preciso","fornecedor","fornecedores","empresa","empresas","produto","produtos","servico","servicos","onde","quem","vende","vender","comprar","compra","para","com","uma","uns","das","dos","de","do","da","em","e","o","a"];
   function searchable(value){return normalizeSearch(value).replace(/\bpaes\b/g,"pao");}
@@ -4378,20 +4413,22 @@ function findKnownSupplierMatches(query){
   var candidates=[];
   (state.fornecedores.lista||[]).forEach(function(supplier){
     if(!supplier.empresa)return;
-    candidates.push({name:supplier.empresa,cnpj:supplier.cnpj||"",city:supplier.cidade||"",offers:(supplier.categorias||[]).slice(),source:"Compras informadas por você nesta pesquisa"});
+    var identity=parseCompanyLabel(supplier.empresa);
+    candidates.push({name:identity.name,cnpj:supplier.cnpj||identity.cnpj,city:supplier.cidade||"",citedCity:supplier.cidadeCitada||identity.citedCity,offers:(supplier.categorias||[]).slice(),source:"Compras informadas por você nesta pesquisa"});
   });
   sharedCompanies.forEach(function(company){
     var offers=(company.offers||[]).map(function(offer){return offer.nome||offer.name||"";}).filter(Boolean);
     if(company.catalogSource==="public"&&company.offer)offers.push(company.offer);
-    if(offers.length)candidates.push({name:company.name,cnpj:company.cnpj||"",city:company.city||"",offers:offers,source:company.catalogSource==="public"?"Catálogo público da plataforma":"Ofertas cadastradas na plataforma"});
+    var identity=parseCompanyLabel(company.name);
+    if(offers.length)candidates.push({name:identity.name,cnpj:company.cnpj||identity.cnpj,city:company.city||"",citedCity:company.citedCity||identity.citedCity,offers:offers,source:company.catalogSource==="public"?"Catálogo público da plataforma":"Ofertas cadastradas na plataforma"});
   });
   function cityName(value){return normalizeSearch(value).replace(/\s*[-–,/]\s*[a-z]{2}\s*$/,"").trim();}
-  var cities=candidates.map(function(company){return cityName(company.city);}).concat(["descalvado"]).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
+  var cities=candidates.map(function(company){return cityName(company.city||company.citedCity);}).concat(["descalvado"]).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
   words=words.filter(function(word){return !cities.some(function(city){return city.split(/\s+/).indexOf(word)>-1;});});
   if(!words.length)return [];
   var seen=Object.create(null);
   return candidates.filter(function(company){
-    if(cities.length&&cityName(company.city)&&cities.indexOf(cityName(company.city))<0)return false;
+    if(cities.length&&cityName(company.city||company.citedCity)&&cities.indexOf(cityName(company.city||company.citedCity))<0)return false;
     var key=normalizarCNPJ(company.cnpj)||normalizeSearch(company.name);
     var text=searchable(company.name+" "+company.offers.join(" "));
     var matches=words.some(function(word){return text.indexOf(word)>-1;});
@@ -4402,10 +4439,33 @@ function renderKnownSupplierMatches(matches,result){
   result.hidden=false;result.innerHTML="";
   result.appendChild(h("h3",{},["Fornecedores encontrados na plataforma"]));
   matches.forEach(function(company){result.appendChild(h("div",{class:"platform-card"},[
-    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city||"Localização não informada: confirme atendimento na cidade procurada",company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
+    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city?"Localização informada no cadastro: "+company.city:company.citedCity?"Localização citada no nome/seleção: "+company.citedCity+". Sem localização estruturada; confirme atendimento.":"Localização não informada: confirme atendimento na cidade procurada",company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
   ]));});
   result.appendChild(h("p",{class:"company-profile-meta"},["Confirme a disponibilidade diretamente com a empresa. As compras informadas não comprovam oferta atual."]));
   if(municipalDirectoryStatus.partial)result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
+}
+function renderSafeAiMarkdown(value){
+  var root=h("div",{class:"ai-assistant-result"}),list=null;
+  function inline(node,text){
+    String(text).split(/(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\n]+\))/g).forEach(function(part){
+      if(!part)return;
+      if(/^(\*\*|__)/.test(part)&&part.length>4){node.appendChild(h("strong",{},[part.slice(2,-2)]));return;}
+      if(part[0]==="`"&&part[part.length-1]==="`"){node.appendChild(h("code",{},[part.slice(1,-1)]));return;}
+      if(part[0]==="*"&&part[part.length-1]==="*"){node.appendChild(h("em",{},[part.slice(1,-1)]));return;}
+      var link=part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if(link){try{var url=new URL(link[2]);if(url.protocol==="https:"||url.protocol==="http:"){node.appendChild(h("a",{href:url.href,target:"_blank",rel:"noopener noreferrer"},[link[1]]));return;}}catch(ignored){}node.appendChild(document.createTextNode(link[1]));return;}
+      node.appendChild(document.createTextNode(part));
+    });
+  }
+  String(value||"").slice(0,24000).split(/\r?\n/).forEach(function(line){
+    if(!line.trim()){list=null;return;}
+    var heading=line.match(/^\s*(#{1,6})\s+(.+)$/),item=line.match(/^\s*(?:([-*+])|\d+[.)])\s+(.+)$/);
+    if(heading){list=null;var title=h(heading[1].length>3?"h4":"h3",{});inline(title,heading[2]);root.appendChild(title);return;}
+    if(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)){list=null;root.appendChild(h("hr",{}));return;}
+    if(item){var tag=item[1]?"ul":"ol";if(!list||list.tagName.toLowerCase()!==tag){list=h(tag,{});root.appendChild(list);}var li=h("li",{});inline(li,item[2]);list.appendChild(li);return;}
+    list=null;var paragraph=h("p",{});inline(paragraph,line);root.appendChild(paragraph);
+  });
+  return root;
 }
 function submitAiSearch(query,input,status,result){
   query=String(query||"").trim();
@@ -4432,7 +4492,7 @@ function submitAiSearch(query,input,status,result){
     finished=true;clearTimeout(timer);input.disabled=false;
     status.textContent="";status.hidden=true;result.hidden=false;
     result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
-    result.appendChild(h("p",{class:"ai-assistant-result"},[response.answer||""]));
+    result.appendChild(renderSafeAiMarkdown(response.answer||""));
     if(response.searchQueries&&response.searchQueries.length)result.appendChild(h("p",{class:"company-profile-meta"},["Pesquisas: "+response.searchQueries.join(" · ")]));
     var sources=response.sources||[];
     if(sources.length){
@@ -4516,21 +4576,24 @@ function inferAreaFromText(value){
 function splitNames(value){
   return String(value||"").split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
 }
+function parseCompanyLabel(value){
+  var text=String(value||"").trim(),parts=text.split(/\s+·\s+/),match=parts[0].match(/^(.*?)\s+[—–-]\s+CNPJ\s+([0-9A-Z./-]+)/i);
+  return {name:match?match[1].trim():parts[0],cnpj:match?normalizarCNPJ(match[2]):"",citedCity:match&&parts[1]&&!/sugestão pública|CNPJ ativo/i.test(parts[1])?parts[1]:""};
+}
 function surveyCompanyCatalog(){
   var companies=sharedCompanies.slice(), seen=Object.create(null);
   companies.forEach(function(company){var cnpj=normalizarCNPJ(company.cnpj);seen[cnpj?"cnpj:"+cnpj:"name:"+normName(company.name)]=true;});
   function add(value){
     if(!value)return;
-    var name,cnpj,city;
+    var name,cnpj,city,citedCity;
     if(typeof value==="string"){
       if(/^Tipo de negócio:/i.test(value))return;
-      var match=value.match(/^(.*?)\s+[—–-]\s+CNPJ\s+([0-9A-Z./-]+)/i);
-      name=match?match[1].trim():value.split(/\s+·\s+/)[0].trim();cnpj=match?normalizarCNPJ(match[2]):"";
-    }else{name=String(value.empresa||value.nome||value.name||"").trim();cnpj=normalizarCNPJ(value.cnpj);city=value.cidade||value.city||"";}
+      var parsed=parseCompanyLabel(value);name=parsed.name;cnpj=parsed.cnpj;citedCity=parsed.citedCity;
+    }else{var parsed=parseCompanyLabel(value.empresa||value.nome||value.name||"");name=parsed.name;cnpj=normalizarCNPJ(value.cnpj)||parsed.cnpj;city=value.cidade||value.city||"";citedCity=value.cidadeCitada||value.citedCity||parsed.citedCity;}
     if(!name)return;
     var key=cnpj?"cnpj:"+cnpj:"name:"+normName(name);
     if(seen[key]||(!cnpj&&companies.some(function(company){return normName(company.name)===normName(name);})))return;
-    seen[key]=true;companies.push({name:name,cnpj:cnpj,city:city||"",aliases:[],areas:[],catalogSource:"draft"});
+    seen[key]=true;companies.push({name:name,cnpj:cnpj,city:city||"",citedCity:citedCity||"",aliases:[],areas:[],catalogSource:"draft"});
   }
   var answers=state.answers||{};
   [state.fornecedores,state.clientes,state.complementares].forEach(function(group){(group&&group.lista||[]).forEach(add);});
@@ -4612,14 +4675,14 @@ function syncConversationAnswers(){
     if(e.categorias.length)e.itens=e.categorias.join(", ");
     var inferred=e.categorias.map(function(item){return CATEGORIA_INSUMO_AREA[item];}).filter(Boolean)[0]||inferAreaFromText(e.itens); if(inferred) e.areaNecessidade=inferred;
     var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
-    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];if(known.cnpjDados)e.cnpjDados=known.cnpjDados;if(Array.isArray(known.offers))e.offerSelections=known.offers.filter(function(offer){return e.categorias.some(function(name){return normalizeSearch(name)===normalizeSearch(offer.nome);});}).map(function(offer){return {id:offer.id||"",nome:offer.nome,tipo:offer.tipo||"Produto",areas:(offer.areas||[]).slice()};});}
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.cidadeCitada=known.citedCity||e.cidadeCitada||"";e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];if(known.cnpjDados)e.cnpjDados=known.cnpjDados;if(Array.isArray(known.offers))e.offerSelections=known.offers.filter(function(offer){return e.categorias.some(function(name){return normalizeSearch(name)===normalizeSearch(offer.nome);});}).map(function(offer){return {id:offer.id||"",nome:offer.nome,tipo:offer.tipo||"Produto",areas:(offer.areas||[]).slice()};});}
     e.compra_de=true; return e;
   });
   var customerEntries=relatedCompanyEntries(splitNames(a.clientes),a.clientesSelecionados);
   state.clientes.lista=customerEntries.map(function(entry,i){
     var name=entry.name,e=reuseEntity("clientes",name,"customer"+i,entry.cnpj); if(a.usoOferta) e.comoUtiliza=a.usoOferta; e.categorias=(a.categoriasClientes||[]).slice(); e.usa_minha_oferta=true;
     var known=entry.company||sharedCompanies.filter(function(company){return normName(company.name)===normName(name)||(Array.isArray(company.aliases)&&company.aliases.some(function(alias){return normName(alias)===normName(name);}));})[0];
-    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
+    if(known){e.cnpj=known.cnpj||e.cnpj;e.cidade=known.city||e.cidade;e.cidadeCitada=known.citedCity||e.cidadeCitada||"";e.empresa=known.name;if(known.areas.length)e.areaNecessidade=known.areas[0];}
     return e;
   });
   var nomesComplementares=splitNames(a.complementares);
@@ -5111,14 +5174,14 @@ function renderConversation(container){
           if(q.key==="pais" && v!=="Brasil"){state.answers.estado="";state.answers.cidade="";}
           if(q.key==="estado") state.answers.cidade="";
           syncConversationAnswers();saveState();
-        }));
+        },null,false,undefined,normalizeLocality));
         return dropdownWrap;
       }
       if(q.kind==="city"){
         if(state.answers.pais!=="Brasil") return textInput(state.answers.cidade,"Digite o nome da cidade",function(v){state.answers.cidade=v;syncConversationAnswers();saveState();});
         var uf=String(state.answers.estado||"").slice(-2);
         var cities=uf ? CIDADES_BRASIL.filter(function(city){return city.slice(-2)===uf;}) : CIDADES_BRASIL;
-        return comboField(cities,state.answers.cidade,q.placeholder,function(v){state.answers.cidade=v;syncConversationAnswers();saveState();});
+        return comboField(cities,state.answers.cidade,q.placeholder,function(v){state.answers.cidade=v;syncConversationAnswers();saveState();},null,false,undefined,normalizeLocality);
       }
       if(q.key==="negocioNome"&&surveyMode==="settings"){
         var savedName=textInput(state.answers.negocioNome||state.business.nome,"",function(){});savedName.disabled=true;savedName.setAttribute("aria-readonly","true");return savedName;
@@ -5373,7 +5436,10 @@ document.getElementById("aiSearchForm").addEventListener("submit",function(event
   event.preventDefault();
   submitAiSearch(document.getElementById("aiSearchInput").value,document.getElementById("aiSearchInput"),document.getElementById("aiSearchStatus"),document.getElementById("aiSearchResult"));
 });
-document.getElementById("aiSearchDialog").addEventListener("click",function(event){if(event.target===this)this.close();});
+document.getElementById("aiSearchClose").addEventListener("click",closeAiSearchDialog);
+document.getElementById("aiSearchDialog").addEventListener("keydown",function(event){if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeAiSearchDialog();}},true);
+document.getElementById("aiSearchDialog").addEventListener("close",finishAiSearchDialog);
+document.getElementById("aiSearchDialog").addEventListener("click",function(event){if(event.target===this){var r=this.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeAiSearchDialog();}});
 document.getElementById("logoutButton").addEventListener("click",function(){
   if(authSession&&authSession.token&&isAppsScriptApp())google.script.run.logoutAvante(authSession.token);
   sessionStorage.removeItem("avante_admin_session");

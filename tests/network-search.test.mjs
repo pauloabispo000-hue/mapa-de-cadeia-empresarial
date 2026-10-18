@@ -6,6 +6,7 @@ const html=readFileSync(new URL('../Apps Script/Index.html',import.meta.url),'ut
 const normalizeSearch=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function searchFixture(){
  const ctx=vm.createContext({normalizeSearch,normalizarCNPJ:s=>String(s||'').replace(/\D/g,''),state:{fornecedores:{lista:[{empresa:'PADARIA FICTICIA',cidade:'Descalvado',categorias:['Pão francês','Bolo'],cnpj:'11222333000181'}]}},sharedCompanies:[{name:'Outra padaria',city:'Outra cidade',offers:[{nome:'Pão francês'}]},{name:'CNAE sem oferta',city:'Descalvado',catalogSource:'registry',offer:'Pão francês'}]});
+ vm.runInContext(html.slice(html.indexOf('function parseCompanyLabel('),html.indexOf('function surveyCompanyCatalog(')),ctx);
  vm.runInContext(html.slice(html.indexOf('function findKnownSupplierMatches('),html.indexOf('function renderKnownSupplierMatches(')),ctx);return ctx;
 }
 test('busca encontra pão e pães informados no negócio sem inferir oferta pelo CNAE',()=>{
@@ -41,4 +42,18 @@ test('pluralização preserva singular e plural para fornecedores e soluções',
  assert.equal(ctx.supplierSolutionsLabel({suppliers:{one:1},solutions:{one:1}}),'1 fornecedor · 1 solução informada para este negócio');
  assert.equal(ctx.quantityLabel(0,'solução','soluções'),'0 soluções');
  assert.equal(ctx.quantityLabel(2,'fornecedor','fornecedores'),'2 fornecedores');
+});
+
+
+test('rótulo composto separa identidade e cidade citada sem inventar localização estruturada',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[{empresa:'ESTILOS FICTÍCIOS — CNPJ 11.222.333/0001-81 · DESCALVADO - SP',categorias:['Vestuário corporativo']}];
+ const result=ctx.findKnownSupplierMatches('fornecedores de vestuário corporativo em Descalvado')[0];
+ assert.equal(result.name,'ESTILOS FICTÍCIOS');assert.equal(result.cnpj,'11222333000181');assert.equal(result.city,'');assert.equal(result.citedCity,'DESCALVADO - SP');
+});
+
+test('localidades oficiais normalizam acentos, caixa e UF sem criar equivalentes novos',()=>{
+ const ctx=vm.createContext({normalizeSearch,UF_LABELS:{SP:'São Paulo'}});
+ vm.runInContext(html.slice(html.indexOf('function normalizeLocality('),html.indexOf('function comboField(')),ctx);
+ assert.equal(ctx.normalizeLocality('sao paulo'),ctx.normalizeLocality('São Paulo - SP'));
+ assert.equal(ctx.normalizeLocality('DESCALVADO SP'),ctx.normalizeLocality('Descalvado - SP'));
 });

@@ -228,3 +228,26 @@ endpoint retornou 10 empresas indexadas, 5 relações, 0 opções públicas de e
 e 0 ofertas autorizadas por área. Não foram alteradas as autorizações do diretório,
 nem inferido defeito nos indicadores com zero. A pluralização distingue fornecedor,
 fornecedores, solução e soluções.
+
+## PDCA — localização, modal e localidades oficiais
+
+A seleção de empresa pode conter um rótulo composto com nome, CNPJ e cidade. O
+parser separa a identidade, preserva a cidade citada como `citedCity`/`cidadeCitada`
+e não a transforma em localização estruturada. A busca distingue cidade informada
+no cadastro, cidade apenas citada na seleção e localização desconhecida; todas
+continuam sujeitas à confirmação de atendimento pela empresa.
+
+O modal de pesquisa usa cores próprias consistentes por tema, botão Fechar com
+nome acessível, Escape na fase de captura (inclusive em input type=search), foco
+inicial no campo, retorno ao acionador e rolagem interna móvel. A resposta da IA
+é convertida em elementos DOM de uma sintaxe limitada de Markdown (títulos,
+listas, negrito, ênfase, código e links HTTP/HTTPS), sem inserir HTML remoto.
+Fechar/iniciar uma pesquisa invalida respostas pendentes da pesquisa anterior.
+
+Estado, cidade brasileira e dropdowns da pesquisa usam opções fechadas. Localidades
+normalizam acentos, caixa, espaços e UF para a busca, evitando uma cópia livre da
+opção oficial. Tipos de negócio explicitamente abertos continuam permitindo valor
+personalizado. Teste visual e de acessibilidade:
+`python tests/pdca-ui.browser.py` (dados fictícios, todas as requisições bloqueadas).
+O teste confere contraste, conteúdo malicioso, teclado/foco, rolagem a 360px e
+localidades oficiais. Nenhum teste de falha 503 deste ciclo foi forçado online.
