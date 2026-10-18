@@ -305,3 +305,20 @@ Timeout não valida nem invalida chave, permissões ou modelo; a chamada UrlFetc
 pode continuar no servidor. Não há repetição automática de metadados. Falha de
 comunicação/início e erros HTTP recebidos encerram o carregamento separadamente.
 O teste PDCA usa relógio e RPC simulados, sem consultar a chave/projeto reais.
+
+## PDCA — conclusão da resposta de IA
+
+O parser verifica finishReason: STOP confirma conclusão normal; MAX_TOKENS mostra
+texto disponível com aviso de resposta parcial; motivo ausente/desconhecido ou
+corte pelo limite local de caracteres também exige aviso. Bloqueios de conteúdo
+não exibem o texto do candidato. Respostas sem candidates ou sem texto visível
+são falhas explícitas. Partes marcadas thought não são exibidas. Não há continuação
+automática. A renderização Markdown segura e o fallback local são preservados.
+
+maxOutputTokens permanece 1200; os prompts pedem até 180 palavras e itens curtos.
+Não há thinkingConfig explícito: sem contrato confirmado para o modelo, não se
+inventa um parâmetro nem se amplia o orçamento. Contagens numéricas de uso,
+inclusive thoughtsTokenCount quando recebido, são retornadas sem texto de
+raciocínio ou logs privados. A resposta online anterior não preservou finishReason
+ou contagens: sua causa concreta de truncamento não pode ser reconstruída pelo
+tamanho do texto. Sucesso de uma geração não confirma estabilidade do serviço.

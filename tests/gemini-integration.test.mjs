@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../Apps Script/Code.js',import.meta.url),'utf8');
-function fixture({status=200,body={candidates:[{content:{parts:[{text:'### Orientação\n**Cidade fictícia**\n* Item'}]}}]},key='fixture-key',model='',throws=false,statuses=null,retryAfter=null,quotaResult=true}={}){
+function fixture({status=200,body={candidates:[{finishReason:'STOP',content:{parts:[{text:'### Orientação\n**Cidade fictícia**\n* Item'}]}}]},key='fixture-key',model='',throws=false,statuses=null,retryAfter=null,quotaResult=true}={}){
  const calls=[],quota=[],logs=[],delays=[];
  const ctx=vm.createContext({Utilities:{sleep:ms=>delays.push(ms)},console:{warn:s=>logs.push(s)},PropertiesService:{getScriptProperties:()=>({getProperty:k=>({GEMINI_API_KEY:key,GEMINI_MODEL:model})[k]||''})},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});if(throws)throw Error('fixture-key private transport detail');return {getResponseCode:()=>statuses?statuses[Math.min(calls.length-1,statuses.length-1)]:status,getAllHeaders:()=>retryAfter?{'Retry-After':retryAfter}:{},getContentText:()=>typeof body==='string'?body:JSON.stringify(body)};}}});
  vm.runInContext(source,ctx);ctx.getAvanteSessionUser_=t=>t==='admin'?'admin.avante':t==='user'?'user':'';ctx.getAvanteAdminProperty_=()=> 'admin.avante';ctx.consumeAvanteAiQuota_=u=>{quota.push(u);return quota.length>1?quotaResult:true;};
@@ -63,4 +63,24 @@ test('recusa de conteúdo em resposta válida não é classificada como defeito 
  const f=fixture({body:{promptFeedback:{blockReason:'SAFETY'}}});
  const r=f.ctx.runAvanteAiAssistant('user',{question:'Consulta fictícia'});
  assert.equal(r.code,'AI_CONTENT_REJECTED');assert.equal(f.calls.length,1);assert.equal(f.delays.length,0);
+});
+
+function generated(finishReason,parts=[{text:'**Orientação** parcial,'}],extra={}){return fixture({body:{candidates:[{finishReason,content:{parts}}],...extra}});}
+test('MAX_TOKENS preserva texto seguro e informa resposta parcial sem continuação',()=>{
+ const f=generated('MAX_TOKENS',undefined,{usageMetadata:{thoughtsTokenCount:900,candidatesTokenCount:300,totalTokenCount:1400}}),r=f.ctx.runAvanteAiAssistant('user',{question:'Teste'});
+ assert.equal(r.ok,true);assert.equal(r.partial,true);assert.equal(r.finishReason,'MAX_TOKENS');assert.match(r.warning,/Resposta parcial/);assert.equal(r.tokenUsage.thoughtsTokenCount,900);assert.equal(f.calls.length,1);
+ const payload=JSON.parse(f.calls[0].options.payload);assert.equal(payload.generationConfig.maxOutputTokens,1200);assert.match(payload.systemInstruction.parts[0].text,/180 palavras/);
+});
+test('STOP confirma conclusão; raciocínio não é exibido e números de uso inválidos são descartados',()=>{
+ const f=generated('STOP',[{thought:true,text:'raciocínio privado'},{text:'Texto completo.'}],{usageMetadata:{thoughtsTokenCount:'segredo',totalTokenCount:30}}),r=f.ctx.runAvanteAiAssistant('user',{question:'Teste'});
+ assert.equal(r.partial,false);assert.equal(r.warning,'');assert.equal(r.answer,'Texto completo.');assert.equal(r.tokenUsage.thoughtsTokenCount,undefined);assert.equal(r.tokenUsage.totalTokenCount,30);assert.equal(f.calls.length,1);
+});
+test('bloqueios no candidato não exibem conteúdo nem disparam continuação',()=>{
+ for(const reason of ['SAFETY','RECITATION','BLOCKLIST','PROHIBITED_CONTENT','SPII']){const f=generated(reason),r=f.ctx.runAvanteAiAssistant('user',{question:'Teste'});assert.equal(r.code,'AI_CONTENT_REJECTED');assert.equal(r.answer,undefined);assert.equal(f.calls.length,1);}
+});
+test('sem candidates, sem texto visível ou sem motivo de término não presume conclusão',()=>{
+ for(const body of [{},{candidates:[]}]){const f=fixture({body}),r=f.ctx.runAvanteAiAssistant('user',{question:'Teste'});assert.equal(r.ok,false);assert.equal(f.calls.length,1);}
+ const empty=generated('MAX_TOKENS',[{thought:true,text:'não exibir'}]);assert.equal(empty.ctx.runAvanteAiAssistant('user',{question:'Teste'}).code,'AI_INCOMPLETE_RESPONSE');
+ const unknown=generated(undefined);assert.equal(unknown.ctx.runAvanteAiAssistant('user',{question:'Teste'}).partial,true);
+ const capped=generated('STOP',[{text:'a'.repeat(12001)}]);assert.equal(capped.ctx.runAvanteAiAssistant('user',{question:'Teste'}).partial,true);
 });

@@ -392,9 +392,10 @@ function runAvanteAiAssistant(token, input) {
   var systemInstruction, prompt;
   if (mode === "review") {
     systemInstruction = "Você é o assistente de pesquisa empresarial do Avante. Revise apenas os dados fornecidos e seu conhecimento geral; não afirme que consultou a internet nem invente fontes ou fatos. Distinga claramente sugestões de informações verificadas. Responda em português conciso, nas seções Pontos coerentes; Pontos que merecem conferência; Sugestões de melhoria do cadastro. Não trate CNAE como prova de produto vendido, não altere cadastro e nunca solicite ou exponha relações privadas, senhas ou dados pessoais.";
+    systemInstruction += " Limite a resposta a 180 palavras, com itens curtos e frases completas.";
     prompt = "Revise estes dados declarados, que podem conter erros e não estão verificados:\n" + JSON.stringify(context);
   } else {
-    systemInstruction = "Você é o assistente do Avante. Responda com seu conhecimento geral, sem afirmar que consultou a internet ou fontes atuais. Avise quando a resposta precisar de confirmação em fonte oficial. Não invente produtos, serviços, endereços, situação cadastral ou relações comerciais. Responda em português do Brasil, de forma útil e concisa. Não altere cadastros; apresente descobertas como sugestões para conferência.";
+    systemInstruction = "Você é o assistente do Avante. Responda com seu conhecimento geral, sem afirmar que consultou a internet ou fontes atuais. Avise quando a resposta precisar de confirmação em fonte oficial. Não invente produtos, serviços, endereços, situação cadastral ou relações comerciais. Responda em português do Brasil, em até 180 palavras e no máximo 5 itens curtos. Priorize ações úteis e conclua as frases, sem introduções longas. Não altere cadastros; apresente descobertas como sugestões para conferência.";
     prompt = question;
   }
 
@@ -416,11 +417,19 @@ function runAvanteAiAssistant(token, input) {
     try{data=JSON.parse(response.getContentText()||"{}");}catch(ignored){return {ok:false,code:"AI_INVALID_JSON",httpStatus:status,error:"O serviço de IA retornou uma resposta ilegível. O administrador deve conferir o contrato da integração; isso não indica falta de fornecedores locais."};}
     if(data.promptFeedback&&data.promptFeedback.blockReason)return {ok:false,code:"AI_CONTENT_REJECTED",httpStatus:status,error:"O serviço não gerou conteúdo para esta solicitação. Reformule a consulta; isso não indica ausência de fornecedores locais."};
     if(!Array.isArray(data.candidates))return {ok:false,code:"AI_INVALID_RESPONSE",httpStatus:status,error:"O serviço de IA não retornou o formato esperado. O administrador deve conferir a resposta da integração."};
+    if(!data.candidates.length)return {ok:false,code:"AI_EMPTY_RESPONSE",error:"O serviço não retornou candidatos de resposta. Não foi possível obter orientação; os resultados locais continuam disponíveis."};
     var candidate = data.candidates[0] || {};
+    var finishReason=String(candidate.finishReason||"UNKNOWN");
+    if(["SAFETY","RECITATION","BLOCKLIST","PROHIBITED_CONTENT","SPII","IMAGE_SAFETY","IMAGE_PROHIBITED_CONTENT"].indexOf(finishReason)>-1)return {ok:false,code:"AI_CONTENT_REJECTED",error:"O serviço interrompeu a resposta por uma restrição de conteúdo. Reformule a consulta; isso não indica ausência de fornecedores locais."};
+    if(["STOP","MAX_TOKENS"].indexOf(finishReason)<0)finishReason="UNKNOWN";
     var parts = candidate.content && candidate.content.parts || [];
     if(!Array.isArray(parts))return {ok:false,code:"AI_INVALID_RESPONSE",httpStatus:status,error:"O serviço de IA retornou conteúdo fora do formato esperado. O administrador deve conferir o contrato da integração."};
-    var answer = parts.map(function(part) { return String(part&&part.text || ""); }).filter(Boolean).join("\n").trim();
-    if (!answer) return { ok: false, code:"AI_EMPTY_RESPONSE", error: "A pesquisa não retornou uma resposta. Reformule a consulta e tente novamente." };
+    var answer = parts.map(function(part) { return String(part&&!part.thought&&part.text || ""); }).filter(Boolean).join("\n").trim();
+    if (!answer) return { ok: false, code:finishReason==="MAX_TOKENS"?"AI_INCOMPLETE_RESPONSE":"AI_EMPTY_RESPONSE", finishReason:finishReason, error:finishReason==="MAX_TOKENS"?"O limite de saída foi atingido antes de uma resposta visível. Nenhuma continuação foi solicitada. Tente uma pergunta mais específica.":"A pesquisa não retornou uma resposta. Reformule a consulta e tente novamente." };
+    var partial=finishReason!=="STOP"||answer.length>12000;
+    var warning=partial?(finishReason==="MAX_TOKENS"?"Resposta parcial: o serviço atingiu o limite de saída. O texto pode terminar incompleto; tente uma pergunta mais específica. Nenhuma continuação foi solicitada.":"Resposta possivelmente incompleta: não foi possível confirmar uma conclusão normal. Tente uma pergunta mais específica. Nenhuma continuação foi solicitada."):"";
+    var usage=data.usageMetadata||{},tokenUsage={};
+    ["promptTokenCount","candidatesTokenCount","thoughtsTokenCount","totalTokenCount"].forEach(function(key){var value=usage[key];if(typeof value==="number"&&isFinite(value)&&value>=0)tokenUsage[key]=Math.floor(value);});
     var metadata = candidate.groundingMetadata || {};
     var seen = {}, sources = [];
     (Array.isArray(metadata.groundingChunks)?metadata.groundingChunks:[]).forEach(function(chunk) {
@@ -430,7 +439,7 @@ function runAvanteAiAssistant(token, input) {
       sources.push({ title: String(web.title || uri).slice(0, 240), url: uri });
     });
     return {
-      ok: true, attempts:remote.attempts, answer: answer.slice(0, 12000),
+      ok: true, attempts:remote.attempts, answer: answer.slice(0, 12000), partial:partial, warning:warning, finishReason:finishReason, tokenUsage:tokenUsage,
       sources: sources.slice(0, 12),
       searchQueries: (Array.isArray(metadata.webSearchQueries)?metadata.webSearchQueries:[]).map(function(value) { return String(value || "").slice(0, 240); }).slice(0, 8),
       reviewedAt: new Date().toISOString(), mode: mode

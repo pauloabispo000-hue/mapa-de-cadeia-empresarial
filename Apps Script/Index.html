@@ -4513,6 +4513,7 @@ function submitAiSearch(query,input,status,result){
     finished=true;clearTimeout(timer);input.disabled=false;
     status.textContent="";status.hidden=true;result.hidden=false;
     result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
+    if(response.partial)result.appendChild(h("p",{class:"company-profile-meta",role:"status"},[response.warning||"Resposta possivelmente incompleta. Tente uma pergunta mais específica; nenhuma continuação foi solicitada."]));
     result.appendChild(renderSafeAiMarkdown(response.answer||""));
     if(response.searchQueries&&response.searchQueries.length)result.appendChild(h("p",{class:"company-profile-meta"},["Pesquisas: "+response.searchQueries.join(" · ")]));
     var sources=response.sources||[];

@@ -214,4 +214,18 @@ with sync_playwright() as p:
  assert 'OFERTAS FICTÍCIAS' in page.locator('#aiSearchResult').inner_text()
  assert run('window.aiCalls===window.callsBeforePause') is True
  print('Navegador: pausa após HTTP 503 simulado limita chamadas sem impedir resultados locais.')
+ run("aiRemoteRetryAt=0;state.fornecedores.lista=[];sharedCompanies=[];")
+ page.locator('#aiSearchInput').fill('orientação fictícia')
+ page.locator('#aiSearchInput').press('Enter')
+ run("window.partialCalls=window.aiCalls;window.aiSuccess({ok:true,partial:true,finishReason:'MAX_TOKENS',warning:'Resposta parcial: o serviço atingiu o limite de saída.',answer:'**Orientação** interrompida, <img src=x onerror=alert(1)>'})")
+ assert 'Resposta parcial' in page.locator('#aiSearchResult').inner_text()
+ assert page.locator('#aiSearchResult strong').count()==1
+ assert page.locator('#aiSearchResult img').count()==0
+ assert page.locator('#aiSearchInput').is_enabled()
+ assert run('window.aiCalls===window.partialCalls') is True
+ page.locator('#aiSearchInput').press('Enter')
+ run("window.aiSuccess({ok:true,partial:false,finishReason:'STOP',answer:'Orientação concluída.'})")
+ assert 'Resposta parcial' not in page.locator('#aiSearchResult').inner_text()
+ assert 'Orientação concluída.' in page.locator('#aiSearchResult').inner_text()
+ print('Navegador: resposta parcial sinalizada, STOP limpo, Markdown seguro e nenhuma continuação automática.')
  b.close()
