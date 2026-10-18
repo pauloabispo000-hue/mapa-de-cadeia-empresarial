@@ -131,18 +131,15 @@ with sync_playwright() as p:
  print('Navegador: busca e seleção de empresa parceira, CNPJ e preservação de respostas aprovados.')
  print('Navegador: dois campos de revenda, fornecedores compatíveis, consentimento, recarga e remoção aprovados.')
  print('Navegador: confecção, busca, tipo desconhecido, filtro estrito e catálogo cadastrado aprovados; sem requisições externas.')
- run("state=freshState();state.meta.sendStatus='unknown';state.meta.sendError='Sem recibo';isAppsScriptApp=()=>true;window.receiptCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.receiptSuccess=fn;return this},withFailureHandler(fn){return this},getAvanteSurveyReceipt(){window.receiptCalls++}}}};window.testRoot.innerHTML='';window.testRoot.appendChild(renderSurveySendIssue());")
- assert 'Ainda não conseguimos confirmar o recebimento das suas respostas. Seu rascunho está salvo.' in page.locator('#platformContent').inner_text()
- assert 'Local: Pesquisa' not in page.locator('#platformContent').inner_text()
- assert 'Sem recibo' not in page.locator('#platformContent').inner_text()
- page.get_by_role('link',name='Verificar recebimento').click()
- assert run('window.receiptCalls')==1
- run("window.receiptSuccess({ok:false,error:'Não foi localizado um recibo correspondente.'})")
- assert run("state.meta.sendStatus")=='unknown'
- assert 'Não foi localizado' in page.locator('#platformContent').inner_text()
- page.get_by_role('link',name='Verificar recebimento').click()
- run("window.receiptSuccess({ok:true,responsesSaved:true,responseId:'receipt-local',profilePublished:null})")
+ run("state=freshState();state.meta.sendStatus='unknown';state.meta.sendError='Sem recibo';isAppsScriptApp=()=>true;window.sendCalls=0;window.google={script:{run:{withSuccessHandler(fn){window.sendSuccess=fn;return this},withFailureHandler(fn){return this},submitAvanteSurvey(token,payload){window.sendCalls++;window.sentAttempt=payload.meta.submissionId}}}};currentStepIndex=activeConversationQuestions().length;document.body.classList.add('authenticated');renderCurrentStep();document.getElementById('surveyWizard').style.display='flex';document.getElementById('platformContent').style.display='none';")
+ assert page.get_by_role('link',name='Verificar recebimento').count()==0
+ assert page.get_by_role('link',name='Revisar alterações do rascunho').count()==0
+ assert page.locator('#btnNext').inner_text()=='Enviar respostas'
+ page.locator('#btnNext').click()
+ assert run('window.sendCalls')==1
+ assert page.locator('#btnNext').is_disabled()
+ run("window.sendSuccess({ok:true,responsesSaved:true,responseId:'receipt-local',profilePublished:null})")
  assert run("state.meta.responsesSaved") is True
- assert run("state.meta.profilePublicationUnknown") is True
- print('Navegador: aviso simples substitui texto antigo, link consulta recibo sem reenvio e confirma apenas resposta explícita.')
+ assert page.locator('#btnNext').inner_text()=='Respostas salvas ✓'
+ print('Navegador: um botão Enviar respostas, confirmação explícita e nenhuma etapa manual de recibo.')
  b.close()

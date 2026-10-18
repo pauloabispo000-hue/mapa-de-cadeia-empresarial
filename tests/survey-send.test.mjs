@@ -17,10 +17,10 @@ function fixture({ official = true, token = 'test-session' } = {}) {
   };
   const state = { ...draft(), meta: { sendStatus: 'idle', submittedAt: null } };
   const ctx = vm.createContext({
-    state, authSession: token ? { token } : null,
+    uid:()=>"test-attempt-id", state, authSession: token ? { token } : null,
     isAppsScriptApp: () => official, google: { script: { run } },
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
-    buildExportObject: () => JSON.parse(JSON.stringify({ answers: state.answers, business: state.business, publicProfile: state.publicProfile })),
+    buildExportObject: () => JSON.parse(JSON.stringify({ meta:state.meta, answers: state.answers, business: state.business, publicProfile: state.publicProfile })),
     saveState: () => saved.push(JSON.stringify(state)), renderCurrentStep() {}
   });
   vm.runInContext(client, ctx);
@@ -63,13 +63,12 @@ test('recusa explícita preserva o rascunho, exibe o erro e não repete o envio'
   assert.equal(f.calls.length, 1);
 });
 
-test('falha de comunicação mantém resultado desconhecido e impede reenvio', async () => {
+test('falha de comunicação preserva rascunho sem repetir envio automaticamente', async () => {
   const f = fixture(), original = JSON.stringify(f.state.answers);
   const pending = f.ctx.submitSurveyDraft(); f.failure(); await pending;
   assert.equal(f.state.meta.sendStatus, 'unknown');
   assert.equal(f.state.meta.submittedAt, null);
   assert.equal(JSON.stringify(f.state.answers), original);
-  await f.ctx.submitSurveyDraft();
   assert.equal(f.calls.length, 1);
   assert.match(f.state.meta.sendError, /sem confirmação/);
 });
@@ -82,7 +81,6 @@ test('timeout não repete o envio e ignora retorno tardio após marcar resultado
   f.success(receipt());
   assert.equal(f.state.meta.sendStatus, 'unknown');
   assert.equal(f.state.meta.submittedAt, null);
-  await f.ctx.submitSurveyDraft();
   assert.equal(f.calls.length, 1);
 });
 
@@ -92,7 +90,7 @@ test('retorno incompleto ou resultado de escrita desconhecido não produz falso 
     f.success(result); await pending;
     assert.equal(f.state.meta.sendStatus, 'unknown');
     assert.equal(f.state.meta.submittedAt, null);
-    await f.ctx.submitSurveyDraft(); assert.equal(f.calls.length, 1);
+    assert.equal(f.calls.length, 1);
   }
 });
 
@@ -116,13 +114,13 @@ test('fora do Apps Script ou sem sessão não envia requisição opaca nem perde
   }
 });
 
-test('recarga durante envio ou recibo antigo sem confirmação bloqueia reenvio', async () => {
+test('recarga preserva o rascunho sem gerar reenvio automático', async () => {
   for (const meta of [{ sendStatus: 'sending' }, { submittedAt: '2026-01-01', sendStatus: 'ok' }]) {
     const f = fixture(); Object.assign(f.state.meta, meta);
     f.ctx.normalizeSurveySubmissionState(f.state.meta);
     assert.equal(f.state.meta.sendStatus, 'unknown');
     assert.equal(f.state.meta.submittedAt, null);
-    await f.ctx.submitSurveyDraft(); assert.equal(f.calls.length, 0);
+    assert.equal(f.calls.length, 0);
   }
 });
 
@@ -136,4 +134,14 @@ test('loadState também normaliza o rascunho carregado após login na conta', ()
   const loaded = ctx.loadState();
   assert.equal(loaded.meta.sendStatus, 'unknown');
   assert.equal(loaded.answers.produtos, 'Preservado');
+});
+
+
+test('nova tentativa explícita conserva a chave do envio para o servidor impedir duplicatas',async()=>{
+ const f=fixture(),first=f.ctx.submitSurveyDraft();f.failure();await first;
+ const key=f.calls[0].payload.meta.submissionId;
+ const retry=f.ctx.submitSurveyDraft();assert.equal(f.calls.length,2);
+ assert.equal(f.calls[1].payload.meta.submissionId,key);
+ f.success(receipt({reused:true}));await retry;
+ assert.equal(f.state.meta.responsesSaved,true);
 });

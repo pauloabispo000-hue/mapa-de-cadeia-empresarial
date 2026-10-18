@@ -221,3 +221,26 @@ test('falha posterior à publicação mantém os dois resultados confirmados', (
   assert.equal(result.profilePublished, true);
   assert.equal(ctx.readPublicProfile_(cnpj).ok, true);
 });
+
+test('cliques repetidos da mesma tentativa retornam o recibo sem duplicar resposta ou publicar novamente',()=>{
+ const {ctx,sheets}=fixture(),data=input();data.meta={startedAt:'test-start',submissionId:'same-attempt'};
+ const first=ctx.submitAvanteSurvey('alice',data);assert.equal(first.responsesSaved,true);
+ const before=JSON.stringify([...sheets].map(([name,sheet])=>[name,sheet.rows]));
+ const second=ctx.submitAvanteSurvey('alice',data);
+ assert.equal(second.ok,true);assert.equal(second.responseId,first.responseId);assert.equal(second.reused,true);
+ assert.equal(second.profilePublished,null);
+ assert.equal(JSON.stringify([...sheets].map(([name,sheet])=>[name,sheet.rows])),before);
+ assert.equal(sheets.get('Respostas').getLastRow(),2);
+});
+test('mesma chave não grava conteúdo diferente nem ignora mudança de consentimento',()=>{
+ const {ctx,sheets}=fixture(),data=input();data.meta={submissionId:'test-attempt'};
+ ctx.submitAvanteSurvey('alice',data);data.publicProfile.consent=false;
+ const r=ctx.submitAvanteSurvey('alice',data);assert.equal(r.ok,false);assert.equal(r.responsesSaved,false);
+ assert.equal(sheets.get('Respostas').getLastRow(),2);
+});
+test('envio legado sem chave é reconhecido pelo conteúdo e identificador do rascunho',()=>{
+ const {ctx,sheets}=fixture(),data=input();data.meta={startedAt:'test-start'};
+ const first=ctx.submitAvanteSurvey('alice',data);data.meta.submissionId='new-id';
+ const second=ctx.submitAvanteSurvey('alice',data);assert.equal(second.responseId,first.responseId);
+ assert.equal(sheets.get('Respostas').getLastRow(),2);
+});

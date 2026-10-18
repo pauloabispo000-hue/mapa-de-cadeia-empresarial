@@ -3108,11 +3108,11 @@ function sendToSheet(payload){
   if(!isAppsScriptApp())return Promise.reject(surveySendError("Abra a versão oficial do Avante para enviar a pesquisa com confirmação. Seu rascunho foi preservado.",false));
   return new Promise(function(resolve,reject){
     var finished=false;
-    var timer=setTimeout(function(){if(finished)return;finished=true;reject(surveySendError("O servidor não confirmou o resultado a tempo. O envio pode ter sido recebido. Confira antes de tentar novamente; não haverá reenvio automático.",true));},60000);
+    var timer=setTimeout(function(){if(finished)return;finished=true;reject(surveySendError("A confirmação demorou mais que o esperado. Seu rascunho está salvo. Clique em Enviar respostas para tentar novamente com segurança.",true));},60000);
     function finish(callback,value){if(finished)return;finished=true;clearTimeout(timer);callback(value);}
     try {
       google.script.run.withSuccessHandler(function(result){finish(resolve,result);})
-        .withFailureHandler(function(){finish(reject,surveySendError("A comunicação terminou sem confirmação. O envio pode ter sido recebido. Confira antes de tentar novamente; não haverá reenvio automático.",true));})
+        .withFailureHandler(function(){finish(reject,surveySendError("A comunicação terminou sem confirmação. Seu rascunho está salvo. Clique em Enviar respostas para tentar novamente com segurança.",true));})
         .submitAvanteSurvey(authSession.token,payload);
     } catch(error){finish(reject,surveySendError("Não foi possível confirmar o envio. Seu rascunho foi preservado. Confira o resultado antes de tentar novamente.",true));}
   });
@@ -3151,8 +3151,8 @@ function surveySubmissionSummary(meta){
 }
 
 function submitSurveyDraft(){
-  if(state.meta.sendStatus==="sending"||state.meta.sendStatus==="unknown"||state.meta.responsesSaved===true)return Promise.resolve();
-  state.meta.sendStatus="sending";state.meta.sendError="";saveState();renderCurrentStep();
+  if(state.meta.sendStatus==="sending"||state.meta.responsesSaved===true)return Promise.resolve();
+  if(!state.meta.submissionId)state.meta.submissionId=uid();state.meta.sendStatus="sending";state.meta.sendError="";saveState();renderCurrentStep();
   var payload=buildExportObject();
   return sendToSheet(payload).then(function(result){
     applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();
@@ -3163,27 +3163,7 @@ function submitSurveyDraft(){
 }
 
 function renderSurveySendIssue(){
-  var box=h("div",{class:"error-msg show","role":"alert"});
-  box.appendChild(h("p",{},[state.meta.sendStatus==="unknown"?"Ainda não conseguimos confirmar o recebimento das suas respostas. Seu rascunho está salvo.":state.meta.sendError||"Não foi possível confirmar o envio."]));
-  if(state.meta.sendStatus!=="unknown")return box;
-  var status=h("p",{"role":"status","aria-live":"polite"}),link=h("a",{href:"#confirmacao-envio"},["Verificar recebimento"]);
-  var pending=false;
-  link.addEventListener("click",function(event){
-    event.preventDefault();if(pending)return;
-    box.id="confirmacao-envio";
-    if(!authSession||!authSession.token||!isAppsScriptApp()){status.textContent="Abra a versão oficial e entre na mesma conta usada no envio para consultar a confirmação. Seu rascunho foi preservado.";return;}
-    pending=true;link.setAttribute("aria-disabled","true");status.textContent="Consultando o recibo no servidor, sem reenviar respostas…";
-    var token=authSession.token,payload=buildExportObject(),snapshot=JSON.stringify(payload),finished=false;
-    function finish(result){
-      if(finished)return;finished=true;clearTimeout(timer);pending=false;link.removeAttribute("aria-disabled");
-      if(!authSession||authSession.token!==token||JSON.stringify(buildExportObject())!==snapshot){status.textContent="A conta ou o rascunho mudou. Consulte novamente para verificar as respostas atuais.";return;}
-      if(!result||!result.ok){status.textContent=result&&result.error||"Não foi possível consultar o recibo. O resultado permanece desconhecido; seu rascunho foi preservado e não houve reenvio.";return;}
-      try{applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();}catch(error){status.textContent=error.message;}
-    }
-    var timer=setTimeout(function(){finish(null);},30000);
-    try{google.script.run.withSuccessHandler(finish).withFailureHandler(function(){finish(null);}).getAvanteSurveyReceipt(token,payload);}catch(error){finish(null);}
-  });
-  box.appendChild(link);box.appendChild(status);return box;
+  return h("div",{class:"error-msg show","role":"alert"},[h("p",{},[state.meta.sendStatus==="unknown"?"Não foi possível concluir a confirmação. Seu rascunho está salvo. Clique em Enviar respostas para tentar novamente com segurança.":state.meta.sendError||"Não foi possível enviar as respostas."])]);
 }
 
 function loadMunicipalDirectory(){
@@ -4576,7 +4556,6 @@ function renderConversationReview(container){
     ]));
     if(state.meta.sendStatus==="error"||state.meta.sendStatus==="unknown") {
       container.appendChild(renderSurveySendIssue());
-      container.appendChild(h("button",{type:"button",class:"btn-outline",onclick:function(){downloadFile("rascunho_pesquisa.json",JSON.stringify(buildExportObject(),null,2),"application/json");}},["Baixar rascunho JSON"]));
     }
     activeConversationQuestions().forEach(function(q){
       if(q.kind==="business-basics"){
@@ -5114,10 +5093,10 @@ function renderCurrentStep(isStepChange){
   if(isReview){
     if(surveyMode==="settings"){nextBtn.textContent="Salvar dados do negócio";nextBtn.disabled=false;}
     else if(state.meta.sendStatus==="sending"){ nextBtn.textContent = "Enviando…"; nextBtn.disabled = true; }
-    else if(state.meta.sendStatus==="unknown"){ nextBtn.textContent = "Confirmação pendente"; nextBtn.disabled = true; }
+    else if(state.meta.sendStatus==="unknown"){ nextBtn.textContent = "Enviar respostas"; nextBtn.disabled = false; }
     else if(state.meta.submittedAt){ nextBtn.textContent = "Respostas salvas ✓"; nextBtn.disabled = true; }
-    else if(state.meta.sendStatus==="error"){ nextBtn.textContent = "Tentar novamente"; nextBtn.disabled = false; }
-    else { nextBtn.textContent = "Confirmar e enviar"; nextBtn.disabled = false; }
+    else if(state.meta.sendStatus==="error"){ nextBtn.textContent = "Enviar respostas"; nextBtn.disabled = false; }
+    else { nextBtn.textContent = "Enviar respostas"; nextBtn.disabled = false; }
   } else {
     nextBtn.textContent = "Continuar";
     nextBtn.disabled = false;

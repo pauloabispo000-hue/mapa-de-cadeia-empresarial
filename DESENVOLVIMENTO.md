@@ -146,13 +146,18 @@ não confirma gravação de um registro específico: isso exige consultar a plan
 privada com autorização. Não ampliar a exposição pública para corrigir buscas do
 próprio rascunho.
 
-## Envio sem confirmação
+## Envio das respostas
 
-O aviso informa “Ainda não conseguimos confirmar o recebimento das suas respostas.
-Seu rascunho está salvo.”, inclusive para mensagens antigas persistidas. Evita
-repetir explicações técnicas na interface. O link “Verificar recebimento”
-consulta `getAvanteSurveyReceipt` com autenticação, sem reenviar ou publicar.
-A consulta exige uma única resposta da mesma conta, identificador de início e
-conteúdo correspondente ao rascunho. Ausência, ambiguidade, mudança de conta ou
-de respostas e falha de comunicação mantêm o resultado desconhecido. Um recibo
-confirma respostas salvas, nunca a publicação do perfil por inferência.
+Na última página, o usuário clica em “Enviar respostas”. Não existe etapa manual
+de consulta de recibo nem botão técnico de download JSON na mensagem de erro.
+O aplicativo só informa sucesso após retorno explícito do servidor. Falhas
+preservam o rascunho; uma nova tentativa depende de outro clique do usuário.
+
+Cada tentativa tem `meta.submissionId` persistido antes da chamada. Sob o mesmo
+lock da gravação, o servidor procura uma resposta da mesma conta e chave. Se o
+conteúdo corresponde, devolve o recibo sem duplicar linhas, contagens, relações
+ou publicação de perfil. Se a chave corresponde a outro conteúdo, recusa a
+escrita. Respostas legadas sem chave podem ser reconhecidas pela mesma conta,
+início do rascunho e conteúdo equivalente. IDs locais e valores vazios de
+campos novos não impedem o reconhecimento; mudanças reais e consentimento são
+considerados. A confirmação reaproveitada não presume publicação do perfil.

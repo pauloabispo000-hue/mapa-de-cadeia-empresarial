@@ -431,6 +431,21 @@ function doPost(e) {
 }
 
 /** Mesmo processamento para HTTP e RPC autenticado, com confirmação das etapas persistidas. */
+function canonicalSurveyValue_(value){
+    if(Array.isArray(value))return value.map(canonicalSurveyValue_);
+    if(value&&typeof value==="object"){
+      var result={};Object.keys(value).sort().forEach(function(key){
+        if(key==="id")return; // IDs locais de controles não mudam as respostas.
+        var next=canonicalSurveyValue_(value[key]);
+        if(next===null||next===undefined||next===""||next===false||(typeof next==="object"&&Object.keys(next).length===0))return;
+        result[key]=next;
+      });return result;
+    }
+    return value;
+  }
+
+function surveyReceiptSignature_(payload){return JSON.stringify(canonicalSurveyValue_({answers:payload.answers,business:payload.business,suppliers:payload.suppliers,complementary:payload.complementary,opportunities:payload.opportunities,publicProfile:{consent:payload.publicProfile&&payload.publicProfile.consent===true,products:payload.publicProfile&&payload.publicProfile.products}}));}
+
 /** Consulta autenticada e somente leitura; nunca reenvia nem publica o perfil. */
 function getAvanteSurveyReceipt(token, expected) {
   var account=getAvanteSessionUser_(String(token||""));
@@ -438,19 +453,19 @@ function getAvanteSurveyReceipt(token, expected) {
   expected=expected||{};
   var started=String(expected.meta&&expected.meta.startedAt||"");
   if(!started)return {ok:false,error:"Este rascunho não tem identificador de início. Não é possível confirmar automaticamente; preserve o rascunho e solicite suporte."};
-  function canonical(value){
-    if(Array.isArray(value))return value.map(canonical);
-    if(value&&typeof value==="object"){var result={};Object.keys(value).sort().forEach(function(key){result[key]=canonical(value[key]);});return result;}
-    return value;
-  }
-  function signature(payload){return JSON.stringify(canonical({answers:payload.answers,business:payload.business,suppliers:payload.suppliers,complementary:payload.complementary,opportunities:payload.opportunities}));}
-  var ss=getSpreadsheet_(),sheet=ss.getSheetByName(RESPONSE_SHEET_NAME),matches=[];
+  var ss=getSpreadsheet_(),sheet=ss.getSheetByName(RESPONSE_SHEET_NAME),matches=[],candidates=[];
   if(sheet&&sheet.getLastRow()>1)sheet.getRange(2,1,sheet.getLastRow()-1,8).getValues().forEach(function(row){
     if(String(row[7]||"").toLowerCase()!==String(account).toLowerCase())return;
     var stored;try{stored=JSON.parse(String(row[6]||""));}catch(ignored){return;}
-    if(String(stored.meta&&stored.meta.startedAt||"")===started&&signature(stored)===signature(expected)&&String(row[1]||""))matches.push(String(row[1]));
+    var requestedId=String(expected.meta&&expected.meta.submissionId||"");
+    var sameAttempt=requestedId?String(stored.meta&&stored.meta.submissionId||"")===requestedId:String(stored.meta&&stored.meta.startedAt||"")===started;
+    if(!sameAttempt||!String(row[1]||""))return;
+    if(normalizeCnpj_(stored.business&&stored.business.cnpj)!==normalizeCnpj_(expected.business&&expected.business.cnpj))return;
+    candidates.push(String(row[1]));
+    if(surveyReceiptSignature_(stored)===surveyReceiptSignature_(expected))matches.push(String(row[1]));
   });
-  if(matches.length!==1)return {ok:false,error:matches.length?"Há mais de um recibo correspondente. Não reenvie; preserve o rascunho e solicite suporte.":"Não foi localizado um recibo correspondente a estas respostas nesta conta. Isso não comprova que o envio falhou. Preserve o rascunho e não reenvie enquanto o resultado for desconhecido."};
+  if(matches.length===0&&candidates.length===1)return {ok:false,code:"DRAFT_CHANGED",previousResponseId:candidates[0],error:"Encontramos o recebimento anterior, mas o rascunho atual tem alterações. Revise essas alterações antes de decidir enviá-las. Nada será reenviado automaticamente."};
+  if(matches.length!==1)return {ok:false,code:"RECEIPT_UNCONFIRMED",error:matches.length?"Há mais de um recibo correspondente. Não reenvie; preserve o rascunho e solicite suporte.":"Não foi localizado um recibo correspondente a estas respostas nesta conta. Isso não comprova que o envio falhou. Preserve o rascunho e não reenvie enquanto o resultado for desconhecido."};
   return {ok:true,responsesSaved:true,responseId:matches[0],profilePublished:null};
 }
 
@@ -467,6 +482,20 @@ function submitAvanteSurvey(token, payload) {
     var responseSheet = ensureSheet_(ss, RESPONSE_SHEET_NAME, ["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON", "Conta Avante"]);
     if (responseSheet.getMaxColumns() < 8) responseSheet.insertColumnsAfter(responseSheet.getMaxColumns(), 8 - responseSheet.getMaxColumns());
     responseSheet.getRange(1, 1, 1, 8).setValues([["Recebido em", "ID da resposta", "Negócio", "CNPJ", "Cidade", "Área inferida", "Dados JSON", "Conta Avante"]]);
+    var attemptId=String(payload.meta&&payload.meta.submissionId||""), started=String(payload.meta&&payload.meta.startedAt||"");
+    if(attemptId&&responseSheet.getLastRow()>1){
+      var priorRows=responseSheet.getRange(2,1,responseSheet.getLastRow()-1,8).getValues();
+      for(var attemptIndex=0;attemptIndex<priorRows.length;attemptIndex++){
+        var prior=priorRows[attemptIndex];
+        if(String(prior[7]||"").toLowerCase()!==String(account).toLowerCase())continue;
+        var stored;try{stored=JSON.parse(String(prior[6]||""));}catch(ignored){continue;}
+        var storedId=String(stored.meta&&stored.meta.submissionId||""),sameId=storedId===attemptId;
+        var legacy=!storedId&&started&&String(stored.meta&&stored.meta.startedAt||"")===started;
+        if(!sameId&&!legacy)continue;
+        if(surveyReceiptSignature_(stored)===surveyReceiptSignature_(payload)&&String(prior[1]||""))return {ok:true,responsesSaved:true,responseId:String(prior[1]),profilePublished:null,reused:true};
+        if(sameId)return {ok:false,responsesSaved:false,profilePublished:false,error:"Esta tentativa já recebeu outras respostas. O rascunho atual foi preservado. Atualize os dados do negócio nas configurações para salvar alterações posteriores."};
+      }
+    }
     ensureSheet_(ss, OPTIONS_SHEET_NAME, ["Campo", "Resposta", "Chave normalizada", "Área inferida", "Adicionada em", "Ocorrências"]);
     ensureCompaniesSheet_(ss);
     ensureSheet_(ss, RELATIONS_SHEET_NAME, ["Resposta", "Registrada em", "Empresa de origem", "CNPJ de origem", "Empresa relacionada", "CNPJ relacionado", "Relação", "Áreas relacionadas JSON", "Detalhes JSON"]);
