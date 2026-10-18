@@ -3,7 +3,7 @@ Dados fictícios; todas as requisições externas são bloqueadas.
 """
 from pathlib import Path
 import json, os, re
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 src=(Path(__file__).resolve().parents[1]/'Apps Script/Index.html').read_text().replace('})();\n</script>','window.__uiTest=command=>eval(command);\n})();\n</script>')
 def contrast(a,b):
  def lum(value):
@@ -79,6 +79,8 @@ with sync_playwright() as p:
  run("root.innerHTML='';root.style.display='block';document.getElementById('surveyWizard').style.display='none';root.appendChild(comboField(TIPO_FORNECEDOR_OPTS,'','Modelo do negócio',function(){},null,true));")
  page.locator('#platformContent summary').click()
  page.locator('#platformContent .combo-search').fill('Atividade fictícia inédita')
- assert page.locator('#platformContent .combo-freetext').count()==1
+ run("document.querySelector('#platformContent details').dispatchEvent(new Event('toggle'))")
+ expect(page.locator('#platformContent .combo-search')).to_have_value('Atividade fictícia inédita')
+ expect(page.locator('#platformContent .combo-freetext')).to_have_count(1)
  print('PDCA: proveniência, Markdown seguro, Escape/Fechar, foco, rolagem móvel e localidades oficiais aprovados; sem gravações ou requisições externas.')
  b.close()

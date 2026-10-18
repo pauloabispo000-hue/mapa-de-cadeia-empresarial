@@ -251,3 +251,9 @@ personalizado. Teste visual e de acessibilidade:
 `python tests/pdca-ui.browser.py` (dados fictícios, todas as requisições bloqueadas).
 O teste confere contraste, conteúdo malicioso, teclado/foco, rolagem a 360px e
 localidades oficiais. Nenhum teste de falha 503 deste ciclo foi forçado online.
+
+O evento assíncrono de abertura dos combos preserva a busca já digitada, em vez
+de apagá-la. Ajustes/foco agendados só atuam em controles abertos e conectados ao
+DOM. O fechamento do modal restaura foco e rolagem de forma imediata e idempotente,
+sem depender da ordem do evento nativo close. O teste PDCA reproduz a abertura
+tardia do combo com uma busca personalizada já preenchida.
