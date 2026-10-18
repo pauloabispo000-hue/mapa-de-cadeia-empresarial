@@ -462,3 +462,41 @@ do pedido exige Atualizar pedido e recalcular prioridade antes de cotar ou compo
 mensagem; isso evita comparar preços de uma especificação anterior. Datas da caixa
 são apresentadas no fuso America/Sao_Paulo. Sem coordenadas efetivamente disponíveis,
 a prioridade geográfica continua municipal e provisória, não uma distância inventada.
+
+## Perfis informativos externos — fontes públicas fornecidas pelo usuário
+
+Cinco identidades externas ficam no catálogo versionado AVANTE_INFORMATIVE_PROFILES,
+com ID estável por URL Facebook, separadas de PerfisPublicos, contas e diretório
+por CNPJ. A publicação do código disponibiliza os registros reais no catálogo,
+por getAvanteInformativeProfiles, getAvanteInformativeProfile e /exec?informativo=ID.
+A página compartilhável é /exec?app=1&informativo=ID. Não é fixture nem importação
+em planilhas: não cria conta, titularidade, consentimento, opt-in, imagens ou
+mensagens; nenhuma API escreve nas abas de perfis ou substitui perfil reivindicado.
+A repetição da publicação mantém os mesmos cinco IDs. Retornos são cópias isoladas.
+
+Nome/categoria/endereço/contatos/horário/serviços e evidência de atividade têm fonte
+por campo e data de observação relatada pelo usuário (18/10/2026). Não houve nova
+inspeção do Facebook nesta execução. Resumos são editoriais e marcados como tais;
+fotos/logos/avaliações/comentários/seguidores não são utilizados. Campos não coletados
+ficam vazios e não são simulados. Produtos específicos, estoque, preços, frete,
+atacado, entrega e titularidade permanecem não confirmados.
+
+Os CNPJs são candidatos do diretório existente, não dados declarados no Facebook.
+As duas fontes públicas tentadas (BrasilAPI e Minha Receita) retornaram CONNECT 403
+no proxy, antes de resposta cadastral. O catálogo versionado confirma nomes e
+município, mas não possui endereço. Logo, todos os vínculos continuam pendentes.
+Tamanduá é um único perfil com dois candidatos, sem escolha arbitrária. A observação
+não comprova incompatibilidade: falta confrontar logradouro, número e município.
+
+A interface mostra a seção Perfis informativos de fontes públicas e links próprios;
+o ID é transportado com segurança ao HTML do iframe Apps Script. Carregamento
+público tem timeout de 15 segundos e descarta retorno tardio. Busca de fornecedores
+mantém namespace próprio para informativos, não os funde por nome/CNPJ pendente e
+não os insere como identidades vinculadas nos seletores da pesquisa. Atividade
+externa pode gerar candidato, nunca produto confirmado. Planos de contato mantêm
+ID separado e mensagem interna desabilitada para esses registros não reivindicados.
+
+Validação: npm test e tests/informative-profiles.browser.py, além das três suítes
+anteriores. A nova suíte usa os próprios cinco registros das fontes oficiais,
+com rede bloqueada. Verifica catálogo, fonte por campo, dados ausentes, Tamanduá
+único, ausência de conta/opt-in, rota compartilhável e separação de identidades.

@@ -148,20 +148,665 @@ function prunePlatformBackups_(root, now) {
 }
 
 /** Mesmo conjunto público do endpoint JSON; não inclui respostas ou relações individuais. */
+/** Catálogo informativo de fontes públicas: identidades externas, sem contas ou titularidade. */
+var AVANTE_INFORMATIVE_PROFILES = [
+  {
+    "id": "facebook-flordotrigopadariaeconfeitaria",
+    "kind": "external_informative",
+    "claimed": false,
+    "profilePublished": false,
+    "messagingOptIn": false,
+    "accountLinked": false,
+    "cnpj": "",
+    "observedAt": "2026-10-18",
+    "fields": {
+      "name": {
+        "value": "Flor do Trigo Padaria e Confeitaria",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        },
+        "note": "Padaria/confeitaria constam no nome; não são uma lista de produtos confirmados."
+      },
+      "category": {
+        "value": "Cafeteria",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "address": {
+        "value": "Azaléias 737, Descalvado, SP, 13690000",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "phone": {
+        "value": "(19) 3593-1087",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "email": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "whatsapp": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "hours": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "service": {
+        "value": "Retirada na loja (In-store pickup)",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "description": {
+        "value": "Página de cafeteria cujo nome também identifica padaria e confeitaria. Há relato de publicação sobre produção manual na panificação. Não foram coletados produtos específicos.",
+        "status": "editorial_summary",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "activityEvidence": {
+        "value": "Página declara paixão pela panificação e postagem descreve produção manual pelos padeiros; produtos específicos não coletados",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/flordotrigopadariaeconfeitaria",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      }
+    },
+    "registryLink": {
+      "status": "pending",
+      "candidates": [
+        {
+          "cnpj": "52574125000129",
+          "name": "FLOR DO TRIGO",
+          "legalName": "FLOR DO TRIGO PADARIA E CAFE LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        }
+      ],
+      "reason": "Nome e município compatíveis; endereço cadastral não disponível para comparação. Não há vínculo definitivo com CNPJ."
+    },
+    "unconfirmed": [
+      "Produtos específicos",
+      "Estoque",
+      "Preços",
+      "Frete",
+      "Venda no atacado",
+      "Entrega",
+      "Disponibilidade atual",
+      "Titularidade da página"
+    ],
+    "media": []
+  },
+  {
+    "id": "facebook-kokasupermercado",
+    "kind": "external_informative",
+    "claimed": false,
+    "profilePublished": false,
+    "messagingOptIn": false,
+    "accountLinked": false,
+    "cnpj": "",
+    "observedAt": "2026-10-18",
+    "fields": {
+      "name": {
+        "value": "Kóka Supermercado",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "category": {
+        "value": "Supermercado",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "address": {
+        "value": "Avenida da Saudade, 66, Descalvado, SP, 13690-322",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "phone": {
+        "value": "(19) 3583-7503",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "email": {
+        "value": "kokasupermercadoadm@gmail.com",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "whatsapp": {
+        "value": "+55 19 99792-5509",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        },
+        "note": "Número observado no destino do botão público WhatsApp da página, segundo a coleta relatada pelo usuário."
+      },
+      "hours": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "service": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "description": {
+        "value": "Página de supermercado em Descalvado, com endereço e canais empresariais públicos informados.",
+        "status": "editorial_summary",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/kokasupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "activityEvidence": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      }
+    },
+    "registryLink": {
+      "status": "pending",
+      "candidates": [
+        {
+          "cnpj": "05548198000166",
+          "name": "KOKA SUPERMERCADO",
+          "legalName": "SUPERMERCADO LAZARINI LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        }
+      ],
+      "reason": "Nome e município compatíveis; endereço cadastral não disponível para comparação. Não há vínculo definitivo com CNPJ."
+    },
+    "unconfirmed": [
+      "Produtos específicos",
+      "Estoque",
+      "Preços",
+      "Frete",
+      "Venda no atacado",
+      "Entrega",
+      "Disponibilidade atual",
+      "Titularidade da página"
+    ],
+    "media": []
+  },
+  {
+    "id": "facebook-tamanduasupermercado",
+    "kind": "external_informative",
+    "claimed": false,
+    "profilePublished": false,
+    "messagingOptIn": false,
+    "accountLinked": false,
+    "cnpj": "",
+    "observedAt": "2026-10-18",
+    "fields": {
+      "name": {
+        "value": "Supermercado Tamanduá",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "category": {
+        "value": "Supermercado",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "address": {
+        "value": "Rua Abílio Franco de Lima, 189, Bosque do Tamanduá, Descalvado, SP, 13690000",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "phone": {
+        "value": "(19) 3583-6252",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "email": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "whatsapp": {
+        "value": "+55 19 99154-2677",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "hours": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "service": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "description": {
+        "value": "Página de supermercado no Bosque do Tamanduá, em Descalvado. A identidade cadastral permanece pendente entre dois registros homônimos.",
+        "status": "editorial_summary",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/TamanduaSupermercado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "activityEvidence": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      }
+    },
+    "registryLink": {
+      "status": "pending",
+      "candidates": [
+        {
+          "cnpj": "20976947000140",
+          "name": "SUPERMERCADO TAMANDUA",
+          "legalName": "RAFAEL EDUARDO FRANZIN LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        },
+        {
+          "cnpj": "43626865000170",
+          "name": "SUPERMERCADO TAMANDUA",
+          "legalName": "CAMILA DE CASSIA COSTA LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        }
+      ],
+      "reason": "Dois CNPJs homônimos; comparar endereço cadastral com Rua Abílio Franco de Lima, 189, antes de escolher um vínculo."
+    },
+    "unconfirmed": [
+      "Produtos específicos",
+      "Estoque",
+      "Preços",
+      "Frete",
+      "Venda no atacado",
+      "Entrega",
+      "Disponibilidade atual",
+      "Titularidade da página"
+    ],
+    "media": []
+  },
+  {
+    "id": "facebook-superfranzin",
+    "kind": "external_informative",
+    "claimed": false,
+    "profilePublished": false,
+    "messagingOptIn": false,
+    "accountLinked": false,
+    "cnpj": "",
+    "observedAt": "2026-10-18",
+    "fields": {
+      "name": {
+        "value": "Supermercado Franzin",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "category": {
+        "value": "Supermercado",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "address": {
+        "value": "Arthur Whitacker, 1369, Descalvado, SP, 13690000",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "phone": {
+        "value": "(19) 3583-3408",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "email": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "whatsapp": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "hours": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "service": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "description": {
+        "value": "Página de supermercado em Descalvado. Foi relatada publicação sobre ofertas do açougue; produtos específicos, estoque e preços não foram coletados.",
+        "status": "editorial_summary",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "activityEvidence": {
+        "value": "Postagem da própria página com título Ofertas do Açougue Franzin observada em 18/10/2026; estoque, preços e entrega não confirmados",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/superfranzin",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      }
+    },
+    "registryLink": {
+      "status": "pending",
+      "candidates": [
+        {
+          "cnpj": "67570150000101",
+          "name": "SUPERMERCADO FRANZIN",
+          "legalName": "SILVIO ANTONIO FRANZIN & CIA. LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        }
+      ],
+      "reason": "Nome e município compatíveis; endereço cadastral não disponível para comparação. Não há vínculo definitivo com CNPJ."
+    },
+    "unconfirmed": [
+      "Produtos específicos",
+      "Estoque",
+      "Preços",
+      "Frete",
+      "Venda no atacado",
+      "Entrega",
+      "Disponibilidade atual",
+      "Titularidade da página"
+    ],
+    "media": []
+  },
+  {
+    "id": "facebook-supsaocristovaodescalvado",
+    "kind": "external_informative",
+    "claimed": false,
+    "profilePublished": false,
+    "messagingOptIn": false,
+    "accountLinked": false,
+    "cnpj": "",
+    "observedAt": "2026-10-18",
+    "fields": {
+      "name": {
+        "value": "Supermercado São Cristóvão",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "category": {
+        "value": "Supermercado",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "address": {
+        "value": "Avenida Amazonas, 235, Jardim São Cristóvão (rotatória atrás do cemitério), Descalvado, SP, 13690-000",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "phone": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "email": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      },
+      "whatsapp": {
+        "value": "+55 19 99857-3702",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "hours": {
+        "value": "Segunda a sábado 7h–20h; domingo 7h–13h (informados na bio)",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "service": {
+        "value": "Retirada na calçada (Curbside pickup), listada nos serviços da página",
+        "status": "observed_report",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "description": {
+        "value": "Página de supermercado em Descalvado com relato de ofertas semanais, horário e retirada na calçada informados na página.",
+        "status": "editorial_summary",
+        "source": {
+          "type": "facebook",
+          "url": "https://www.facebook.com/supsaocristovaodescalvado",
+          "observedAt": "2026-10-18",
+          "collection": "Observação da página pública relatada pelo usuário; não revalidada nesta tarefa"
+        }
+      },
+      "activityEvidence": {
+        "value": "",
+        "status": "not_observed",
+        "source": null
+      }
+    },
+    "registryLink": {
+      "status": "pending",
+      "candidates": [
+        {
+          "cnpj": "07483106000132",
+          "name": "SUPERMERCADO SAO CRISTOVAO LTDA",
+          "legalName": "SUPERMERCADO SAO CRISTOVAO LTDA",
+          "municipality": "Descalvado - SP",
+          "source": "Diretório municipal existente no Avante — Dados Abertos do CNPJ",
+          "referenceDate": "2026-10-02",
+          "observedInAvanteAt": "2026-10-18",
+          "address": "",
+          "status": "pending_address_comparison",
+          "note": "CNPJ obtido no diretório Avante, não declarado na página Facebook."
+        }
+      ],
+      "reason": "Nome e município compatíveis; endereço cadastral não disponível para comparação. Não há vínculo definitivo com CNPJ."
+    },
+    "unconfirmed": [
+      "Produtos específicos",
+      "Estoque",
+      "Preços",
+      "Frete",
+      "Venda no atacado",
+      "Entrega",
+      "Disponibilidade atual",
+      "Titularidade da página"
+    ],
+    "media": []
+  }
+];
+function getAvanteInformativeProfiles(){return JSON.parse(JSON.stringify(AVANTE_INFORMATIVE_PROFILES));}
+function getAvanteInformativeProfile(id){
+  var profile=getAvanteInformativeProfiles().filter(function(item){return item.id===String(id||"");})[0];
+  return profile?{ok:true,informativeProfile:profile}:{ok:false,error:"Perfil informativo não encontrado."};
+}
+
 function getAvanteSharedOptions(){
-  return {ok:true,options:readOptions_(),companies:readCompanies_(),publicProfiles:readPublishedSupplierProfiles_(),network:summarizeNetwork_(),workforce:summarizeWorkforce_()};
+  return {ok:true,options:readOptions_(),companies:readCompanies_(),publicProfiles:readPublishedSupplierProfiles_(),informativeProfiles:getAvanteInformativeProfiles(),network:summarizeNetwork_(),workforce:summarizeWorkforce_()};
 }
 
 function doGet(e) {
   var params = e && e.parameter ? e.parameter : {};
   if (String(params.app || "") === "1") {
-    return HtmlService.createHtmlOutputFromFile("Index")
+    var app=HtmlService.createHtmlOutputFromFile("Index");
+    if(/^[a-z0-9-]{1,100}$/.test(String(params.informativo||"")))app.setContent(app.getContent().replace("<body",'<body data-informative-profile="'+params.informativo+'"'));
+    return app
       .setTitle("Avante — conexões para o seu negócio")
       .setFaviconUrl("https://raw.githubusercontent.com/pauloabispo000-hue/mapa-de-cadeia-empresarial/main/favicon.png")
       .addMetaTag("viewport", "width=device-width, initial-scale=1");
   }
   var profileCnpj = normalizeCnpj_(params.perfil || params.profile || "");
-  var data = profileCnpj ? readPublicProfile_(profileCnpj) : getAvanteSharedOptions();
+  var data = params.informativo ? getAvanteInformativeProfile(params.informativo) : profileCnpj ? readPublicProfile_(profileCnpj) : getAvanteSharedOptions();
   var callback = e && e.parameter ? String(e.parameter.callback || "") : "";
   var json = JSON.stringify(data);
   if (callback) {
