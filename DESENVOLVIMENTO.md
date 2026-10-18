@@ -186,3 +186,18 @@ no histórico do checkout, com lacuna de 500 registros: 6.787 disponíveis dos
 registros substitutos. O carregador tolera falhas individuais e informa cobertura
 parcial, mantendo os demais dados. O teste de integridade confere existência e
 contagens dos arquivos anunciados.
+
+## Simulação administrativa
+
+A conta admin.avante pode iniciar a simulação em Configurações → Simulação
+administrativa. O backend autentica a conta administrativa configurada. O
+identificador 00.000.000/0000-00 é deliberadamente fictício e não consulta o CNPJ
+público nem flexibiliza a validação dos cadastros reais.
+
+O rascunho de teste usa chave local própria. Envio e configurações ficam somente
+nas abas SimulacoesAvante e SimulacoesConfiguracoesAvante, sem alimentar Respostas,
+Empresas, relações, indicadores ou perfis públicos. O envio simulado confirma
+explicitamente seu caráter de teste. Repetir a mesma tentativa não duplica a
+simulação; conteúdo diferente com a mesma chave é recusado. O botão Voltar ao
+cadastro original restaura o rascunho anterior; uma nova sessão abre o cadastro
+original por padrão. A simulação permanece disponível para retomada pelo botão.

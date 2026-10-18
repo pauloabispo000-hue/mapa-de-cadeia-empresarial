@@ -156,4 +156,17 @@ with sync_playwright() as p:
  assert 'PADARIA FICTICIA' in page.locator('#platformContent').inner_text()
  assert 'Pão francês' in page.locator('#platformContent').inner_text()
  print('Navegador: contadores e fornecedores corretos desde a abertura e busca local sem chamada externa de IA.')
+ run("state=freshState();state.answers.negocioNome='Cadastro original preservado';authSession={username:'admin.avante',token:'admin-local'};STORAGE_KEY='avante_workspace_admin.avante';saveState();window.originalWorkspace=localStorage.getItem(STORAGE_KEY);window.google={script:{run:{withSuccessHandler(fn){window.demoSuccess=fn;return this},withFailureHandler(){return this},getAvanteSimulation(){}}}};toggleAvanteSimulation(document.createElement('button'),document.createElement('p'));window.demoSuccess({ok:true,cnpj:'00000000000000',name:'EMPRESA FICTÍCIA DE TESTE'});currentStepIndex=activeConversationQuestions().findIndex(q=>q.key==='cnpj');renderCurrentStep();")
+ assert run("state.meta.simulation") is True
+ assert run("state.answers.cnpj")=='00000000000000'
+ assert run("buildExportObject().publicProfile.consent") is False
+ assert 'identificador fictício exclusivo da simulação' in page.locator('#stepContent').inner_text()
+ assert run("localStorage.getItem('avante_workspace_admin.avante')===window.originalWorkspace") is True
+ run("applySurveySubmissionResult(state.meta,{ok:true,responsesSaved:true,responseId:'simulation-test',profilePublished:false,simulated:true});saveState();showProgramSection('overview');")
+ assert run("surveySubmissionSummary(state.meta).title")=='Respostas de simulação salvas ✓'
+
+ run("toggleAvanteSimulation(document.createElement('button'),document.createElement('p'));")
+ assert run("state.answers.negocioNome")=='Cadastro original preservado'
+ assert run("state.meta.simulation===true") is False
+ print('Navegador: simulação administrativa usa CNPJ fictício sem consulta pública e restaura o cadastro original.')
  b.close()

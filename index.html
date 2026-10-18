@@ -1573,6 +1573,19 @@ function enterAvanteSession(session){
     message.appendChild(title);message.appendChild(detail);root.appendChild(message);
   }
 }
+function toggleAvanteSimulation(button,status){
+  if(state.meta.simulation===true){
+    saveState();STORAGE_KEY="avante_workspace_"+encodeURIComponent(authSession.username);state=loadState()||freshState();showProgramSection("settings");return;
+  }
+  if(!authSession||!authSession.token||!isAppsScriptApp()){status.textContent="Entre na versão oficial com a conta administrativa.";return;}
+  button.disabled=true;status.textContent="Preparando simulação…";
+  google.script.run.withSuccessHandler(function(result){
+    button.disabled=false;if(!result||!result.ok){status.textContent=result&&result.error||"Não foi possível preparar a simulação.";return;}
+    saveState();STORAGE_KEY="avante_simulation_"+encodeURIComponent(authSession.username);state=loadState()||freshState();
+    state.meta.simulation=true;state.meta.sharePublicProfile=false;state.answers.cnpj=result.cnpj;state.business.cnpj=result.cnpj;
+    state.answers.negocioNome=result.name;state.business.nome=result.name;saveState();showProgramSection("survey");
+  }).withFailureHandler(function(){button.disabled=false;status.textContent="Não foi possível iniciar a simulação. Seu cadastro original foi preservado.";}).getAvanteSimulation(authSession.token);
+}
 function isAppsScriptApp(){
   return typeof google!=="undefined"&&google.script&&google.script.run;
 }
@@ -3060,7 +3073,7 @@ function buildExportObject(){
   var rels = buildRelationships();
   return {
     meta: state.meta,
-    publicProfile:{consent:state.meta.sharePublicProfile===true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||"",products:state.business.profileProducts},
+    publicProfile:{consent:state.meta.simulation!==true&&state.meta.sharePublicProfile===true,coverData:state.business.profileCoverData||"",avatarData:state.business.profileAvatarData||"",products:state.business.profileProducts},
     answers: state.answers,
     business: state.business,
     suppliers: state.fornecedores,
@@ -3141,7 +3154,7 @@ function applySurveySubmissionResult(meta,result){
   if(result.responsesSaved!==true){
     throw surveySendError(result.error||"O servidor não confirmou que as respostas foram salvas.",result.responsesSaved===null);
   }
-  meta.responseId=result.responseId;meta.responsesSaved=true;meta.submittedAt=new Date().toISOString();
+  meta.simulatedSubmission=result.simulated===true;meta.responseId=result.responseId;meta.responsesSaved=true;meta.submittedAt=new Date().toISOString();
   meta.profilePublished=result.profilePublished===true;meta.profilePublicationUnknown=result.profilePublished===null;
   meta.publishedProfileCnpj=result.profilePublished===true?String(result.profileCnpj||""):"";
   meta.sendFailureObserved=false;meta.sendStatus=result.ok?"ok":"partial";meta.sendError=result.ok?"":String(result.error||"Uma etapa do processamento não foi concluída.");
@@ -3149,7 +3162,7 @@ function applySurveySubmissionResult(meta,result){
 
 function surveySubmissionSummary(meta){
   var profile=meta.profilePublished===true?"Perfil publicado.":meta.profilePublicationUnknown?"A publicação do perfil não foi confirmada. Confira antes de tentar publicá-lo novamente.":"O perfil não foi publicado neste envio.";
-  return {title:"Respostas salvas ✓",profile:profile};
+  return {title:meta.simulatedSubmission?"Respostas de simulação salvas ✓":"Respostas salvas ✓",profile:meta.simulatedSubmission?"Simulação: nenhum perfil foi publicado e nenhum cadastro real foi alterado.":profile};
 }
 
 function submitSurveyDraft(){
@@ -3520,6 +3533,11 @@ function renderAccountSettingsPage(root){
 
   if(!authSession||String(authSession.username||"").toLowerCase()!=="admin.avante")grid.appendChild(renderAvantePersonProfileCard());
 
+  if(authSession&&String(authSession.username||"").toLowerCase()==="admin.avante"){
+    var simulation=h("section",{class:"account-settings-card"},[h("h2",{},["Simulação administrativa"]),h("p",{},["Cadastro fictício com 00.000.000/0000-00. Respostas de teste ficam separadas e não publicam perfil nem entram nos indicadores reais."])]);
+    var simulationStatus=h("p",{"role":"status"}),simulationButton=h("button",{type:"button",class:"platform-action"},[state.meta.simulation?"Voltar ao cadastro original":"Iniciar cadastro de demonstração"]);
+    simulationButton.addEventListener("click",function(){toggleAvanteSimulation(simulationButton,simulationStatus);});simulation.appendChild(simulationButton);simulation.appendChild(simulationStatus);grid.appendChild(simulation);
+  }
   var business=h("section",{class:"account-settings-card","aria-label":"Dados do negócio"});
   business.appendChild(h("h2",{},[isBusinessRegistered()?"Dados do negócio":"Cadastro do negócio"]));
   business.appendChild(h("p",{},[isBusinessRegistered()?"Atualize as respostas da pesquisa. A identidade oficial da empresa permanece somente para leitura.":"Conclua a pesquisa para organizar os dados do negócio."]));
@@ -4801,6 +4819,7 @@ function renderResaleCustomersCard(){
   var content=h("div",{});card.appendChild(content);
   var refresh=h("button",{type:"button",class:"platform-action secondary"},["Consultar declarações"]);card.appendChild(refresh);
   function load(){
+    if(state.meta.simulation){content.textContent="Simulação: relações de teste não são consultadas na rede real.";return;}
     var cnpj=normalizarCNPJ(state.business.cnpj||state.answers.cnpj||"");
     if(!isAppsScriptApp()||!authSession||!authSession.token||!cnpj){content.textContent="Entre na versão oficial com a conta vinculada ao CNPJ do negócio para consultar.";return;}
     var token=authSession.token;discoveredResaleCustomers=[];refresh.disabled=true;content.textContent="Consultando declarações…";
@@ -4939,6 +4958,7 @@ function renderSupplierPurchases(q){
 }
 
 function renderConversation(container){
+  if(state.meta.simulation)container.appendChild(h("p",{class:"question-help",role:"status"},["MODO SIMULAÇÃO — CNPJ fictício 00.000.000/0000-00. Nenhum perfil será publicado."]));
   syncConversationAnswers();
   var questions=activeConversationQuestions();
   var q=questions[currentStepIndex];
@@ -5001,6 +5021,7 @@ function renderConversation(container){
         return companyWrap;
       }
       if(q.kind==="cnpj"){
+        if(state.meta.simulation)return h("p",{class:"platform-card"},["00.000.000/0000-00 — identificador fictício exclusivo da simulação. Não é consultado na Receita Federal."]);
         return buildCNPJField({
           value:state.answers.cnpj,
           dadosCache:state.business.cnpjDados,

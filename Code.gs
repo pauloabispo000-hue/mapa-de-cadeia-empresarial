@@ -469,10 +469,41 @@ function getAvanteSurveyReceipt(token, expected) {
   return {ok:true,responsesSaved:true,responseId:matches[0],profilePublished:null};
 }
 
+function isAvanteSimulationAdmin_(account){
+  var configured=getAvanteAdminProperty_(AVANTE_ADMIN_USER_PROPERTY,"AVANTE_ADMIN_USER_PROPERTY")||"admin.avante";
+  return !!account&&String(account).toLowerCase()===String(configured).toLowerCase();
+}
+function getAvanteSimulation(token){
+  var account=getAvanteSessionUser_(String(token||""));
+  if(!isAvanteSimulationAdmin_(account))return {ok:false,error:"Simulação disponível somente para a conta administrativa autenticada."};
+  return {ok:true,cnpj:"00000000000000",name:"AVANTE — EMPRESA FICTÍCIA DE DEMONSTRAÇÃO"};
+}
+function submitAvanteSimulation_(account,payload){
+  if(!isAvanteSimulationAdmin_(account)||normalizeCnpj_(payload.business&&payload.business.cnpj)!=="00000000000000")return {ok:false,responsesSaved:false,profilePublished:false,error:"A simulação exige acesso administrativo e o identificador fictício 00.000.000/0000-00."};
+  var attempt=String(payload.meta&&payload.meta.submissionId||"");
+  if(!attempt)return {ok:false,responsesSaved:false,profilePublished:false,error:"Identificador da tentativa de simulação ausente."};
+  var lock=LockService.getScriptLock();
+  try{
+    lock.waitLock(20000);
+    var sheet=ensureSheet_(getSpreadsheet_(),"SimulacoesAvante",["Conta","Tentativa","Recebido em","ID","Dados fictícios JSON"]);
+    var rows=sheet.getLastRow()>1?sheet.getRange(2,1,sheet.getLastRow()-1,5).getValues():[];
+    var copy=JSON.parse(JSON.stringify(payload));delete copy.authToken;delete copy.publicProfile;
+    for(var i=0;i<rows.length;i++)if(String(rows[i][0])===account&&String(rows[i][1])===attempt){
+      var prior=JSON.parse(String(rows[i][4]));
+      if(surveyReceiptSignature_(prior)!==surveyReceiptSignature_(copy))return {ok:false,responsesSaved:false,profilePublished:false,error:"Esta tentativa de simulação já recebeu outras respostas. O rascunho foi preservado."};
+      return {ok:true,responsesSaved:true,responseId:String(rows[i][3]),profilePublished:false,simulated:true};
+    }
+    var id="simulation-"+Utilities.getUuid();sheet.appendRow([account,attempt,new Date(),id,safeCell_(JSON.stringify(copy))]);SpreadsheetApp.flush();
+    return {ok:true,responsesSaved:true,responseId:id,profilePublished:false,simulated:true};
+  }catch(error){return {ok:false,responsesSaved:null,profilePublished:false,error:"Não foi possível confirmar a gravação da simulação. O rascunho foi preservado."};}
+  finally{if(lock.hasLock())lock.releaseLock();}
+}
+
 function submitAvanteSurvey(token, payload) {
   var account = getAvanteSessionUser_(String(token || ""));
   if (!account) return { ok: false, responsesSaved: false, profilePublished: false, error: "Acesso expirado. Entre novamente no Avante." };
   payload = payload || {};
+  if((payload.meta&&payload.meta.simulation===true)||normalizeCnpj_(payload.business&&payload.business.cnpj)==="00000000000000")return submitAvanteSimulation_(account,payload);
   var profileRequested = !!(payload.publicProfile && payload.publicProfile.consent === true);
   var responsesSaved = false, profilePublished = false, responseId = "";
   var lock = LockService.getScriptLock();
@@ -569,8 +600,10 @@ function saveAvanteProfileSettings(token, input) {
   if (!username) return { ok: false, error: "Acesso expirado. Entre novamente no Avante." };
   input = input || {};
   var cnpj = normalizeCnpj_(input.cnpj || "");
+  var simulation=cnpj==="00000000000000";
+  if(simulation&&!isAvanteSimulationAdmin_(username))return {ok:false,error:"Simulação exclusiva da conta administrativa."};
   var headers = ["Conta", "CNPJ", "Atualizado em", "Respostas JSON"];
-  var sheet = ensureSheet_(getSpreadsheet_(), AVANTE_SETTINGS_SHEET_NAME, headers);
+  var sheet = ensureSheet_(getSpreadsheet_(), simulation?"SimulacoesConfiguracoesAvante":AVANTE_SETTINGS_SHEET_NAME, headers);
   var data = JSON.parse(JSON.stringify(input.data || {}));
   delete data.business;
   delete data.publicProfile;

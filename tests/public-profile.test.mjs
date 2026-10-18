@@ -244,3 +244,21 @@ test('envio legado sem chave é reconhecido pelo conteúdo e identificador do ra
  const second=ctx.submitAvanteSurvey('alice',data);assert.equal(second.responseId,first.responseId);
  assert.equal(sheets.get('Respostas').getLastRow(),2);
 });
+
+
+test('admin simula cadastro com CNPJ fictício em aba isolada sem publicar ou alterar indicadores',()=>{
+ const {ctx,sheets}=fixture();ctx.getAvanteAdminProperty_=()=> 'admin.avante';ctx.getAvanteSessionUser_=token=>token==='admin'?'admin.avante':'normal';
+ const data=input();data.business.cnpj='00000000000000';data.meta={simulation:true,submissionId:'demo-attempt'};
+ assert.equal(ctx.getAvanteSimulation('normal').ok,false);assert.equal(ctx.getAvanteSimulation('admin').cnpj,'00000000000000');
+ assert.equal(ctx.submitAvanteSurvey('normal',data).responsesSaved,false);assert.equal(sheets.size,0);
+ const r=ctx.submitAvanteSurvey('admin',data);assert.equal(r.ok,true);assert.equal(r.simulated,true);assert.equal(r.profilePublished,false);
+ assert.deepEqual([...sheets.keys()],['SimulacoesAvante']);
+ const again=ctx.submitAvanteSurvey('admin',data);assert.equal(again.responseId,r.responseId);assert.equal(sheets.get('SimulacoesAvante').getLastRow(),2);
+ data.answers={produtos:'Alteração'};assert.equal(ctx.submitAvanteSurvey('admin',data).ok,false);
+});
+test('configurações de teste ficam separadas e não são aceitas de outra conta',()=>{
+ const {ctx,sheets}=fixture();ctx.getAvanteAdminProperty_=()=> 'admin.avante';ctx.getAvanteSessionUser_=token=>token==='admin'?'admin.avante':'normal';
+ const input={cnpj:'00000000000000',data:{answers:{produto:'Demonstração'}}};
+ assert.equal(ctx.saveAvanteProfileSettings('normal',input).ok,false);assert.equal(sheets.size,0);
+ assert.equal(ctx.saveAvanteProfileSettings('admin',input).ok,true);assert.deepEqual([...sheets.keys()],['SimulacoesConfiguracoesAvante']);
+});
