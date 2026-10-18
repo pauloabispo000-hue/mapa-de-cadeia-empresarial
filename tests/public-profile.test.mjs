@@ -262,3 +262,10 @@ test('configurações de teste ficam separadas e não são aceitas de outra cont
  assert.equal(ctx.saveAvanteProfileSettings('normal',input).ok,false);assert.equal(sheets.size,0);
  assert.equal(ctx.saveAvanteProfileSettings('admin',input).ok,true);assert.deepEqual([...sheets.keys()],['SimulacoesConfiguracoesAvante']);
 });
+
+
+test('identificador fictício não passa pelo publicador e orienta usar a simulação sem criar registros',()=>{
+ const {ctx,sheets}=fixture(),data=input();data.business.cnpj='00000000000000';
+ const r=ctx.submitAvantePublicProfile('alice',data);
+ assert.equal(r.ok,false);assert.equal(r.simulation,true);assert.match(r.error,/cadastro de demonstração/);assert.equal(sheets.size,0);
+});

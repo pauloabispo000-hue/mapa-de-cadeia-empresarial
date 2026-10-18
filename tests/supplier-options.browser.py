@@ -164,6 +164,12 @@ with sync_playwright() as p:
  assert run("localStorage.getItem('avante_workspace_admin.avante')===window.originalWorkspace") is True
  run("applySurveySubmissionResult(state.meta,{ok:true,responsesSaved:true,responseId:'simulation-test',profilePublished:false,simulated:true});saveState();showProgramSection('overview');")
  assert run("surveySubmissionSummary(state.meta).title")=='Respostas de simulação salvas ✓'
+ run("showProgramSection('profile');")
+ assert 'Prévia do perfil fictício' in page.locator('#platformContent').inner_text()
+ assert page.get_by_role('button',name='Publicar perfil',exact=True).count()==0
+ run("showProgramSection('products');")
+ assert 'Prévia do perfil fictício' in page.locator('#platformContent').inner_text()
+
 
  run("toggleAvanteSimulation(document.createElement('button'),document.createElement('p'));")
  assert run("state.answers.negocioNome")=='Cadastro original preservado'

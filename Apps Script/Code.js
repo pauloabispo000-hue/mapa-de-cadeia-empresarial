@@ -579,6 +579,7 @@ function submitAvantePublicProfile(token, input) {
   input = input || {};
   var business = input.business || {}, publicProfile = input.publicProfile || {};
   var cnpj = normalizeCnpj_(business.cnpj);
+  if(cnpj==="00000000000000")return {ok:false,simulation:true,error:"Este identificador é fictício. Use o cadastro de demonstração nas configurações; perfis de simulação não são publicados na rede real."};
   if (!validCnpj_(cnpj) || !String(business.nome || "").trim()) return { ok: false, error: "O perfil precisa ter nome empresarial e CNPJ válidos." };
   if (publicProfile.consent !== true) return { ok: false, error: "Autorize a publicação do perfil." };
   var lock = LockService.getScriptLock();

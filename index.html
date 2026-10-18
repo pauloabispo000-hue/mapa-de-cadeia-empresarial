@@ -3767,6 +3767,17 @@ var profileProductsLoadedFor="";
 var profileProductsLoadingFor="";
 var profileCatalogEditMode=false;
 function renderProfileEditor(root,activeTab){
+  if(state.meta.simulation===true){
+    var preview=h("section",{class:"platform-page"},[
+      h("p",{class:"platform-eyebrow"},["SIMULAÇÃO ADMINISTRATIVA"]),h("h1",{},["Prévia do perfil fictício"]),
+      h("p",{class:"platform-lead"},["Este perfil de teste usa 00.000.000/0000-00 e não será publicado na rede real."]),
+      h("h2",{},[state.business.nome||state.answers.negocioNome||"Empresa fictícia"])
+    ]);
+    (state.business.ofertas||[]).forEach(function(offer){preview.appendChild(h("p",{},[offer.nome||"Oferta fictícia"]));});
+    preview.appendChild(h("button",{type:"button",class:"platform-action",onclick:function(){showProgramSection(isBusinessRegistered()?"business-settings":"survey");}},["Editar cadastro da simulação"]));
+    preview.appendChild(h("button",{type:"button",class:"platform-action secondary",onclick:function(){showProgramSection("settings");}},["Voltar às configurações"]));
+    root.appendChild(preview);return;
+  }
   activeTab=activeTab||"profile";
   if(activeTab!=="products")profileCatalogEditMode=false;
   var name=String(state.business.nome||state.answers.negocioNome||"Empresa").trim();

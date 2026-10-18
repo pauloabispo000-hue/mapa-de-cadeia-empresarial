@@ -201,3 +201,8 @@ explicitamente seu caráter de teste. Repetir a mesma tentativa não duplica a
 simulação; conteúdo diferente com a mesma chave é recusado. O botão Voltar ao
 cadastro original restaura o rascunho anterior; uma nova sessão abre o cadastro
 original por padrão. A simulação permanece disponível para retomada pelo botão.
+
+As páginas Perfil e Produtos, durante a simulação, mostram uma prévia fictícia e
+atalhos para editar o cadastro, sem chamar APIs de publicação ou carregar catálogo
+real para o identificador de teste. O publicador também recusa explicitamente esse
+identificador e orienta usar o cadastro de demonstração, antes de gravar dados.
