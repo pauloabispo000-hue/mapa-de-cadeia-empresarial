@@ -268,7 +268,7 @@ with sync_playwright() as p:
  run("window.aiSuccess({ok:false,httpStatus:429,code:'AI_QUOTA',error:'Cota atingida (HTTP 429). Aguarde a liberação.'});window.callsBeforePagination=window.aiCalls")
  assert 'HTTP 429' in page.locator('#aiSearchStatus').inner_text()
  assert 'Exibindo 30 de 65' in page.locator('#aiSearchResult').inner_text()
- assert page.locator('#aiSearchResult .platform-card').count()==30
+ assert page.locator('#aiSearchResult .supplier-search-card').count()==30
  assert page.locator('#aiSearchResult .supplier-match-evidence').count()==30
  assert 'CNAE secundário — 1091102' in page.locator('#aiSearchResult').inner_text()
  assert 'Diretório municipal de Descalvado' in page.locator('#aiSearchResult').inner_text()
@@ -277,7 +277,7 @@ with sync_playwright() as p:
  assert 'Exibindo 60 de 65' in page.locator('#aiSearchResult').inner_text()
  page.get_by_role('button',name='Mostrar mais 30 resultados').click()
  assert 'Exibindo 65 de 65' in page.locator('#aiSearchResult').inner_text()
- assert page.locator('#aiSearchResult .platform-card').count()==65
+ assert page.locator('#aiSearchResult .supplier-search-card').count()==65
  assert page.get_by_role('button',name='Mostrar mais 30 resultados').count()==0
  assert run('window.callsBeforePagination===window.aiCalls') is True
  print('Navegador: evidência CNAE, fonte específica, contagem total e paginação local preservadas sob 429, sem repetir IA.')

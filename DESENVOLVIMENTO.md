@@ -397,3 +397,68 @@ mostra total e exibe páginas adicionais de 30 via Mostrar mais, sem novas chama
 de IA/CNPJ. HTTP 429 mantém resultados, evidências e paginação; não há retry de 429,
 troca de chave/modelo ou tentativa de contornar cotas. A descoberta externa não
 foi validada nesta rodada; os testes usam fixtures e catálogo público versionado.
+
+## Plano de contato e mensagens internas
+
+Cada busca inclui um plano com todos os candidatos, mesmo além da primeira página,
+e referências externas como pendências sem presumir uma empresa por URL. O plano
+usa o município da compradora, não o município digitado na pesquisa. Quando todas
+as entradas possuem geoPoint preciso (lat/lng numéricos válidos, precise=true) e
+origem precisa, usa distância em linha reta. Não executa geocodificação automática,
+não usa centro municipal como endereço e não altera o mapa existente. Sem dados
+precisos de todos, agrupa por município e informa a impossibilidade de determinar
+o mais próximo entre endereços. Homônimos com UFs explicitamente diferentes não
+são considerados mesmo município. Desconhecidos permanecem no plano.
+
+Cotações são registradas privadamente pelo comprador; não são inferidas de CNAE,
+mensagens ou IA. Exigem produto, unidade, quantidade e destino iguais ao pedido,
+BRL, validade vigente na data de São Paulo, valores explícitos de preço/frete/
+encargos/desconto e confirmação de compatibilidade de entrega/condições. O custo
+é calculado em centavos. Ausências/expiração/discordâncias não entram no ranking
+financeiro. O ranking de cotações recebidas não certifica melhor custo entre as
+empresas sem cotação. Preferência geográfica é provisória até essas informações.
+
+Planos e cotações só são salvos por ação explícita no localStorage, por usuário e
+modo original/simulação. São deste navegador, não sincronizados com a planilha;
+erro de armazenamento não declara sucesso nem apaga planos anteriores. Acesso em
+Configurações → Abrir comunicação e planos de contato. Salvar um plano não envia
+mensagem nem publica perfil, contato ou relação.
+
+O canal inicial aprovado é mensagem interna. A leitura usa getAvanteCommunications;
+setAvanteCommunicationPreference é opt-in separado, desabilitado por padrão.
+sendAvanteBusinessMessage autentica a conta, exige remetente vinculado a perfil
+publicado, destinatário publicado/vinculado com recebimento habilitado, conteúdo
+até 4.000 caracteres e consentimento por envio. Não cria contas de não participantes.
+Empresas sem canal continuam pendentes no plano. O servidor resolve destinatário e
+nome pela própria base, nunca confia em conta/nome enviados pelo cliente. Históricos
+só são retornados aos participantes, sem identificadores privados de login. A caixa
+retorna as últimas 100 mensagens e total; não afirma leitura. Respostas são preparadas
+individualmente, sem envio automático, e respeitam as mesmas permissões.
+
+Somente ações explícitas criam/alteram as abas privadas PreferenciasComunicacaoAvante
+e MensagensEmpresariaisAvante. Leituras não criam planilhas nem alteram cabeçalhos.
+Mensagem é armazenada como string JSON para evitar fórmula em células. Lock e chave
+de tentativa por conta impedem duplicação; chave reaproveitada com conteúdo distinto
+é recusada. Limite de 10 mensagens por conta em 24 horas. Opt-out bloqueia mensagens
+novas e preserva histórico. Não há e-mail, WhatsApp, envio em massa, compartilhamento
+público, autorização automática de canal ou mudança de permissões/credenciais.
+
+A interface preserva rascunho e chave de mensagem no navegador antes de chamar o
+servidor. Timeout/falha desconhecida libera confirmação manual com mesma chave,
+sem alterar conteúdo/remetente ou gerar nova tentativa automaticamente. Retornos
+tardios são descartados e cada RPC tem prazo interativo de 20 segundos (não cancela
+a execução Apps Script). Sucesso só após confirmação explícita; registro na caixa
+não equivale a leitura ou resposta. Simulação bloqueia mensagens reais e separa
+planos locais. API também recusa payload de simulação e remetente fictício/inválido.
+
+Testes: npm test e python tests/contact-plan.browser.py, além das duas suítes
+existentes. Usam contas, planilhas/RPCs e mensagens fictícias; bloqueiam toda rede
+externa. Não houve mensagens entre contas reais, alteração de cadastro, consulta
+real de IA ou verificação online de comunicação neste ciclo.
+
+Rascunhos do pedido e de campos de cotação em preenchimento são mantidos em memória
+quando a busca externa retorna (inclusive 429), sem salvar automaticamente. A edição
+do pedido exige Atualizar pedido e recalcular prioridade antes de cotar ou compor
+mensagem; isso evita comparar preços de uma especificação anterior. Datas da caixa
+são apresentadas no fuso America/Sao_Paulo. Sem coordenadas efetivamente disponíveis,
+a prioridade geográfica continua municipal e provisória, não uma distância inventada.

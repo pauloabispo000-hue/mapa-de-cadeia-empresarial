@@ -452,6 +452,46 @@ function runAvanteAiAssistant(token, input) {
   }
 }
 
+/* Comunicação privada: nenhum envio externo, perfil ou relação é criado por estas APIs. */
+function avanteCommunicationRows_(ss,name,width){var sheet=ss.getSheetByName(name);return sheet&&sheet.getLastRow()>1?sheet.getRange(2,1,sheet.getLastRow()-1,width).getValues():[];}
+function avanteCommunicationCompany_(ss,cnpj){
+  cnpj=normalizeCnpj_(cnpj);if(!validCnpj_(cnpj))return null;
+  var profile=avanteCommunicationRows_(ss,PUBLIC_PROFILES_SHEET_NAME,12).filter(function(row){return normalizeCnpj_(row[0])===cnpj&&String(row[10]||"").indexOf("APROVADO")===0;})[0];
+  var binding=avanteCommunicationRows_(ss,PROFILE_ACCOUNTS_SHEET_NAME,3).filter(function(row){return normalizeCnpj_(row[0])===cnpj;})[0];
+  return profile&&binding?{cnpj:cnpj,name:String(profile[1]),city:String(profile[3]||""),account:String(binding[1])}:null;
+}
+function avanteCommunicationBody_(row){try{var value=JSON.parse(String(row[8]||""));return typeof value==="string"?value:"";}catch(ignored){return "";}}
+function avanteCommunicationEnabled_(ss,account){var row=avanteCommunicationRows_(ss,"PreferenciasComunicacaoAvante",2).filter(function(row){return String(row[0])===account;})[0];return !!row&&String(row[1])==="true";}
+function getAvanteCommunications(token){
+  var account=getAvanteSessionUser_(String(token||""));if(!account)return {ok:false,error:"Entre novamente para acessar suas mensagens."};
+  var ss=getSpreadsheet_(),companies=[];
+  avanteCommunicationRows_(ss,PROFILE_ACCOUNTS_SHEET_NAME,3).forEach(function(row){if(String(row[1])!==account)return;var company=avanteCommunicationCompany_(ss,row[0]);if(company&&company.account===account)companies.push({cnpj:company.cnpj,name:company.name,city:company.city});});
+  var rows=avanteCommunicationRows_(ss,"MensagensEmpresariaisAvante",10).filter(function(row){return String(row[2])===account||String(row[3])===account;});
+  return {ok:true,enabled:avanteCommunicationEnabled_(ss,account),companies:companies,total:rows.length,messages:rows.slice(-100).reverse().map(function(row){return {id:String(row[0]),createdAt:row[1] instanceof Date?row[1].toISOString():String(row[1]),direction:String(row[2])===account?"sent":"received",fromCnpj:String(row[4]),toCnpj:String(row[5]),fromName:String(row[6]),toName:String(row[7]),body:avanteCommunicationBody_(row),requestId:String(row[2])===account?String(row[9]):""};})};
+}
+function setAvanteCommunicationPreference(token,enabled){
+  var account=getAvanteSessionUser_(String(token||""));if(!account||typeof enabled!=="boolean")return {ok:false,error:"Sessão ou preferência inválida."};
+  var lock=LockService.getScriptLock();try{lock.waitLock(5000);var ss=getSpreadsheet_(),rows=avanteCommunicationRows_(ss,"PreferenciasComunicacaoAvante",2),sheet=ensureSheet_(ss,"PreferenciasComunicacaoAvante",["Conta","Receber mensagens"]),index=-1;rows.some(function(row,i){if(String(row[0])===account){index=i;return true;}return false;});if(index<0)sheet.appendRow([account,String(enabled)]);else sheet.getRange(index+2,2).setValue(String(enabled));return {ok:true,enabled:enabled};}finally{if(lock.hasLock())lock.releaseLock();}
+}
+function sendAvanteBusinessMessage(token,input){
+  var account=getAvanteSessionUser_(String(token||""));input=input||{};
+  if(!account||input.consent!==true||input.simulation===true)return {ok:false,error:"Entre na conta e autorize o envio individual. Simulação não envia mensagens reais."};
+  var body=String(input.body||"").trim(),requestId=String(input.requestId||"");
+  if(!body||body.length>4000||!/^[a-zA-Z0-9_-]{8,80}$/.test(requestId))return {ok:false,error:"Confira a mensagem (até 4.000 caracteres) e a identificação da tentativa."};
+  var lock=LockService.getScriptLock();try{
+    lock.waitLock(5000);var ss=getSpreadsheet_(),from=avanteCommunicationCompany_(ss,input.fromCnpj),to=avanteCommunicationCompany_(ss,input.toCnpj);
+    if(!from||from.account!==account)return {ok:false,error:"Selecione uma empresa publicada vinculada à sua conta para se identificar."};
+    if(!to||to.account===account)return {ok:false,error:"Não há outra empresa com canal interno vinculado para este destinatário."};
+    var rows=avanteCommunicationRows_(ss,"MensagensEmpresariaisAvante",10),prior=rows.filter(function(row){return String(row[2])===account&&String(row[9])===requestId;})[0];
+    if(prior){if(String(prior[4])!==from.cnpj||String(prior[5])!==to.cnpj||avanteCommunicationBody_(prior)!==body)return {ok:false,error:"Esta tentativa corresponde a outra mensagem. Confira a caixa antes de iniciar outro envio."};return {ok:true,id:String(prior[0]),duplicate:true};}
+    if(!avanteCommunicationEnabled_(ss,to.account))return {ok:false,error:"Esta empresa ainda não habilitou receber mensagens internas. O contato continua pendente no plano."};
+    var now=new Date(),since=now.getTime()-86400000;
+    if(rows.filter(function(row){return String(row[2])===account&&new Date(row[1]).getTime()>=since;}).length>=10)return {ok:false,error:"Limite de 10 mensagens em 24 horas atingido. Nenhuma mensagem foi enviada."};
+    var id=Utilities.getUuid();ensureSheet_(ss,"MensagensEmpresariaisAvante",["ID","Criada em","Conta remetente","Conta destinatária","CNPJ remetente","CNPJ destinatário","Empresa remetente","Empresa destinatária","Mensagem","Tentativa"]).appendRow([id,now,account,to.account,from.cnpj,to.cnpj,safeCell_(from.name),safeCell_(to.name),JSON.stringify(body),requestId]);
+    return {ok:true,id:id,message:"Mensagem registrada na caixa interna da empresa. Isso não confirma leitura ou resposta."};
+  }catch(ignored){return {ok:false,outcomeUnknown:true,error:"Não foi possível confirmar o registro da mensagem. Preserve o texto e confira sua caixa antes de tentar novamente."};}finally{if(lock.hasLock())lock.releaseLock();}
+}
+
 /** Consulta pública sob ação explícita, sem gravar ou divulgar relações da conta. */
 function getAvanteSupplierRegistration(token,cnpj){
   if(!getAvanteSessionUser_(String(token||"")))return {ok:false,error:"Entre na plataforma para consultar o CNPJ."};

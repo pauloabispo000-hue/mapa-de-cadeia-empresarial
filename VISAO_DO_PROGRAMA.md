@@ -87,3 +87,26 @@ Paulo Bispo. *Cadeia de Interdependência: a teoria que redefine o que é susten
 O Avante pode usar modelos de IA e busca pública para orientar o cadastro, classificar descrições, apontar possíveis erros ou duplicidades e sugerir conexões. A primeira integração deve usar Gemini com Google Search grounding para produzir respostas com fontes.
 
 A IA deve operar como revisora e pesquisadora: mostrar evidências, fontes, incertezas e propostas; nunca substituir dados oficiais nem confirmar relações comerciais por inferência. Correções e vínculos ficam pendentes até confirmação humana e recebem histórico de origem, data, justificativa e responsável. O cruzamento de respostas privadas deve ocorrer primeiro no servidor e compartilhar com a IA somente agregados minimizados necessários à tarefa. Senhas, tokens e relações comerciais individuais não devem ser enviados ao modelo.
+
+## Regra de pesquisa, contato e eficiência econômica
+
+A pesquisa do Avante deve transformar todos os resultados em um plano privado de
+contato, e não encerrar com instruções para o usuário procurar fornecedores fora
+da plataforma. Empresas cadastradas, não cadastradas e referências externas
+permanecem no plano; ausência de identificação ou canal autorizado vira pendência,
+sem criação de conta, divulgação de relações privadas ou contato automático.
+O primeiro canal é mensagem interna entre empresas com conta, vínculo de perfil e
+recebimento habilitado. Cada envio é individual, revisado e autorizado pelo usuário.
+
+Enquanto não existirem cotações comparáveis, priorize a proximidade da empresa
+compradora. Distâncias só podem ser calculadas com coordenadas precisas das duas
+pontas; município sozinho permite agrupamento preliminar, não quilômetros ou
+escolha do fornecedor efetivamente mais próximo entre endereços. Informação
+geográfica ausente não pode virar distância zero ou ser inventada pela IA.
+
+Com cotações do mesmo produto/especificação, quantidade, unidade, moeda e destino,
+compare custo total entregue: preço unitário × quantidade + frete + encargos −
+descontos. Frete/valor ausente não equivale a zero. Exija validade e confirmação de
+compatibilidade de entrega, pedido mínimo, prazo e condições. Cotações pendentes
+não são excluídas do plano nem consideradas mais baratas. A ordem é previsível e
+explicável; não certifica disponibilidade, qualidade ou melhor fornecedor absoluto.
