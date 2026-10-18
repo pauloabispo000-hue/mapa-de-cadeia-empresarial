@@ -149,7 +149,7 @@ function prunePlatformBackups_(root, now) {
 
 /** Mesmo conjunto público do endpoint JSON; não inclui respostas ou relações individuais. */
 function getAvanteSharedOptions(){
-  return {ok:true,options:readOptions_(),companies:readCompanies_(),network:summarizeNetwork_(),workforce:summarizeWorkforce_()};
+  return {ok:true,options:readOptions_(),companies:readCompanies_(),publicProfiles:readPublishedSupplierProfiles_(),network:summarizeNetwork_(),workforce:summarizeWorkforce_()};
 }
 
 function doGet(e) {
@@ -354,7 +354,7 @@ function getAvanteAiDiagnostics(token){
   }catch(ignored){result.ok=false;result.error="Falha de transporte ao consultar metadados. Nenhuma consulta de geração foi enviada.";return result;}
 }
 
-/** Pesquisa e orientação geral com Gemini, sem ferramenta de busca externa.
+/** Pesquisa de fornecedores com referências web; orientação geral nos demais modos.
  * Não grava nem altera cadastros; devolve resposta e fontes para revisão do usuário.
  */
 function runAvanteAiAssistant(token, input) {
@@ -368,9 +368,9 @@ function runAvanteAiAssistant(token, input) {
   var model=avanteGeminiModel_(props);
   if(!model)return {ok:false,code:"AI_CONFIGURATION",error:"O administrador precisa corrigir o formato da propriedade GEMINI_MODEL."};
   var mode = String(input.mode || "research");
-  if (mode !== "research" && mode !== "review") return { ok: false, error: "Tipo de solicitação inválido." };
+  if (mode !== "research" && mode !== "review" && mode !== "suppliers") return { ok: false, error: "Tipo de solicitação inválido." };
   var question = String(input.question || "").trim().slice(0, 1000);
-  if (mode === "research" && !question) return { ok: false, error: "Descreva o que deseja pesquisar." };
+  if (mode !== "review" && !question) return { ok: false, error: "Descreva o que deseja pesquisar." };
 
   var business = input.business || {};
   var context = {
@@ -396,23 +396,22 @@ function runAvanteAiAssistant(token, input) {
     prompt = "Revise estes dados declarados, que podem conter erros e não estão verificados:\n" + JSON.stringify(context);
   } else {
     systemInstruction = "Você é o assistente do Avante. Responda com seu conhecimento geral, sem afirmar que consultou a internet ou fontes atuais. Avise quando a resposta precisar de confirmação em fonte oficial. Não invente produtos, serviços, endereços, situação cadastral ou relações comerciais. Responda em português do Brasil, em até 180 palavras e no máximo 5 itens curtos. Priorize ações úteis e conclua as frases, sem introduções longas. Não altere cadastros; apresente descobertas como sugestões para conferência.";
+    if(mode==="suppliers")systemInstruction="Você é o pesquisador de fornecedores do Avante. Use a busca web para localizar empresas reais, cadastradas ou não na plataforma, que possam atender ao produto e local pedidos. Priorize catálogos e sites das próprias empresas; inclua distribuidores regionais quando houver evidência de atendimento. Retorne até 5 opções concretas e concisas, com nome, produto, localização, contato público empresarial se encontrado e citação para cada informação. Diferencie sede de região atendida. Não invente oferta, contato, preço, CNPJ, licença, atacado ou entrega. Se um ponto não estiver documentado, diga que não foi confirmado. Se só encontrar entidades de apoio, identifique-as como intermediárias, não fornecedores, e cite seus contatos públicos sem afirmar encaminhamento realizado. Não substitua resultados por instruções para o usuário procurar. Até 180 palavras. Não solicite dados pessoais nem altere cadastros.";
     prompt = question;
   }
 
   var url = "https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent";
   try {
+    var requestBody={systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1200}};
+    if(mode==="suppliers")requestBody.tools=[{google_search:{}}];
     var remote = fetchAvanteGemini_(url, {
       method: "post", muteHttpExceptions: true,
       contentType: "application/json",
       headers: { "x-goog-api-key": apiKey, "Accept": "application/json" },
-      payload: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1200 }
-      })
+      payload: JSON.stringify(requestBody)
     },username);
     var response=remote.response,status=response.getResponseCode();
-    if(status<200||status>=300){var failure=avanteGeminiFailure_(status,avanteGeminiProviderStatus_(response));failure.attempts=remote.attempts;failure.retrySkipped=remote.retrySkipped;return failure;}
+    if(status<200||status>=300){var failure=avanteGeminiFailure_(status,avanteGeminiProviderStatus_(response));failure.attempts=remote.attempts;failure.retrySkipped=remote.retrySkipped;if(mode==="suppliers"&&status===400){failure.code="AI_WEB_SEARCH_UNAVAILABLE";failure.error="A busca externa não foi aceita pelo serviço (HTTP 400). O administrador deve verificar suporte à ferramenta de pesquisa no modelo/projeto. As opções locais foram preservadas.";}return failure;}
     var data;
     try{data=JSON.parse(response.getContentText()||"{}");}catch(ignored){return {ok:false,code:"AI_INVALID_JSON",httpStatus:status,error:"O serviço de IA retornou uma resposta ilegível. O administrador deve conferir o contrato da integração; isso não indica falta de fornecedores locais."};}
     if(data.promptFeedback&&data.promptFeedback.blockReason)return {ok:false,code:"AI_CONTENT_REJECTED",httpStatus:status,error:"O serviço não gerou conteúdo para esta solicitação. Reformule a consulta; isso não indica ausência de fornecedores locais."};
@@ -438,7 +437,10 @@ function runAvanteAiAssistant(token, input) {
       seen[uri] = true;
       sources.push({ title: String(web.title || uri).slice(0, 240), url: uri });
     });
+    var externalResults=mode==="suppliers"?avanteGroundedSupplierEvidence_(metadata,answer):[];
+    if(mode==="suppliers"&&!externalResults.length)return {ok:false,code:"AI_NO_EXTERNAL_EVIDENCE",error:"A pesquisa externa não trouxe referências verificáveis nesta tentativa. Não foi possível confirmar novos fornecedores; as opções do catálogo continuam disponíveis. Nenhuma busca adicional foi disparada."};
     return {
+      externalResults:externalResults,
       ok: true, attempts:remote.attempts, answer: answer.slice(0, 12000), partial:partial, warning:warning, finishReason:finishReason, tokenUsage:tokenUsage,
       sources: sources.slice(0, 12),
       searchQueries: (Array.isArray(metadata.webSearchQueries)?metadata.webSearchQueries:[]).map(function(value) { return String(value || "").slice(0, 240); }).slice(0, 8),
@@ -448,6 +450,31 @@ function runAvanteAiAssistant(token, input) {
     console.warn("Falha na pesquisa do Gemini; consulta omitida dos registros.");
     return {ok:false,code:"AI_TRANSPORT",error:"A chamada ao serviço de IA não pôde ser concluída. Pode haver falha de transporte ou tempo de resposta excedido. Não há confirmação da causa; aguarde antes de tentar novamente."};
   }
+}
+
+/** Consulta pública sob ação explícita, sem gravar ou divulgar relações da conta. */
+function getAvanteSupplierRegistration(token,cnpj){
+  if(!getAvanteSessionUser_(String(token||"")))return {ok:false,error:"Entre na plataforma para consultar o CNPJ."};
+  var result=lookupCompanyCnpj(cnpj),data=result&&result.dados;
+  if(!result||!result.ok||!data)return {ok:false,error:"Não foi possível atualizar a situação cadastral nas fontes públicas. Isso não comprova irregularidade da empresa."};
+  return {ok:true,name:String(data.nomeFantasia||data.razaoSocial||""),city:[data.municipio,data.uf].filter(Boolean).join(" - "),status:String(data.situacao||"não informada"),source:String(data.fonte||"Dados públicos do CNPJ"),checkedAt:new Date().toISOString()};
+}
+
+/** Aceita somente trechos efetivamente associados a referências pelo provedor. */
+function avanteGroundedSupplierEvidence_(metadata,answer){
+  var chunks=Array.isArray(metadata.groundingChunks)?metadata.groundingChunks:[],supports=Array.isArray(metadata.groundingSupports)?metadata.groundingSupports:[],results=[],seen={};
+  supports.forEach(function(support){
+    var text=String(support&&support.segment&&support.segment.text||"").trim();
+    if(!text||answer.indexOf(text)<0)return;
+    (Array.isArray(support.groundingChunkIndices)?support.groundingChunkIndices:[]).forEach(function(index){
+      if(typeof index!=="number"||index%1!==0||index<0)return;
+      var web=chunks[index]&&chunks[index].web||{},url=String(web.uri||"");
+      if(!/^https:\/\/[^\s<>"\\]+$/i.test(url))return;
+      if(!seen[url]){seen[url]={title:String(web.title||"Referência externa").slice(0,240),url:url,evidence:[],checkedAt:new Date().toISOString()};results.push(seen[url]);}
+      if(seen[url].evidence.indexOf(text)<0)seen[url].evidence.push(text.length>1600?text.slice(0,1600)+"… [Trecho limitado; consulte a referência para o conteúdo completo.]":text);
+    });
+  });
+  return results.slice(0,8).map(function(item){item.evidence=item.evidence.slice(0,4);return item;});
 }
 
 /** Limita cada conta e mantém cotas diária e mensal globais abaixo dos limites gratuitos. */
@@ -1297,6 +1324,17 @@ function saveCompanies_(ss, payload, now, skipOccurrenceCount) {
         JSON.stringify(candidate.areas), skipOccurrenceCount ? 0 : 1, now, now, candidate.cnaeCodigo, safeCell_(candidate.cnae), JSON.stringify(candidate.secondaryCnaes), JSON.stringify(candidate.offers)]);
       existing[candidate.key] = sheet.getLastRow();
     }
+  });
+}
+
+/** Somente os campos já públicos de perfis publicados; não lê respostas ou pendências. */
+function readPublishedSupplierProfiles_(){
+  var sheet=getSpreadsheet_().getSheetByName(PUBLIC_PROFILES_SHEET_NAME);
+  if(!sheet||sheet.getLastRow()<2)return [];
+  return sheet.getRange(2,1,sheet.getLastRow()-1,12).getValues().filter(function(row){return String(row[10]||"").indexOf("APROVADO")===0&&validCnpj_(normalizeCnpj_(row[0]));}).map(function(row){
+    var offers=parseJsonArray_(row[5]).map(function(item){return typeof item==="string"?item:String(item&&item.name||item&&item.nome||"");});
+    parseJsonArray_(row[11]).forEach(function(item){if(item&&item.name)offers.push(String(item.name));});
+    return {name:String(row[1]||""),cnpj:normalizeCnpj_(row[0]),city:String(row[3]||""),offers:offers.filter(Boolean).map(function(name){return {nome:name};}),catalogSource:"profile",profilePublished:true,updatedAt:row[9] instanceof Date?row[9].toISOString():""};
   });
 }
 

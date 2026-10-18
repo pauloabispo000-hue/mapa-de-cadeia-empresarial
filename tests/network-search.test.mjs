@@ -57,3 +57,39 @@ test('localidades oficiais normalizam acentos, caixa e UF sem criar equivalentes
  assert.equal(ctx.normalizeLocality('sao paulo'),ctx.normalizeLocality('São Paulo - SP'));
  assert.equal(ctx.normalizeLocality('DESCALVADO SP'),ctx.normalizeLocality('Descalvado - SP'));
 });
+
+test('diretório cadastral encontra padarias como candidatas sem inventar oferta e filtra termos não relacionados',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=[{name:'PADARIA FICTÍCIA',cnpj:'11222333000181',city:'Descalvado',catalogSource:'registry',cnae:'1091102 · Fabricação de produtos de padaria e confeitaria com predominância de produção própria',status:'ATIVA'},{name:'Oficina fictícia',city:'Descalvado',cnae:'Manutenção mecânica'}];
+ const results=ctx.findSupplierCandidates('Como encontrar fornecedores de pão em Descalvado?');
+ assert.equal(results.length,1);assert.equal(results[0].evidenceType,'registry');assert.equal(results[0].offers.length,0);assert.equal(results[0].region,'local');assert.equal(ctx.findKnownSupplierMatches('pão em Descalvado').length,0);
+ assert.equal(ctx.findSupplierCandidates('extintores em Descalvado').length,0);
+});
+test('ofertas regionais são mantidas com entrega pendente e cobertura explicitamente declarada tem prioridade',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=[{name:'Regional fictícia',city:'São Carlos',offers:[{nome:'Pão francês'}]},{name:'Atendimento fictício',city:'Porto Ferreira',offers:[{nome:'Pão francês'}],serviceCities:['Descalvado']}];
+ const r=ctx.findSupplierCandidates('pão em Descalvado');assert.equal(r.length,2);assert.equal(r[0].region,'delivery');assert.equal(r[1].region,'outside');
+});
+test('busca exige todos os termos do produto, usa oferta de perfil público e deduplica pela melhor evidência',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=[{name:'Fictícia',city:'Descalvado',cnpj:'11222333000181',catalogSource:'registry',cnae:'Confecção de roupas'},{name:'Fictícia',city:'Descalvado',cnpj:'11222333000181',profilePublished:true,offers:[{nome:'Vestuário corporativo'}]},{name:'Outro produto',offers:[{nome:'Vestuário infantil'}]}];
+ const r=ctx.findSupplierCandidates('vestuário corporativo em Descalvado');assert.equal(r[0].profilePublished,true);assert.equal(r.filter(c=>c.cnpj==='11222333000181').length,1);assert(!r.some(c=>c.name==='Outro produto'));
+});
+test('cadastro baixado não vira candidato e CNAE secundário compatível não vira oferta',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];ctx.sharedCompanies=[{name:'Baixada',status:'BAIXADA',city:'Descalvado',cnae:'1091102'},{name:'Secundária',status:'ATIVA',city:'Descalvado',secondaryCnaes:['4721102']}];
+ const r=ctx.findSupplierCandidates('pão em Descalvado');assert.equal(r.length,1);assert.equal(r[0].name,'Secundária');assert.equal(r[0].evidenceType,'registry');
+});
+
+test('catálogo municipal real versionado produz candidatos para pão sem fabricar ofertas',()=>{
+ const ctx=searchFixture();ctx.state.fornecedores.lista=[];
+ const index=JSON.parse(readFileSync(new URL('../empresas-descalvado.json',import.meta.url),'utf8'));
+ ctx.sharedCompanies=index.shards.flatMap(shard=>JSON.parse(readFileSync(new URL('../'+shard.file,import.meta.url),'utf8')).companies).map(record=>({name:record.name,cnpj:record.cnpj,city:'Descalvado',cnae:record.cnae,secondaryCnaes:record.secondaryCnaes,status:record.status,catalogSource:'registry'}));
+ const r=ctx.findSupplierCandidates('Como encontrar fornecedores de pão em Descalvado?');assert(r.length>0);assert(r.every(c=>c.evidenceType==='registry'&&c.offers.length===0));
+});
+test('perfil publicado enriquece oferta sem depender da aprovação do diretório ou exportar candidatos privados',()=>{
+ const ctx=vm.createContext({PUBLIC_COMPANY_CATALOG:[],municipalCompanies:[{name:'Empresa fictícia',cnpj:'11222333000181',catalogSource:'registry',cnae:'Padaria'}],learnedSharedCompanies:[],publishedSupplierCompanies:[{name:'Empresa fictícia',cnpj:'11222333000181',offers:[{nome:'Pão francês'}],profilePublished:true}],normalizarCNPJ:s=>String(s||''),normName:normalizeSearch});
+ vm.runInContext(html.slice(html.indexOf('function refreshSharedCompanies('),html.indexOf('function loadSharedOptions(')),ctx);ctx.refreshSharedCompanies();assert.equal(ctx.sharedCompanies.length,1);assert.equal(ctx.sharedCompanies[0].profilePublished,true);assert.equal(ctx.sharedCompanies[0].offers[0].nome,'Pão francês');
+});
+
+test('atualizar catálogo após retirar perfil não retém oferta no registro municipal ou catálogo estático',()=>{
+ const municipal={name:'Empresa fictícia',cnpj:'11222333000181',catalogSource:'registry',cnae:'Padaria'},base={name:'Outra empresa',cnpj:'99999999999999',offer:'Oferta pública',catalogSource:'public'};
+ const ctx=vm.createContext({PUBLIC_COMPANY_CATALOG:[base],municipalCompanies:[municipal],learnedSharedCompanies:[],publishedSupplierCompanies:[{name:'Empresa fictícia',cnpj:municipal.cnpj,offers:[{nome:'Oferta retirada'}],profilePublished:true}],normalizarCNPJ:s=>String(s||''),normName:normalizeSearch});
+ vm.runInContext(html.slice(html.indexOf('function refreshSharedCompanies('),html.indexOf('function loadSharedOptions(')),ctx);ctx.refreshSharedCompanies();assert.equal(ctx.sharedCompanies[1].offers.length,1);assert.equal(municipal.offers,undefined);ctx.publishedSupplierCompanies=[];ctx.refreshSharedCompanies();assert.equal(ctx.sharedCompanies[1].offers.length,0);assert.equal(ctx.sharedCompanies[1].profilePublished,undefined);assert.equal(base.offers,undefined);
+});

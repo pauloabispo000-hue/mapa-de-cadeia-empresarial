@@ -322,3 +322,54 @@ inclusive thoughtsTokenCount quando recebido, são retornadas sem texto de
 raciocínio ou logs privados. A resposta online anterior não preservou finishReason
 ou contagens: sua causa concreta de truncamento não pode ser reconstruída pelo
 tamanho do texto. Sucesso de uma geração não confirma estabilidade do serviço.
+
+## Busca integrada de fornecedores
+
+O modal cruza compras do próprio rascunho, ofertas compartilhadas autorizadas,
+perfis já publicados e diretório cadastral municipal. O endpoint público inclui
+uma lista separada publicProfiles com somente identidade, cidade, ofertas/produtos
+e data já públicos em PerfisPublicos. Não consulta respostas, contas, perfis
+pendentes ou relações privadas, não aprova o diretório e não publica novos perfis.
+
+Candidatos por nome/CNAE, inclusive secundário, são separados de ofertas. Sinônimos
+controlados de panificação e vestuário ajudam a localizar atividades; nunca provam
+produto, estoque ou atacado. A correspondência de oferta exige todos os termos
+relevantes. Os resultados são ordenados por evidência e localização/atendimento;
+CNPJs repetidos conservam a melhor evidência. Outra cidade não elimina candidato:
+a tela informa que entrega não foi confirmada. serviceCities, quando efetivamente
+fornecido pela fonte, representa declaração de atendimento, não verificação.
+Não foi criado um campo público novo nem presumida autorização para dados privados.
+
+Quando não há correspondência direta local, mode=suppliers solicita a ferramenta
+Google Search no Gemini, com a mesma chave mantida no servidor e limite de tokens.
+Envia somente a pergunta digitada, sem listas, cadastros ou vínculos do participante.
+Pede empresas e informações concretas com referências; não orientações genéricas.
+Aceita como resultado externo apenas trechos presentes na resposta e ligados a
+índices válidos de groundingSupports/groundingChunks com referência HTTPS. Trechos
+sem suporte não são exibidos como resultados. HTML remoto é sempre texto; Markdown
+continua limitado e seguro. A referência do provedor é evidência atribuída, não
+certificação de oferta, entrega, licença ou existência atual. Fontes podem ser
+indiretas; não são rotuladas automaticamente como oficiais.
+
+A tela apresenta fonte, proveniência, atualização disponível, situação do
+atendimento e links para perfil/produtos, fonte e consulta oficial do CNPJ. Não
+inventa telefone ou contato ausente. A busca externa pode trazer contato público
+empresarial em trecho referenciado. Se não trouxer, essa informação continua
+pendente; não há contato automático com empresas ou associações.
+
+A disponibilidade da ferramenta Google Search depende do modelo/projeto e das
+condições/cotas do provedor, inclusive faturamento aplicável. HTTP 200 de metadados
+não confirma suporte à ferramenta. HTTP 400 é tratado como rejeição da requisição
+externa, sem trocar modelo ou permissões; ausência de grounding é informada, sem
+nova consulta automática ou substituição por nomes inventados. Permanecem cotas
+por chamada, retry transitório limitado, timeout interativo e descarte tardio.
+Resultados cadastrais/regionais ficam disponíveis enquanto a busca externa está
+pendente ou falha. O catálogo parcial mantém sua lacuna de 500 registros. Os testes
+usam fixtures, inclusive o catálogo público versionado; não validam disponibilidade
+real do Google Search com a chave do projeto nem licenças/contatos de empresas.
+
+Cada resultado com CNPJ também permite consulta cadastral dentro da plataforma,
+sob clique explícito e sessão autenticada, usando as fontes públicas já suportadas
+(BrasilAPI/Minha Receita). Retorna somente identidade, município, situação e fonte,
+sem gravar dados. Tem prazo interativo de 20 segundos, descarte tardio e nenhuma
+repetição automática. CNPJ consultado não certifica licença, oferta ou entrega.

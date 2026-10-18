@@ -84,3 +84,29 @@ test('sem candidates, sem texto visível ou sem motivo de término não presume 
  const unknown=generated(undefined);assert.equal(unknown.ctx.runAvanteAiAssistant('user',{question:'Teste'}).partial,true);
  const capped=generated('STOP',[{text:'a'.repeat(12001)}]);assert.equal(capped.ctx.runAvanteAiAssistant('user',{question:'Teste'}).partial,true);
 });
+
+test('busca de fornecedores usa web e retorna somente evidência vinculada a referências, sem relações privadas',()=>{
+ const answer='Empresa fictícia oferece pão. Entrega ainda não confirmada.';
+ const f=fixture({body:{candidates:[{finishReason:'STOP',content:{parts:[{text:answer}]},groundingMetadata:{groundingChunks:[{web:{title:'Catálogo fictício',uri:'https://example.com/catalogo'}},{web:{title:'Sem apoio',uri:'https://example.com/sem-apoio'}}],groundingSupports:[{segment:{text:'Empresa fictícia oferece pão.'},groundingChunkIndices:[0]},{segment:{text:'Não está na resposta'},groundingChunkIndices:[1]}]}}]}});
+ const r=f.ctx.runAvanteAiAssistant('user',{mode:'suppliers',question:'pão em Cidade fictícia'});
+ assert.equal(r.ok,true);assert.equal(r.externalResults.length,1);assert.equal(r.externalResults[0].url,'https://example.com/catalogo');assert.equal(r.externalResults[0].evidence.length,1);
+ const payload=JSON.parse(f.calls[0].options.payload);assert.deepEqual(payload.tools,[{google_search:{}}]);assert.equal(payload.contents[0].parts[0].text,'pão em Cidade fictícia');assert.equal(f.calls.length,1);
+});
+test('busca externa sem grounding, com referência insegura ou suporte malformado não inventa fornecedor',()=>{
+ for(const metadata of [{},{groundingChunks:[{web:{uri:'javascript:alert(1)'}}],groundingSupports:[{segment:{text:'Texto'},groundingChunkIndices:[0]}]},{groundingChunks:[{web:{uri:'https://example.com'}}],groundingSupports:[{segment:{text:'Texto'},groundingChunkIndices:[-1,0.5,'0']}]}]){
+  const f=fixture({body:{candidates:[{finishReason:'STOP',content:{parts:[{text:'Texto'}]},groundingMetadata:metadata}]}}),r=f.ctx.runAvanteAiAssistant('user',{mode:'suppliers',question:'pão'});assert.equal(r.code,'AI_NO_EXTERNAL_EVIDENCE');assert.equal(f.calls.length,1);
+ }
+ const f=fixture({status:400}),r=f.ctx.runAvanteAiAssistant('user',{mode:'suppliers',question:'pão'});assert.equal(r.code,'AI_WEB_SEARCH_UNAVAILABLE');assert.equal(f.calls.length,1);
+});
+test('índice de perfis lê somente a planilha pública, sem criação, pendências ou vínculos privados',()=>{
+ const f=fixture();const row=(cnpj,status)=>[cnpj,'Empresa fictícia','Brasil','Descalvado','[]','["Pão francês"]','Público','','',new Date('2026-10-18'),status,'[{"name":"Pão congelado"}]'];
+ f.ctx.getSpreadsheet_=()=>({getSheetByName(name){assert.equal(name,'PerfisPublicos');return {getLastRow:()=>4,getRange:()=>({getValues:()=>[row('11222333000181','APROVADO AUTOMATICAMENTE'),row('11222333000181','RETIRADO'),row('00000000000000','APROVADO')]})};}});
+ const r=f.ctx.readPublishedSupplierProfiles_();assert.equal(r.length,1);assert.equal(r[0].profilePublished,true);assert.equal(r[0].offers.length,2);assert.equal(r[0].description,undefined);assert.equal(f.calls.length,0);
+});
+
+test('consulta cadastral autenticada retorna apenas situação pública, sem presumir licenças ou devolver erros brutos',()=>{
+ const f=fixture();let count=0;f.ctx.lookupCompanyCnpj=()=>{count++;return {ok:true,dados:{nomeFantasia:'Fictícia',municipio:'Descalvado',uf:'SP',situacao:'ATIVA',fonte:'Fonte pública',segredo:'não retornar'}};};
+ assert.equal(f.ctx.getAvanteSupplierRegistration('', '11222333000181').ok,false);assert.equal(count,0);
+ const r=f.ctx.getAvanteSupplierRegistration('user','11222333000181');assert.equal(r.status,'ATIVA');assert.equal(r.segredo,undefined);assert.equal(r.license,undefined);assert.equal(count,1);
+ f.ctx.lookupCompanyCnpj=()=>({ok:false,error:'fixture-key detalhe bruto'});assert(!JSON.stringify(f.ctx.getAvanteSupplierRegistration('user','11222333000181')).includes('fixture-key'));
+});

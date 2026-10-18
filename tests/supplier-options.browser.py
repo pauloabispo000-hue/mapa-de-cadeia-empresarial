@@ -189,7 +189,7 @@ with sync_playwright() as p:
  assert run('window.aiCalls')==1
  run("state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',categorias:['Pão francês']}];window.aiSuccess({ok:false,error:'Serviço indisponível (HTTP 503)'});")
  assert 'PADARIA FICTICIA' in page.locator('#aiSearchResult').inner_text()
- assert 'IA está indisponível' in page.locator('#aiSearchStatus').inner_text()
+ assert 'HTTP 503' in page.locator('#aiSearchStatus').inner_text()
  assert 'PADARIA FICTICIA' not in run('JSON.stringify(window.aiPayload)')
  run("state.fornecedores.lista=[];")
  page.locator('#aiSearchInput').fill('fornecedor de extintores em Descalvado')
@@ -228,4 +228,37 @@ with sync_playwright() as p:
  assert 'Resposta parcial' not in page.locator('#aiSearchResult').inner_text()
  assert 'Orientação concluída.' in page.locator('#aiSearchResult').inner_text()
  print('Navegador: resposta parcial sinalizada, STOP limpo, Markdown seguro e nenhuma continuação automática.')
+ # Catálogo cadastral e fornecedores regionais aparecem antes da busca web.
+ run("state.fornecedores.lista=[];state.complementares={lista:[{empresa:'RELAÇÃO PRIVADA FICTÍCIA'}]};sharedCompanies=[{name:'PADARIA CADASTRAL FICTÍCIA',cnpj:'11222333000181',city:'Descalvado',catalogSource:'registry',cnae:'1091102 · Fabricação de produtos de padaria',sourceUrl:'https://example.com/cnpj'},{name:'REGIONAL FICTÍCIA',city:'São Carlos',offers:[{nome:'Pão francês'}]}];aiRemoteRetryAt=0")
+ page.locator('#aiSearchInput').fill('Como encontrar fornecedores de pão em Descalvado?')
+ page.locator('#aiSearchInput').press('Enter')
+ assert 'PADARIA CADASTRAL FICTÍCIA' in page.locator('#aiSearchResult').inner_text()
+ assert 'Atividade compatível' in page.locator('#aiSearchResult').inner_text()
+ assert 'entrega na região não confirmada' in page.locator('#aiSearchResult').inner_text()
+ assert run('window.aiPayload.mode')=='suppliers'
+ assert 'RELAÇÃO PRIVADA' not in run('JSON.stringify(window.aiPayload)')
+ run("window.pendingExternalSuccess=window.aiSuccess;window.google.script.run.getAvanteSupplierRegistration=function(token,cnpj){window.registrationCalls=(window.registrationCalls||0)+1;window.registrationCnpj=cnpj;window.registrationSuccess=window.aiSuccess;window.registrationFailure=window.aiFailure}")
+ page.get_by_role('button',name='Consultar CNPJ na plataforma').click()
+ assert run('window.registrationCnpj')=='11222333000181'
+ run("window.registrationSuccess({ok:true,name:'PADARIA CADASTRAL FICTÍCIA',status:'ATIVA',city:'Descalvado',source:'Fonte fictícia',checkedAt:'2026-10-18'})")
+ assert 'Situação cadastral: ATIVA' in page.locator('#aiSearchResult').inner_text()
+ assert 'Não comprova oferta, licença sanitária ou entrega' in page.locator('#aiSearchResult').inner_text()
+ # Retoma a chamada de pesquisa web pendente capturada antes da consulta cadastral.
+ run("window.externalCallCount=window.aiCalls;window.pendingExternalSuccess({ok:true,externalResults:[{title:'Catálogo externo fictício',url:'https://example.com/catalogo',evidence:['**Empresa externa fictícia**: pão no catálogo. Entrega não confirmada. <img src=x onerror=alert(1)>'],checkedAt:'2026-10-18'}]})")
+ assert 'PADARIA CADASTRAL FICTÍCIA' in page.locator('#aiSearchResult').inner_text()
+ assert 'Empresa externa fictícia' in page.locator('#aiSearchResult').inner_text()
+ assert page.locator('#aiSearchResult a[href="https://example.com/catalogo"]').count()==1
+ assert page.locator('#aiSearchResult img').count()==0
+ assert run('window.externalCallCount===window.aiCalls') is True
+ print('Navegador: candidatos cadastrais, ofertas regionais e referências web integrados sem exportar relações privadas ou inserir HTML remoto.')
+ page.clock.install()
+ page.get_by_role('button',name='Consultar CNPJ na plataforma').click()
+ page.clock.fast_forward(20001)
+ assert 'consulta excedeu 20 segundos' in page.locator('#aiSearchResult').inner_text()
+ assert page.get_by_role('button',name='Consultar CNPJ na plataforma').is_enabled()
+ run("window.registrationSuccess({ok:true,name:'resposta tardia',status:'ATIVA',city:'Cidade',source:'Fonte',checkedAt:'agora'})")
+ assert 'consulta excedeu 20 segundos' in page.locator('#aiSearchResult').inner_text()
+ page.clock.fast_forward(60001)
+ assert run('window.registrationCalls')==2
+ print('Navegador: consulta de CNPJ tem timeout, descarta retorno tardio e não repete automaticamente.')
  b.close()

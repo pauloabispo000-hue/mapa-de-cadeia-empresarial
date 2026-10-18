@@ -1412,6 +1412,7 @@ var PUBLIC_COMPANY_CATALOG = [
   ,{name:"IBG Cryo — unidade Descalvado", aliases:["IBG CRYO INDUSTRIA DE GASES LTDA","IBG Cryo"], cnpj:"74481011000177", city:"Descalvado", areas:["Matérias-primas/Reciclagens"], offer:"gases industriais, medicinais e especiais; a página oficial confirma unidade da IBG em Descalvado, sem detalhar quais gases são produzidos ou distribuídos nessa unidade", sourceUrl:"https://ce.ibg.com.br/filiais/", sourceName:"IBG — produtos e unidade Descalvado", catalogSource:"public"}
 ];
 var municipalCompanies = [];
+var publishedSupplierCompanies = [];
 var municipalDirectoryStatus={loaded:false,count:0,expectedCount:7287,partial:false};
 var learnedSharedCompanies = [];
 var sharedCompanies = PUBLIC_COMPANY_CATALOG.slice();
@@ -3225,8 +3226,9 @@ function municipalDirectoryMessage(){
   return municipalDirectoryStatus.count+" estabelecimentos disponíveis de "+municipalDirectoryStatus.expectedCount+" previstos na base de 02/10/2026. "+(municipalDirectoryStatus.partial?"Catálogo parcial: algumas empresas podem não aparecer. ":"")+"Situação cadastral e CNAE não comprovam oferta atual.";
 }
 function refreshSharedCompanies(){
-  sharedCompanies=PUBLIC_COMPANY_CATALOG.slice();
-  municipalCompanies.concat(learnedSharedCompanies).forEach(function(company){
+  function copyCompany(company){return Object.assign({},company,{aliases:(company.aliases||[]).slice(),offers:(company.offers||[]).slice(),areas:(company.areas||[]).slice()});}
+  sharedCompanies=PUBLIC_COMPANY_CATALOG.map(copyCompany);
+  municipalCompanies.concat(learnedSharedCompanies,publishedSupplierCompanies).forEach(function(company){
     if(!company||!company.name)return;
     var incomingCnpj=normalizarCNPJ(company.cnpj);
     var incomingNames=[company.name].concat(Array.isArray(company.aliases)?company.aliases:[]).map(normName).filter(Boolean);
@@ -3239,7 +3241,7 @@ function refreshSharedCompanies(){
       if(incomingCnpj&&itemCnpj)return itemCnpj===incomingCnpj;
       return incomingNames.some(function(name){return itemNames.indexOf(name)>-1;});
     })[0];
-    if(!duplicate){sharedCompanies.push(company);return;}
+    if(!duplicate){sharedCompanies.push(copyCompany(company));return;}
     // Catálogos locais podem ter o nome sem CNPJ; enriquece essa sugestão com
     // os dados do diretório municipal/base compartilhada em vez de descartá-los.
     if(!duplicate.cnpj&&company.cnpj)duplicate.cnpj=company.cnpj;
@@ -3250,7 +3252,8 @@ function refreshSharedCompanies(){
     if((!duplicate.cnaesSecundarios||!duplicate.cnaesSecundarios.length)&&(company.cnaesSecundarios||company.secondaryCnaes))duplicate.cnaesSecundarios=company.cnaesSecundarios||company.secondaryCnaes;
     if(!duplicate.cnpjDados&&company.cnpjDados)duplicate.cnpjDados=company.cnpjDados;
     if(!duplicate.offer&&company.offer)duplicate.offer=company.offer;
-    if((!duplicate.offers||!duplicate.offers.length)&&company.offers)duplicate.offers=company.offers;
+    if(company.profilePublished){duplicate.profilePublished=true;duplicate.updatedAt=company.updatedAt||"";}
+    if(company.offers){duplicate.offers=(duplicate.offers||[]).concat(company.offers).filter(Boolean).filter(function(offer,index,list){var name=typeof offer==="string"?offer:offer.nome||offer.name;return list.findIndex(function(item){return (typeof item==="string"?item:item.nome||item.name)===name;})===index;});}
     duplicate.aliases=Array.isArray(duplicate.aliases)?duplicate.aliases:[];
     [company.name].concat(Array.isArray(company.aliases)?company.aliases:[]).forEach(function(alias){
       if(alias&&normName(alias)!==normName(duplicate.name)&&!duplicate.aliases.some(function(saved){return normName(saved)===normName(alias);}))duplicate.aliases.push(alias);
@@ -3280,6 +3283,7 @@ function loadSharedOptions(){
     if(!response||!response.ok||!response.options){done();return;}
     sharedOptionsStatus="ready";
     learnedSharedCompanies=Array.isArray(response.companies)?response.companies:[];
+    publishedSupplierCompanies=Array.isArray(response.publicProfiles)?response.publicProfiles:[];
     refreshSharedCompanies();
     sharedNetwork=response.network||null;
     sharedWorkforce=response.workforce||sharedWorkforce;
@@ -4422,43 +4426,85 @@ function finishAiSearchDialog(){
 }
 function closeAiSearchDialog(){document.getElementById("aiSearchDialog").close();finishAiSearchDialog();}
 function findKnownSupplierMatches(query){
-  var stop=["encontre","encontrar","busco","buscar","procuro","quero","preciso","fornecedor","fornecedores","empresa","empresas","produto","produtos","servico","servicos","onde","quem","vende","vender","comprar","compra","para","com","uma","uns","das","dos","de","do","da","em","e","o","a"];
-  function searchable(value){return normalizeSearch(value).replace(/\bpaes\b/g,"pao");}
-  var words=searchable(query).split(/[^a-z0-9]+/).filter(function(word){return word.length>1&&stop.indexOf(word)<0;});
-  if(!words.length)return [];
+  return findSupplierCandidates(query).filter(function(company){return company.evidenceType!=="registry"&&company.region!=="outside";}).slice(0,20);
+}
+function findSupplierCandidates(query){
+  var stop="como encontre encontrar busco buscar procuro quero preciso fornecedor fornecedores empresa empresas produto produtos servico servicos onde quem vende vender comprar compra para com uma uns das dos de do da em e o a que algum alguma me um por atacado atacadista fornecedores perto encontrar".split(" ");
+  function norm(value){return normalizeSearch(value).replace(/\bpaes\b/g,"pao").replace(/\broupas\b/g,"roupa");}
+  function city(value){return norm(value).replace(/\s*[-–,/]\s*[a-z]{2}\s*$/,"").trim();}
   var candidates=[];
   (state.fornecedores.lista||[]).forEach(function(supplier){
-    if(!supplier.empresa)return;
-    var identity=parseCompanyLabel(supplier.empresa);
-    candidates.push({name:identity.name,cnpj:supplier.cnpj||identity.cnpj,city:supplier.cidade||"",citedCity:supplier.cidadeCitada||identity.citedCity,offers:(supplier.categorias||[]).slice(),source:"Compras informadas por você nesta pesquisa"});
+    if(!supplier.empresa)return;var identity=parseCompanyLabel(supplier.empresa);
+    candidates.push({name:identity.name,cnpj:supplier.cnpj||identity.cnpj,city:supplier.cidade||"",citedCity:supplier.cidadeCitada||identity.citedCity,offers:(supplier.categorias||[]).slice(),evidenceType:"purchase",source:"Compras informadas por você nesta pesquisa"});
   });
   sharedCompanies.forEach(function(company){
-    var offers=(company.offers||[]).map(function(offer){return offer.nome||offer.name||"";}).filter(Boolean);
+    var offers=(company.offers||[]).map(function(offer){return typeof offer==="string"?offer:offer&&(offer.nome||offer.name)||"";}).filter(Boolean);
     if(company.catalogSource==="public"&&company.offer)offers.push(company.offer);
     var identity=parseCompanyLabel(company.name);
-    if(offers.length)candidates.push({name:identity.name,cnpj:company.cnpj||identity.cnpj,city:company.city||"",citedCity:company.citedCity||identity.citedCity,offers:offers,source:company.catalogSource==="public"?"Catálogo público da plataforma":"Ofertas cadastradas na plataforma"});
+    candidates.push({name:identity.name,cnpj:company.cnpj||identity.cnpj,city:company.city||"",citedCity:company.citedCity||identity.citedCity,offers:offers,evidenceType:offers.length?"offer":"registry",activity:[company.cnae,company.offer].concat(company.aliases||[],company.secondaryCnaes||company.cnaesSecundarios||[]).join(" "),serviceCities:company.serviceCities||[],source:company.profilePublished?"Perfil público autodeclarado":company.catalogSource==="public"?"Catálogo público da plataforma":"Diretório cadastral / ofertas compartilhadas autorizadas",sourceUrl:company.sourceUrl||"",profilePublished:company.profilePublished===true,updatedAt:company.updatedAt||"",registryStatus:company.status||""});
   });
-  function cityName(value){return normalizeSearch(value).replace(/\s*[-–,/]\s*[a-z]{2}\s*$/,"").trim();}
-  var cities=candidates.map(function(company){return cityName(company.city||company.citedCity);}).concat(["descalvado"]).filter(function(city){return city.length>2&&searchable(query).indexOf(city)>-1;});
-  words=words.filter(function(word){return !cities.some(function(city){return city.split(/\s+/).indexOf(word)>-1;});});
+  var text=norm(query),cities=candidates.map(function(company){return city(company.city||company.citedCity);}).concat(["descalvado"]).filter(function(value){return value.length>2&&text.indexOf(value)>-1;});
+  var location=text.match(/\b(?:em|para|atende(?:r)?(?:\s+em)?)\s+([a-z][a-z\s-]+)\s*[?.!]?$/);
+  if(location&&!cities.length){var locationCity=city(location[1]);if(locationCity&&cities.indexOf(locationCity)<0)cities.push(locationCity);}
+  var words=text.split(/[^a-z0-9]+/).filter(function(word){return word.length>1&&stop.indexOf(word)<0&&!cities.some(function(value){return value.split(/\s+/).indexOf(word)>-1;});});
   if(!words.length)return [];
+  function match(value){var search=norm(value);return words.every(function(word){return search.indexOf(word)>-1;});}
+  function compatible(company){
+    var activity=norm(company.name+" "+company.activity);
+    if(match(activity))return true;
+    // Correspondência de atividade gera apenas candidato, nunca oferta confirmada.
+    var groups=[{terms:["pao","panificacao","padaria"],pattern:/panifica|padaria|\b(?:1091101|1091102|4721102)\b/},{terms:["vestuario","roupa","uniforme"],pattern:/confecc|vestuario|roupa|uniforme/}];
+    return groups.some(function(group){return words.some(function(word){return group.terms.indexOf(word)>-1;})&&group.pattern.test(activity)&&words.every(function(word){return group.terms.indexOf(word)>-1||["frances","corporativo","congelado","hamburguer"].indexOf(word)>-1;});});
+  }
+  var matched=candidates.filter(function(company){
+    if(company.registryStatus&&/baixad|inapt|suspens|nula/i.test(company.registryStatus))return false;
+    var offerMatch=company.offers.some(match),nameMatch=match(company.name+" "+company.cnpj);
+    if(!offerMatch){if(!nameMatch&&!compatible(company))return false;company.evidenceType="registry";company.offers=[];}
+    company.matchedOffers=company.offers.filter(match);
+    var current=city(company.city||company.citedCity),delivery=(company.serviceCities||[]).some(function(value){return cities.indexOf(city(value))>-1;});
+    company.region=!cities.length?"unspecified":delivery?"delivery":!current?"unknown":cities.indexOf(current)>-1?"local":"outside";
+    company.score=(company.evidenceType==="offer"?100:company.evidenceType==="purchase"?70:20)+(company.region==="delivery"?35:company.region==="local"?25:0)+(offerMatch?15:0);
+    return true;
+  }).sort(function(a,b){return b.score-a.score||a.name.localeCompare(b.name);});
   var seen=Object.create(null);
-  return candidates.filter(function(company){
-    if(cities.length&&cityName(company.city||company.citedCity)&&cities.indexOf(cityName(company.city||company.citedCity))<0)return false;
-    var key=normalizarCNPJ(company.cnpj)||normalizeSearch(company.name);
-    var text=searchable(company.name+" "+company.offers.join(" "));
-    var matches=words.some(function(word){return text.indexOf(word)>-1;});
-    if(!matches||seen[key])return false;seen[key]=true;return true;
-  }).slice(0,20);
+  return matched.filter(function(company){var key=normalizarCNPJ(company.cnpj)||norm(company.name);if(seen[key])return false;seen[key]=true;return true;}).slice(0,30);
+}
+function supplierSafeUrl(value){try{var url=new URL(String(value||""));return url.protocol==="https:"||url.protocol==="http:"?url.href:"";}catch(ignored){return "";}}
+function supplierRegistrationControl(cnpj){
+  var wrap=h("div",{}),status=h("p",{class:"company-profile-meta",role:"status"}),button=h("button",{type:"button",class:"platform-action secondary"},["Consultar CNPJ na plataforma"]);
+  button.addEventListener("click",function(){
+    if(!authSession||!authSession.token||!isAppsScriptApp()){status.textContent="Entre na versão oficial para consultar.";return;}
+    var token=authSession.token,done=false,timer;
+    function finish(text){if(done)return;done=true;clearTimeout(timer);button.disabled=false;if(status.isConnected&&authSession&&authSession.token===token)status.textContent=text;}
+    button.disabled=true;status.textContent="Consultando situação cadastral, sem alterar a empresa…";
+    timer=setTimeout(function(){finish("A consulta excedeu 20 segundos. A situação atual não foi confirmada; nenhuma repetição automática será feita.");},20000);
+    try{google.script.run.withSuccessHandler(function(info){finish(info&&info.ok?"Situação cadastral: "+info.status+". "+info.name+" · "+info.city+". Fonte: "+info.source+". Consulta: "+info.checkedAt+". Não comprova oferta, licença sanitária ou entrega.":info&&info.error||"Consulta cadastral não concluída.");}).withFailureHandler(function(){finish("Falha de comunicação na consulta cadastral. A situação não foi confirmada.");}).getAvanteSupplierRegistration(token,cnpj);}catch(ignored){finish("Não foi possível iniciar a consulta cadastral.");}
+  });wrap.appendChild(button);wrap.appendChild(status);return wrap;
 }
 function renderKnownSupplierMatches(matches,result){
   result.hidden=false;result.innerHTML="";
-  result.appendChild(h("h3",{},["Fornecedores encontrados na plataforma"]));
-  matches.forEach(function(company){result.appendChild(h("div",{class:"platform-card"},[
-    h("strong",{},[company.name]),h("p",{},[company.offers.join(" · ")]),h("p",{class:"company-profile-meta"},[[company.city?"Localização informada no cadastro: "+company.city:company.citedCity?"Localização citada no nome/seleção: "+company.citedCity+". Sem localização estruturada; confirme atendimento.":"Localização não informada: confirme atendimento na cidade procurada",company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source].filter(Boolean).join(" · ")])
-  ]));});
-  result.appendChild(h("p",{class:"company-profile-meta"},["Confirme a disponibilidade diretamente com a empresa. As compras informadas não comprovam oferta atual."]));
-  if(municipalDirectoryStatus.partial)result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
+  result.appendChild(h("h3",{},["Fornecedores e candidatos encontrados"]));
+  matches.forEach(function(company){
+    var offer=company.evidenceType!=="registry",card=h("div",{class:"platform-card"});
+    card.appendChild(h("strong",{},[company.name]));
+    card.appendChild(h("p",{},[offer?(company.matchedOffers&&company.matchedOffers.length?company.matchedOffers:company.offers).join(" · "):"Atividade compatível — produto, atacado e disponibilidade ainda não confirmados"]));
+    var place=company.city?"Localização informada no cadastro: "+company.city:company.citedCity?"Localização citada no nome/seleção: "+company.citedCity+". Sem localização estruturada; confirme atendimento.":"Localização não informada: confirme atendimento na cidade procurada";
+    var delivery=company.region==="delivery"?"Atendimento à cidade declarado; confirme condições":company.region==="outside"?"Empresa de outra cidade; entrega na região não confirmada":"Sede/localização não comprova entrega ou venda no atacado";
+    card.appendChild(h("p",{class:"company-profile-meta"},[[place,delivery,company.cnpj?"CNPJ "+formatarCNPJ(company.cnpj):"",company.source,company.updatedAt?"Atualização: "+company.updatedAt:""].filter(Boolean).join(" · ")]));
+    var source=supplierSafeUrl(company.sourceUrl);
+    if(source)card.appendChild(h("a",{href:source,target:"_blank",rel:"noopener noreferrer"},["Abrir fonte pública"]));
+    if(company.profilePublished&&APPS_SCRIPT_URL){var profile=APPS_SCRIPT_URL+(APPS_SCRIPT_URL.indexOf("?")>-1?"&":"?")+"perfil="+encodeURIComponent(company.cnpj);card.appendChild(h("p",{},[h("a",{href:profile,target:"_blank",rel:"noopener noreferrer"},["Abrir perfil e produtos"])]));}
+    if(company.cnpj)card.appendChild(supplierRegistrationControl(company.cnpj));
+    if(company.cnpj)card.appendChild(h("p",{},[h("a",{href:"https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp",target:"_blank",rel:"noopener noreferrer"},["Conferir situação cadastral na Receita Federal"])]));
+    result.appendChild(card);
+  });
+  result.appendChild(h("p",{class:"company-profile-meta"},["Ofertas são autodeclaradas ou referenciadas na fonte; compras informadas não comprovam oferta atual. CNPJ ativo não comprova licença sanitária, estoque, preço ou entrega. Relações privadas não são enviadas à busca externa."]));
+  result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));
+}
+function renderExternalSupplierEvidence(items,result){
+  result.hidden=false;result.appendChild(h("h3",{},["Referências externas encontradas para sua busca — Google"]));
+  result.appendChild(h("p",{class:"company-profile-meta"},["Trechos associados a fontes pela pesquisa externa. Podem conter empresas não cadastradas. A referência não certifica oferta atual, entrega ou licenças; condições ausentes continuam não confirmadas."]));
+  items.forEach(function(item){var url=supplierSafeUrl(item.url);if(!url)return;var card=h("div",{class:"platform-card"});card.appendChild(h("h4",{},[h("a",{href:url,target:"_blank",rel:"noopener noreferrer"},[item.title||"Abrir referência"])]));(item.evidence||[]).forEach(function(text){card.appendChild(renderSafeAiMarkdown(text));});card.appendChild(h("p",{class:"company-profile-meta"},["Fonte externa consultada em "+item.checkedAt]));result.appendChild(card);});
 }
 function renderSafeAiMarkdown(value){
   var root=h("div",{class:"ai-assistant-result"}),list=null;
@@ -4491,19 +4537,19 @@ function submitAiSearch(query,input,status,result){
     status.textContent="Entre pela versão oficial da plataforma para pesquisar com IA.";status.hidden=false;return;
   }
   var requestId=(input.avanteSearchId||0)+1;input.avanteSearchId=requestId;
-  var matches=findKnownSupplierMatches(query);
-  if(matches.length){input.disabled=false;status.textContent="";status.hidden=true;renderKnownSupplierMatches(matches,result);return;}
+  var matches=findSupplierCandidates(query);
+  if(matches.some(function(company){return company.evidenceType!=="registry"&&company.region!=="outside";})){input.disabled=false;status.textContent="";status.hidden=true;renderKnownSupplierMatches(matches,result);return;}
   if(Date.now()<aiRemoteRetryAt){
     input.disabled=false;status.textContent="A pesquisa remota está em pausa. Aguarde "+Math.ceil((aiRemoteRetryAt-Date.now())/1000)+" segundos antes de tentar novamente. A busca local continua disponível.";status.hidden=false;
-    result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela para esta pesquisa."]));return;
+    if(matches.length)renderKnownSupplierMatches(matches,result);else{result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela para esta pesquisa."]));}return;
   }
-  input.disabled=true;status.textContent="Pesquisando…";status.hidden=false;result.hidden=true;result.innerHTML="";
-  var finished=false,timer=setTimeout(function(){aiRemoteRetryAt=Date.now()+30000;fail("A pesquisa com IA excedeu o tempo de resposta na tela. A chamada no servidor pode ainda estar em andamento; aguarde antes de tentar novamente.");},30000);
+  input.disabled=true;status.textContent="Pesquisando…";status.hidden=false;result.hidden=true;result.innerHTML="";if(matches.length)renderKnownSupplierMatches(matches,result);
+  var finished=false,timer=setTimeout(function(){if(finished||input.avanteSearchId!==requestId)return;aiRemoteRetryAt=Date.now()+30000;fail("A pesquisa com IA excedeu o tempo de resposta na tela. A chamada no servidor pode ainda estar em andamento; aguarde antes de tentar novamente.");},30000);
   function fail(message){
     if(finished||input.avanteSearchId!==requestId)return;finished=true;clearTimeout(timer);input.disabled=false;
-    var local=findKnownSupplierMatches(query);
-    if(local.length){renderKnownSupplierMatches(local,result);status.textContent="A IA está indisponível. Exibindo fornecedores e ofertas informados na plataforma.";}
-    else{result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela. Isso não significa que não existam fornecedores na região."]));status.textContent=message;}
+    var local=findSupplierCandidates(query);
+    if(local.length){renderKnownSupplierMatches(local,result);status.textContent=message+" Exibindo fornecedores, ofertas e candidatos disponíveis no catálogo.";}
+    else{result.hidden=false;result.innerHTML="";result.appendChild(h("p",{},["Nenhuma oferta correspondente foi encontrada nos dados disponíveis nesta tela. Isso não significa que não existam fornecedores na região."]));status.textContent=message;result.appendChild(h("p",{class:"company-profile-meta"},[municipalDirectoryMessage()]));}
     status.hidden=false;input.focus();
   }
   try{
@@ -4512,6 +4558,12 @@ function submitAiSearch(query,input,status,result){
     if(!response||!response.ok){if(response&&response.httpStatus===503)aiRemoteRetryAt=Date.now()+Math.min(120,Math.max(30,Number(response.retryAfterSeconds)||30))*1000;fail(response&&response.error||"Não foi possível concluir a pesquisa com IA.");return;}
     finished=true;clearTimeout(timer);input.disabled=false;
     status.textContent="";status.hidden=true;result.hidden=false;
+    var available=findSupplierCandidates(query);if(available.length)renderKnownSupplierMatches(available,result);
+    if(response.externalResults&&response.externalResults.length){
+      if(response.partial)result.appendChild(h("p",{class:"company-profile-meta",role:"status"},[response.warning||"Pesquisa externa parcialmente concluída."]));
+      if(!available.length)result.appendChild(h("p",{class:"company-profile-meta"},["Sem correspondência no catálogo disponível. "+municipalDirectoryMessage()]));
+      renderExternalSupplierEvidence(response.externalResults,result);input.focus();return;
+    }
     result.appendChild(h("p",{class:"company-profile-meta"},["Nenhuma correspondência foi encontrada entre os fornecedores e ofertas disponíveis nesta tela. A orientação abaixo é geral e não confirma fornecedores locais."]));
     if(response.partial)result.appendChild(h("p",{class:"company-profile-meta",role:"status"},[response.warning||"Resposta possivelmente incompleta. Tente uma pergunta mais específica; nenhuma continuação foi solicitada."]));
     result.appendChild(renderSafeAiMarkdown(response.answer||""));
@@ -4526,7 +4578,7 @@ function submitAiSearch(query,input,status,result){
     input.focus();
   }).withFailureHandler(function(){
     aiRemoteRetryAt=Date.now()+15000;fail("Falha na comunicação com a pesquisa de IA. Aguarde antes de tentar novamente.");
-  }).runAvanteAiAssistant(authSession.token,{mode:"research",question:query});
+  }).runAvanteAiAssistant(authSession.token,{mode:"suppliers",question:query});
   }catch(error){fail("Não foi possível iniciar a pesquisa com IA.");}
 }
 

@@ -20,7 +20,7 @@ with sync_playwright() as p:
  run("document.body.classList.add('authenticated');state=freshState();state.fornecedores.lista=[{empresa:'ESTILOS FICTÍCIOS — CNPJ 11.222.333/0001-81 · DESCALVADO - SP',categorias:['Vestuário corporativo']}];sharedCompanies=[];window.root=document.getElementById('platformContent');root.innerHTML='';root.style.display='block';window.opener=document.createElement('button');opener.id='pdcaOpen';opener.textContent='Abrir pesquisa';opener.onclick=openAiSearchDialog;root.append(opener);opener.focus();openAiSearchDialog();renderKnownSupplierMatches(findKnownSupplierMatches('vestuário corporativo em Descalvado'),document.getElementById('aiSearchResult'));")
  page.wait_for_function("document.activeElement.id==='aiSearchInput'")
  assert page.locator('#aiSearchResult .platform-card strong').inner_text()=='ESTILOS FICTÍCIOS'
- note=page.locator('#aiSearchResult .platform-card .company-profile-meta')
+ note=page.locator('#aiSearchResult .platform-card > .company-profile-meta')
  assert 'Localização citada no nome/seleção: DESCALVADO - SP' in note.inner_text()
  assert 'Sem localização estruturada' in note.inner_text()
  assert 'Localização não informada' not in note.inner_text()
