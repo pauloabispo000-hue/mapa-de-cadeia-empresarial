@@ -537,3 +537,32 @@ as descrições conceituais das escalas e o aviso sobre capacidade teórica de 1
 soluções. Os contadores exibem dados observados, sem a meta teórica. Mantidos
 rótulos, ações, mensagens de erro/resultado, consentimentos, fontes e identificação
 de pendências; não há mudança nos dados, regras de oferta ou permissões.
+
+## Página visual de empresas
+
+O Início exibe um diretório em cartões com menu lateral, busca por nome/CNPJ,
+produto e localização, filtros de perfis publicados/informativos e das relações
+privadas da própria conta, contagem total e paginação de 24 registros. O esquema
+anterior permanece em Fornecedores e setores. A busca e os filtros sobrevivem à
+atualização do catálogo, preservando o foco da busca quando ela está ativa.
+
+Cartões usam somente avatar já publicado; sem imagem autorizada, exibem iniciais.
+Não buscam fotos/logos de Facebook nem geram imagens de empresas. Perfis publicados
+são deduplicados por CNPJ e prevalecem sobre dados cadastrais; informativos mantêm
+namespace próprio e CNPJ pendente. Não há indicação de clientes em comum ou relação
+confirmada por semelhança. Categorias/CNAE sem oferta continuam atividades, com
+produto/disponibilidade pendentes. Clientes revendedores vêm da consulta autenticada
+existente; o filtro não consulta relações privadas de outras contas.
+
+Ver empresa abre diálogo acessível com Fechar/Escape/retorno ao acionador. A rota
+HTML de perfil publicado transporta o CNPJ validado ao iframe, assim como a rota
+informativa já fazia com seu ID. O plano usa o mecanismo existente para uma empresa
+ou todos os resultados filtrados, incluindo os fora da primeira página, sem envio
+ou opt-in automático. Endereço textual de informativo não é convertido em município
+ou coordenada para priorização. Nenhuma API nova de escrita é introduzida.
+
+Testes: npm run check, npm test e seis suítes de navegador com rede bloqueada.
+company-directory.browser.py cobre busca, filtros privados, deduplicação, paginação,
+perfis, teclado/foco, plano completo e três larguras nos dois temas. As outras
+suítes mantêm acesso, pesquisa, fontes, formulários, consentimento e comunicação.
+Não houve validação online nem gravação de cadastros ou mensagens reais neste ciclo.

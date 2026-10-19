@@ -800,6 +800,8 @@ function doGet(e) {
   if (String(params.app || "") === "1") {
     var app=HtmlService.createHtmlOutputFromFile("Index");
     if(/^[a-z0-9-]{1,100}$/.test(String(params.informativo||"")))app.setContent(app.getContent().replace("<body",'<body data-informative-profile="'+params.informativo+'"'));
+    var publicCnpj=normalizeCnpj_(params.perfil||params.profile||"");
+    if(validCnpj_(publicCnpj))app.setContent(app.getContent().replace("<body",'<body data-public-profile="'+publicCnpj+'"'));
     return app
       .setTitle("Avante — conexões para o seu negócio")
       .setFaviconUrl("https://raw.githubusercontent.com/pauloabispo000-hue/mapa-de-cadeia-empresarial/main/favicon.png")
@@ -2019,7 +2021,7 @@ function readPublishedSupplierProfiles_(){
   return sheet.getRange(2,1,sheet.getLastRow()-1,12).getValues().filter(function(row){return String(row[10]||"").indexOf("APROVADO")===0&&validCnpj_(normalizeCnpj_(row[0]));}).map(function(row){
     var offers=parseJsonArray_(row[5]).map(function(item){return typeof item==="string"?item:String(item&&item.name||item&&item.nome||"");});
     parseJsonArray_(row[11]).forEach(function(item){if(item&&item.name)offers.push(String(item.name));});
-    return {name:String(row[1]||""),cnpj:normalizeCnpj_(row[0]),city:String(row[3]||""),offers:offers.filter(Boolean).map(function(name){return {nome:name};}),catalogSource:"profile",profilePublished:true,updatedAt:row[9] instanceof Date?row[9].toISOString():""};
+    return {name:String(row[1]||""),cnpj:normalizeCnpj_(row[0]),city:String(row[3]||""),offers:offers.filter(Boolean).map(function(name){return {nome:name};}),catalogSource:"profile",profilePublished:true,avatarUrl:String(row[8]||""),updatedAt:row[9] instanceof Date?row[9].toISOString():""};
   });
 }
 

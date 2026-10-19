@@ -19,4 +19,6 @@ test('rota pública informativa não altera nem consulta perfis reivindicados; I
  const id='facebook-flordotrigopadariaeconfeitaria',response=JSON.parse(ctx.doGet({parameter:{informativo:id}}).text);assert.equal(response.informativeProfile.id,id);
  let content='<html><head></head><body>teste</body></html>';const output={getContent:()=>content,setContent(value){content=value;return this;},setTitle(){return this;},setFaviconUrl(){return this;},addMetaTag(){return this;}};ctx.HtmlService={createHtmlOutputFromFile:()=>output};ctx.doGet({parameter:{app:'1',informativo:id}});assert.match(content,/body data-informative-profile="facebook-flordotrigopadariaeconfeitaria"/);
  content='<body>teste</body>';ctx.doGet({parameter:{app:'1',informativo:'"><script>alert(1)</script>'}});assert.equal(content,'<body>teste</body>');
+ content='<body>teste</body>';ctx.doGet({parameter:{app:'1',perfil:'11.222.333/0001-81'}});assert.match(content,/body data-public-profile="11222333000181"/);
+ content='<body>teste</body>';ctx.doGet({parameter:{app:'1',perfil:'00000000000000'}});assert.equal(content,'<body>teste</body>');
 });
