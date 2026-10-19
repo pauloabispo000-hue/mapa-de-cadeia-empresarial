@@ -8,7 +8,7 @@ const client = html.slice(html.indexOf('function surveySendError('), html.indexO
 const draft = () => ({ answers: { produtos: 'Serviço fictício' }, business: { nome: 'EMPRESA FICTICIA' }, publicProfile: { consent: false } });
 
 function fixture({ official = true, token = 'test-session' } = {}) {
-  const calls = [], saved = [], timers = new Map();
+  const calls = [], saved = [], routes = [], timers = new Map();
   let success, failure, timerId = 0;
   const run = {
     withSuccessHandler(fn) { success = fn; return this; },
@@ -21,10 +21,10 @@ function fixture({ official = true, token = 'test-session' } = {}) {
     isAppsScriptApp: () => official, google: { script: { run } },
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
     buildExportObject: () => JSON.parse(JSON.stringify({ meta:state.meta, answers: state.answers, business: state.business, publicProfile: state.publicProfile })),
-    saveState: () => saved.push(JSON.stringify(state)), renderCurrentStep() {}
+    saveState: () => saved.push(JSON.stringify(state)), renderCurrentStep() {}, showProgramSection(section){routes.push(section);}
   });
   vm.runInContext(client, ctx);
-  return { ctx, state, calls, saved, success: data => success(data), failure: () => failure({ message: 'simulated transport failure' }), timeout: () => [...timers.values()][0]() };
+  return { ctx, state, calls, saved, routes, success: data => success(data), failure: () => failure({ message: 'simulated transport failure' }), timeout: () => [...timers.values()][0]() };
 }
 const receipt = overrides => ({ ok: true, responseId: 'test-response', responsesSaved: true, profilePublished: false, ...overrides });
 
@@ -35,11 +35,13 @@ test('só confirma sucesso depois da resposta autenticada do servidor', async ()
   assert.equal(f.calls[0].auth, 'test-session');
   assert.equal('authToken' in f.calls[0].payload, false);
   assert.equal(f.state.meta.submittedAt, null);
+  assert.deepEqual(f.routes,[]);
   assert.equal(JSON.parse(f.saved[0]).meta.sendStatus, 'sending');
   f.success(receipt()); await pending;
   assert.equal(f.state.meta.sendStatus, 'ok');
   assert.equal(f.state.meta.sendFailureObserved,false);
   assert.equal(f.state.meta.responsesSaved, true);
+  assert.deepEqual(f.routes,['my-business']);
   assert(f.state.meta.submittedAt);
   assert.equal(f.ctx.surveySubmissionSummary(f.state.meta).profile, 'O perfil não foi publicado neste envio.');
   assert.equal(JSON.stringify(f.state.answers), original);

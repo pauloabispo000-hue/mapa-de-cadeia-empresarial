@@ -1635,6 +1635,7 @@ function enterAvanteSession(session){
   }
   STORAGE_KEY=accountStorageKey;
   state=loadState()||freshState();
+  businessCompletionLookup="idle";
   discoveredResaleCustomers=[];
   document.body.classList.add("authenticated");
   document.getElementById("platformAccountLabel").textContent="Avante · "+session.username;
@@ -1643,7 +1644,7 @@ function enterAvanteSession(session){
   refreshUserMatchNotifications();
   loadAvantePersonProfile();
   try{saveState();}catch(renderError){console.error("Não foi possível atualizar o mapa inicial.",renderError);}
-  try{showProgramSection("overview");}
+  try{showProgramSection(isBusinessRegistered()?"my-business":"overview");loadCompletedAvanteBusiness();}
   catch(renderError){
     console.error("Falha ao montar o painel Avante.",renderError);
     var root=document.getElementById("platformContent");
@@ -1656,7 +1657,7 @@ function enterAvanteSession(session){
 }
 function toggleAvanteSimulation(button,status){
   if(state.meta.simulation===true){
-    saveState();STORAGE_KEY="avante_workspace_"+encodeURIComponent(authSession.username);state=loadState()||freshState();showProgramSection("settings");return;
+    saveState();STORAGE_KEY="avante_workspace_"+encodeURIComponent(authSession.username);state=loadState()||freshState();businessCompletionLookup="idle";showProgramSection("settings");loadCompletedAvanteBusiness();return;
   }
   if(!authSession||!authSession.token||!isAppsScriptApp()){status.textContent="Entre na versão oficial com a conta administrativa.";return;}
   button.disabled=true;status.textContent="Preparando simulação…";
@@ -3276,11 +3277,11 @@ function submitSurveyDraft(){
   if(!state.meta.submissionId)state.meta.submissionId=uid();state.meta.sendStatus="sending";state.meta.sendFailureObserved=false;state.meta.sendError="";saveState();renderCurrentStep();
   var payload=buildExportObject();
   return sendToSheet(payload).then(function(result){
-    applySurveySubmissionResult(state.meta,result);saveState();renderCurrentStep();
+    applySurveySubmissionResult(state.meta,result);saveState();
   }).catch(function(error){
     state.meta.sendFailureObserved=true;state.meta.sendStatus=error.outcomeUnknown?"unknown":"error";state.meta.sendError=error.message;
-    saveState();renderCurrentStep();
-  });
+    saveState();
+  }).then(function(){if(state.meta.responsesSaved===true)showProgramSection("my-business");else renderCurrentStep();});
 }
 
 function renderSurveySendIssue(){
@@ -3637,16 +3638,17 @@ function renderRevisao(container){
 function showProgramSection(section){
   if(section==="assistant"){openAiSearchDialog();return;}
   if(section==="products"&&activeProgramSection!=="products")profileCatalogEditMode=false;
-  if(section==="survey"&&isBusinessRegistered()) section="business-settings";
+  if(section==="survey"&&isBusinessRegistered()) section="my-business";
+  else if(section==="survey"&&state.meta.simulation!==true&&(businessCompletionLookup==="loading"||businessCompletionLookup==="error"))section="business-status";
   activeProgramSection=section||"overview";
   if(activeProgramSection==="survey") surveyMode="research";
   var wizard=document.getElementById("surveyWizard"), content=document.getElementById("platformContent");
   var editingWizard=activeProgramSection==="survey";
   wizard.style.display=editingWizard?"flex":"none";
   content.style.display=editingWizard?"none":"block";
-  document.querySelectorAll("[data-program-section]").forEach(function(button){var buttonSection=button.getAttribute("data-program-section");var active=buttonSection===activeProgramSection||(buttonSection==="survey"&&activeProgramSection==="business-settings");button.classList.toggle("active",active);if(active)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current");});
+  document.querySelectorAll("[data-program-section]").forEach(function(button){var buttonSection=button.getAttribute("data-program-section");var active=buttonSection===activeProgramSection||(buttonSection==="survey"&&(activeProgramSection==="business-settings"||activeProgramSection==="my-business"));button.classList.toggle("active",active);if(active)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current");});
   var surveyNav=document.querySelector('[data-program-section="survey"]');
-  if(surveyNav){var surveyLabel=isBusinessRegistered()?"Atualizar conexões":"Cadastrar negócio";surveyNav.setAttribute("aria-label",surveyLabel);surveyNav.title=surveyLabel;}
+  if(surveyNav){var surveyLabel=isBusinessRegistered()?"Meu perfil":"Cadastrar negócio";surveyNav.setAttribute("aria-label",surveyLabel);surveyNav.title=surveyLabel;}
   document.getElementById("businessSettingsHome").hidden=true;
   if(editingWizard){
     currentStepIndex=0;
@@ -3657,7 +3659,38 @@ function showProgramSection(section){
 }
 
 function isBusinessRegistered(){
-  return !!(state.meta&&state.meta.submittedAt);
+  return !!(state.meta&&state.meta.responseId&&(state.meta.responsesSaved===true||state.meta.submittedAt));
+}
+
+var businessCompletionLookup="idle";
+function loadCompletedAvanteBusiness(){
+  if(!authSession||!isAppsScriptApp()||isBusinessRegistered()||state.meta.simulation)return;
+  businessCompletionLookup="loading";
+  var session=authSession,workspace=STORAGE_KEY,finished=false,timer=setTimeout(function(){finish(null);},20000);
+  function finish(result){
+    if(finished)return;finished=true;clearTimeout(timer);
+    if(authSession!==session||STORAGE_KEY!==workspace||state.meta.simulation||isBusinessRegistered())return;
+    if(!result||!result.ok){businessCompletionLookup="error";if(activeProgramSection==="business-status")renderProgramSection();return;}
+    if(result.completed===false){businessCompletionLookup="ready";if(activeProgramSection==="business-status")showProgramSection("survey");return;}
+    if(result.completed!==true||typeof result.responseId!=="string"||!result.responseId.trim()){businessCompletionLookup="error";if(activeProgramSection==="business-status")renderProgramSection();return;}
+    businessCompletionLookup="ready";
+    // Preenche somente campos vazios; respostas e consentimentos do rascunho permanecem.
+    var business=result.business||{};Object.keys(business).forEach(function(key){var value=state.business[key];if(value===undefined||value===null||value===""||Array.isArray(value)&&!value.length)state.business[key]=business[key];});
+    [["negocioNome","nome"],["cnpj","cnpj"],["cidade","cidade"]].forEach(function(pair){if(!state.answers[pair[0]])state.answers[pair[0]]=business[pair[1]]||"";});
+    state.meta.responseId=result.responseId;state.meta.responsesSaved=true;state.meta.submittedAt=result.submittedAt||null;state.meta.profilePublicationUnknown=state.meta.profilePublished!==true;state.meta.sendFailureObserved=false;state.meta.sendStatus="ok";state.meta.sendError="";saveState();
+    if(activeProgramSection==="overview"||activeProgramSection==="survey"||activeProgramSection==="business-status")showProgramSection("my-business");
+  }
+  try{google.script.run.withSuccessHandler(finish).withFailureHandler(function(){finish(null);}).getAvanteSurveyCompletion(session.token);}catch(ignored){finish(null);}
+}
+function renderBusinessCompletionStatus(root){
+  var page=h("section",{class:"platform-page"}),pending=businessCompletionLookup==="loading";page.appendChild(h("h1",{},["Cadastro do negócio"]));page.appendChild(h("p",{role:"status"},[pending?"Verificando se sua conta já concluiu a pesquisa…":"Não foi possível verificar seu cadastro. Seu rascunho foi preservado."]));if(!pending)page.appendChild(h("button",{type:"button",class:"platform-action",onclick:function(){loadCompletedAvanteBusiness();renderProgramSection();}},["Tentar novamente"]));root.appendChild(page);
+}
+function renderMyBusinessPage(root){
+  var page=h("section",{class:"platform-page my-business-page","aria-label":"Meu perfil empresarial"}),profile=renderCompanyProfileHeader();page.appendChild(profile.profile);page.appendChild(profile.about);
+  var status=state.meta.simulation?"SIMULAÇÃO — nenhum cadastro real foi alterado.":surveySubmissionSummary(state.meta).profile;
+  page.appendChild(h("p",{class:"company-profile-meta",role:"status"},[status]));
+  if(state.meta.sendError)page.appendChild(h("p",{class:"error-msg show",role:"alert"},["Respostas salvas. "+state.meta.sendError+" Não reenvie a pesquisa."]));
+  page.appendChild(h("button",{type:"button",class:"platform-action secondary",onclick:function(){showProgramSection("business-settings");}},["Atualizar dados e conexões"]));root.appendChild(page);
 }
 
 // Diretório visual: apenas catálogo público e filtros privados da própria conta.
@@ -3717,6 +3750,8 @@ function renderProgramSection(){
   root.innerHTML="";
   var network=sharedNetwork||{companies:0,relationships:0,twoStepChains:0,confirmedClosures:0,potentialConnections:0,areas:AREAS_12.map(function(area){return {name:area.nome,knownSupplierLinks:0};})};
   var workforce=sharedWorkforce||{active:0,vacancies:0,businessesReported:0};
+  if(activeProgramSection==="business-status"){renderBusinessCompletionStatus(root);return;}
+  if(activeProgramSection==="my-business"){renderMyBusinessPage(root);return;}
   if(activeProgramSection==="overview"){renderCompanyDirectory(root);if(directorySearchFocused)root.querySelector("input[type=search]").focus();return;}
   if(activeProgramSection==="workforce"){renderWorkforcePage(root,workforce);return;}
   if(activeProgramSection==="profile"||activeProgramSection==="products"){renderProfileEditor(root,activeProgramSection==="products"?"products":"profile");return;}
@@ -4118,7 +4153,7 @@ function renderCompanyProfileHeader(){
   var description=String(state.business.profileDescription||state.business.produtoDetalhe||state.answers.produtos||"").trim();
   if(!offers.length&&profileCompany) description=description||profileCompany.offer;
 
-  var profile=h("section",{class:"company-profile","aria-label":"Perfil público da empresa"});
+  var profile=h("section",{class:"company-profile social-business-profile","aria-label":"Perfil da sua empresa"});
   var cover=h("div",{class:"company-profile-cover",role:"img","aria-label":"Imagem de capa do perfil de "+name},[
     h("span",{class:"company-cover-caption"},["PERFIL DA EMPRESA"])
   ]);if(state.business.profileCoverData)cover.style.backgroundImage="url(\""+state.business.profileCoverData+"\")";profile.appendChild(cover);
@@ -5632,6 +5667,7 @@ function renderStepsList(){
 }
 
 function renderCurrentStep(isStepChange){
+  if(activeProgramSection==="survey"&&surveyMode!=="settings"&&isBusinessRegistered()){showProgramSection("my-business");return;}
   // Guarda a posição de rolagem para restaurá-la quando NÃO for uma troca real de etapa
   // (ex: escolher uma opção num dropdown, marcar um chip, adicionar/remover um item).
   var scrollY = window.scrollY || window.pageYOffset;

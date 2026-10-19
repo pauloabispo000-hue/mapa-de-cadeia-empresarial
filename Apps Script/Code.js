@@ -1859,6 +1859,24 @@ function changeAvantePassword(token, currentPassword, newPassword) {
   }
 }
 
+/** Confirma conclusão somente para a própria conta, sem criar/alterar planilhas. */
+function getAvanteSurveyCompletion(token) {
+  var account=getAvanteSessionUser_(String(token||""));
+  if(!account)return {ok:false,error:"Acesso expirado. Entre novamente no Avante."};
+  var sheet=getSpreadsheet_().getSheetByName(RESPONSE_SHEET_NAME);
+  if(!sheet||sheet.getLastRow()<2||sheet.getLastColumn()<8)return {ok:true,completed:false};
+  var rows=sheet.getRange(2,1,sheet.getLastRow()-1,8).getValues();
+  for(var i=rows.length-1;i>=0;i--){
+    var row=rows[i];if(String(row[7]||"")!==account||!String(row[1]||""))continue;
+    var payload;try{payload=JSON.parse(String(row[6]||"{}"));}catch(ignored){continue;}
+    if(!payload||typeof payload!=="object"||Array.isArray(payload))continue;
+    if(payload.meta&&payload.meta.simulation===true)continue;
+    var business=payload.business||{},date=row[0] instanceof Date?row[0].toISOString():String(row[0]||"");
+    return {ok:true,completed:true,responseId:String(row[1]),submittedAt:date,business:{nome:String(row[2]||business.nome||""),cnpj:normalizeCnpj_(row[3]||business.cnpj),cidade:String(row[4]||business.cidade||""),areaNecessidade:String(row[5]||business.areaNecessidade||""),produtoCategorias:Array.isArray(business.produtoCategorias)?business.produtoCategorias:[],produtoDetalhe:String(business.produtoDetalhe||"")}};
+  }
+  return {ok:true,completed:false};
+}
+
 function validateAvanteSession(token) {
   var valid = validateAvanteSession_(String(token || ""));
   return { ok: valid };

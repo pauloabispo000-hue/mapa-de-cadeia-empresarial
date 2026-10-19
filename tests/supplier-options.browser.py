@@ -143,7 +143,8 @@ with sync_playwright() as p:
  assert page.locator('#btnNext').is_disabled()
  run("window.sendSuccess({ok:true,responsesSaved:true,responseId:'receipt-local',profilePublished:null})")
  assert run("state.meta.responsesSaved") is True
- assert page.locator('#btnNext').inner_text()=='Respostas salvas ✓'
+ assert run('activeProgramSection')=='my-business'
+ assert not page.locator('#surveyWizard').is_visible()
  print('Navegador: um botão Enviar respostas, confirmação explícita e nenhuma etapa manual de recibo.')
  run("state=freshState();state.fornecedores.lista=[{empresa:'PADARIA FICTICIA',cidade:'Descalvado',categorias:['Pão francês','Bolo','Biscoito','Salgado']}];state.fornecedores.lista[0].categorias.forEach(p=>CATEGORIA_INSUMO_AREA[p]='Alimentos/Medicamentos');document.getElementById('surveyWizard').style.display='none';window.testRoot.style.display='block';window.testRoot.innerHTML='';renderNetworkPage(window.testRoot,{companies:1,relationships:1,areas:[]},{},false);")
  assert page.locator('#selectedAreaTitle').inner_text()=='Alimentos/Medicamentos'

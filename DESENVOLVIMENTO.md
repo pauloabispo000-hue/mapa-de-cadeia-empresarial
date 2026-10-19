@@ -593,3 +593,35 @@ Validação: npm run sync/check, 114 testes e sete suítes de navegador isoladas
 A nova business-profile.browser.py cobre abas, capa/identidade, celular/desktop,
 contraste inclusive hover, vitrine, ausência de feed/upload de posts e plano local.
 Sem gravação de cadastro, envio real ou validação online nesta rodada.
+
+## Conclusão da pesquisa e destino Meu perfil
+
+Somente após recibo explícito de respostas salvas, o envio navega para Meu perfil,
+sem manter a tela de revisão/sucesso aberta. Recusa, timeout ou comunicação sem
+confirmação preservam o rascunho e não redirecionam. Respostas salvas com publicação
+pendente/parcial também abrem o perfil privado, mostrando a pendência; isso não
+publica o negócio nem muda consentimentos. Uma falha de renderização posterior
+não é convertida em falha do envio já confirmado.
+
+Contas com recibo concluído entram em Meu perfil e o atalho da pesquisa leva ao
+perfil. A guarda de renderização impede reabrir o wizard concluído; edição segue
+em Atualizar dados e conexões / Configurações. Simulação segue o mesmo destino
+visual, identificada como simulação e isolada no workspace próprio.
+
+getAvanteSurveyCompletion autentica e lê somente respostas vinculadas à conta
+atual, sem criar abas ou gravar dados. Retorna recibo e dados básicos do próprio
+negócio, sem respostas completas, relações comerciais, credenciais ou contas de
+terceiros. Permite reconhecer conclusão em outro navegador, preenchendo somente
+campos vazios e preservando rascunhos e consentimentos locais. Não sincroniza
+integralmente respostas/relações nem presume publicação pública do perfil.
+
+A consulta tem prazo interativo de 20 s, sem repetição automática, e ignora retorno
+tardio, troca de conta/workspace e simulação. Enquanto a conclusão é consultada,
+abrir a pesquisa mostra estado de consulta; somente completed:false explícito
+permite nova pesquisa. Falha/retorno incompleto mantém rascunho e oferece tentativa
+manual. Registros antigos sem vínculo de conta não são atribuídos por nome/CNPJ.
+
+Validação: 117 testes e oito suítes de navegador isoladas, sem rede, cadastros ou
+mensagens reais. Novas fixtures cobrem privacidade da consulta, ausência de escrita,
+recusa/comunicação antes do redirecionamento, retomada, edição, simulação, conta
+trocada e timeout sem repetição. Validação online do envio real continua pendente.
