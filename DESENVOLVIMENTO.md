@@ -529,3 +529,11 @@ O servidor público respondeu HTTP 200 nesta investigação; o HTML efetivamente
 publicado inicializou sem erro JS em teste isolado. O usuário confirmou recuperação
 online sem nova implantação. Não foi confirmada a causa da demora da sessão real;
 a proteção preparada não é prova de resolução de indisponibilidade externa.
+
+## Interface sem explicações introdutórias
+
+Removidos os parágrafos introdutórios/instrucionais das páginas, pesquisa e missões,
+as descrições conceituais das escalas e o aviso sobre capacidade teórica de 144
+soluções. Os contadores exibem dados observados, sem a meta teórica. Mantidos
+rótulos, ações, mensagens de erro/resultado, consentimentos, fontes e identificação
+de pendências; não há mudança nos dados, regras de oferta ou permissões.

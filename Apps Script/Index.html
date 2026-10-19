@@ -1101,7 +1101,6 @@ var NICHO_COOPERATIVA_AREA = {
   "Consumo":"Transportes/Logísticas","Transporte":"Transportes/Logísticas","Artesanato":"Entretenimentos/Lazeres"
 };
 
-
 // Reúne as áreas (das 12) já indicadas pelo respondente até este ponto do formulário:
 // a Área escolhida diretamente, o nicho do modelo de negócio, os produtos/serviços marcados
 // e o segmento — tudo convertido para a mesma taxonomia oficial das 12 Áreas.
@@ -1780,7 +1779,6 @@ function h(tag, attrs, children){
 function fieldWrap(labelText, helpText, inner){
   var wrap = h("div",{class:"field"});
   wrap.appendChild(h("label",{class:"q"},[labelText]));
-  if(helpText) wrap.appendChild(h("p",{class:"helptext"},[helpText]));
   wrap.appendChild(inner);
   return wrap;
 }
@@ -2319,7 +2317,6 @@ function conditional(showIf, children){
 function sectionTitle(title, sub){
   var frag = document.createDocumentFragment();
   frag.appendChild(h("h2",{},[title]));
-  if(sub) frag.appendChild(h("p",{class:"step-sub"},[sub]));
   return frag;
 }
 
@@ -2758,8 +2755,7 @@ function renderApresentacao(container){
   var hero = h("div",{class:"hero"});
   hero.appendChild(h("p",{class:"bignum"},["REDE LOCAL DE NEGÓCIOS"]));
   hero.appendChild(h("h2",{},["Encontre parceiros e novas oportunidades para o seu negócio"]));
-  hero.appendChild(h("p",{},["Cadastre sua empresa para organizar o que você oferece, identificar fornecedores e aproximar-se de clientes e parceiros da região. Responda com base no seu dia a dia — não é preciso conhecer termos técnicos."]));
-  hero.appendChild(h("p",{},["Suas respostas ajudam a encontrar conexões úteis entre negócios locais. Você controla se o nome e o CNPJ da sua empresa podem aparecer como sugestão para outros participantes; suas relações comerciais individuais permanecem privadas."]));
+
   var cards = h("div",{class:"hero-cards"});
   [["~8 min","Tempo estimado"],["7 etapas","Perguntas rápidas"],["Você escolhe","O que compartilhar"]].forEach(function(c){
     cards.appendChild(h("div",{class:"hero-card"},[h("div",{class:"k"},[c[0]]), h("div",{class:"v"},[c[1]])]));
@@ -2798,7 +2794,7 @@ function renderIdentificacao(container){
       : textInput(b.cidade, "Ex: Lisboa", function(v){ b.cidade=v; saveState(); })));
 
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Qual opção descreve melhor a atividade principal do seu negócio?"]));
-  container.appendChild(h("p",{class:"step-sub"},["Escolha o setor que mais se aproxima da sua atividade. Essa informação ajuda a organizar as ofertas e encontrar conexões relevantes."]));
+
   container.appendChild(areaPickerGrid(b.areaNecessidade, function(v){ b.areaNecessidade=v; saveState(); }));
 
   container.appendChild(fieldWrap("Qual é o modelo de negócio?", null,
@@ -2854,7 +2850,7 @@ function renderIdentificacao(container){
   }
 
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Todos os produtos e serviços oferecidos"]));
-  container.appendChild(h("p",{class:"step-sub"},["Liste cada produto ou serviço separadamente, mesmo os secundários. Isso é essencial para mapear com precisão a cadeia produtiva."]));
+
   renderOfertasList(container, b.ofertas);
 
   container.appendChild(fieldWrap("Quem são os principais clientes?", "Selecione todas as opções que se aplicam.",
@@ -2875,7 +2871,7 @@ function renderFornecedores(container){
   var f = state.fornecedores;
 
   container.appendChild(h("h3",{style:"margin-top:0;font-size:16px;"},["Adicione cada fornecedor importante"]));
-  container.appendChild(h("p",{class:"step-sub"},["As opções estão organizadas pelas 12 Áreas de Necessidade Fundamental. Clique numa área para abrir os itens dela — ao marcar um item (ex: \"Energia elétrica\"), uma caixa de texto aparece logo abaixo para você digitar o nome do fornecedor daquele item."]));
+
   container.appendChild(groupedChipPickerFornecedorInline("precisaAdquirir", CATEGORIAS_INSUMOS_POR_AREA, f.lista, function(){ saveState(); }));
 
   container.appendChild(fieldWrap("Tem algo mais que você compra e não está listado acima? (opcional)", "Descreva livremente — isso não cria automaticamente uma empresa na lista abaixo.",
@@ -2900,7 +2896,7 @@ function renderFornecedores(container){
   }
 
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Seus fornecedores"]));
-  container.appendChild(h("p",{class:"step-sub"},["Os fornecedores nomeados acima já aparecem aqui. Complete com CNPJ, cidade e frequência, ou adicione outro fornecedor que não veio de uma categoria específica."]));
+
   renderEntityList(container, "fornecedores", f.lista, function(card, entity){
     var typeField=h("div",{class:"subfield"});
     typeField.appendChild(h("label",{class:"small"},["Qual o tipo de negócio? (opcional)"]));
@@ -2961,7 +2957,7 @@ function renderClientes(container){
     yesNo("revendeOuUsa", c.revendeOuUsa, function(v){ c.revendeOuUsa=v; saveState(); })));
 
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Empresas que compram, revendem ou usam sua oferta"]));
-  container.appendChild(h("p",{class:"step-sub"},["Cadastre os negócios que compram de você e depois vendem, incorporam ou revendem para o cliente final."]));
+
   renderEntityList(container, "clientes", c.lista, function(card, entity){
     var sfCat = h("div",{class:"subfield"});
     sfCat.appendChild(h("label",{class:"small"},["O que esta empresa compra ou usa de você"]));
@@ -3000,7 +2996,7 @@ function renderComplementares(container){
     yesNo("jaCriouPacote", k.jaCriouPacote, function(v){ k.jaCriouPacote=v; saveState(); })));
 
   container.appendChild(h("h3",{style:"margin-top:30px;font-size:16px;"},["Negócios complementares, indicações e parcerias"]));
-  container.appendChild(h("p",{class:"step-sub"},["Cadastre as empresas que indicam ou recebem indicação, dividem clientes em comum, ou com quem já fez (ou poderia fazer) venda conjunta."]));
+
   renderEntityList(container, "complementares", k.lista, null);
 }
 
@@ -3628,12 +3624,12 @@ function renderAccountSettingsPage(root){
   var page=h("section",{class:"platform-page account-settings-page"});
   page.appendChild(h("p",{class:"platform-eyebrow"},["CONTA E PERFIL"]));
   page.appendChild(h("h1",{},["Configurações"]));
-  page.appendChild(h("p",{class:"platform-lead"},["Gerencie separadamente seu acesso, os dados do negócio e o perfil público."]));
+
   var grid=h("div",{class:"account-settings-grid"});
 
   var appearance=h("section",{class:"account-settings-card","aria-label":"Aparência"});
   appearance.appendChild(h("h2",{},["Aparência"]));
-  appearance.appendChild(h("p",{},["Escolha o tema usado na plataforma neste navegador."]));
+
   var themeControl=h("div",{class:"theme-mode-control"});
   var themeMode=getAvanteThemeMode();
   var themeStatus=h("span",{id:"themeModeStatus"},[themeMode==="dark"?"Tema escuro ativado":"Tema claro ativado"]);
@@ -3649,7 +3645,7 @@ function renderAccountSettingsPage(root){
 
   var account=h("section",{class:"account-settings-card","aria-label":"Conta e segurança"});
   account.appendChild(h("h2",{},["Conta e segurança"]));
-  account.appendChild(h("p",{},["Informações usadas para entrar na plataforma."]));
+
   var accountDetails=h("ul",{class:"account-settings-details"});
   accountDetails.appendChild(h("li",{},[h("span",{},["Nome de usuário"]),h("strong",{},[authSession&&authSession.username||"Conta atual"])]));
   if(avantePersonProfile&&avantePersonProfile.registered&&avantePersonProfile.profile)accountDetails.appendChild(h("li",{},[h("span",{},["Tipo de usuário"]),h("strong",{},[avantePersonProfile.profile.type==="profissional"?"Profissional ativo":"Cliente"])]));
@@ -3684,7 +3680,7 @@ function renderAccountSettingsPage(root){
   var communication=h("section",{class:"account-settings-card"}),openCommunication=h("button",{type:"button",class:"platform-action secondary"},["Abrir comunicação e planos de contato"]),communicationBody=h("div",{});communication.appendChild(openCommunication);communication.appendChild(communicationBody);openCommunication.addEventListener("click",function(){renderSupplierCommunications(communicationBody);readSupplierContactPlans().forEach(function(plan){communicationBody.appendChild(renderSupplierContactPlan(plan));});});grid.appendChild(communication);
   var business=h("section",{class:"account-settings-card","aria-label":"Dados do negócio"});
   business.appendChild(h("h2",{},[isBusinessRegistered()?"Dados do negócio":"Cadastro do negócio"]));
-  business.appendChild(h("p",{},[isBusinessRegistered()?"Atualize as respostas da pesquisa. A identidade oficial da empresa permanece somente para leitura.":"Conclua a pesquisa para organizar os dados do negócio."]));
+
   if(isBusinessRegistered()){
     var businessDetails=h("ul",{class:"account-settings-details"});
     businessDetails.appendChild(h("li",{},[h("span",{},["Nome"]),h("strong",{},[state.business.nome||state.answers.negocioNome||"—"])]));
@@ -3699,7 +3695,7 @@ function renderAccountSettingsPage(root){
   if(isBusinessRegistered()){
     var profile=h("section",{class:"account-settings-card","aria-label":"Perfil público"});
     profile.appendChild(h("h2",{},["Perfil público"]));
-    profile.appendChild(h("p",{},["Edite foto, imagem de capa, apresentação e autorização de exibição pública."]));
+
     var profileDetails=h("ul",{class:"account-settings-details"});
     profileDetails.appendChild(h("li",{},[h("span",{},["Autorização de exibição"]),h("strong",{},[state.meta.sharePublicProfile?"Concedida":"Não concedida"])]));
     profile.appendChild(profileDetails);
@@ -3863,7 +3859,7 @@ function renderBusinessSettingsPage(root){
   var page=h("section",{class:"platform-page business-settings-page"});
   page.appendChild(h("p",{class:"platform-eyebrow"},["CONTA E PERFIL"]));
   page.appendChild(h("h1",{},["Dados do negócio"]));
-  page.appendChild(h("p",{class:"platform-lead"},["Escolha na lista a informação que deseja atualizar."]));
+
   if(businessSettingsNotice){page.appendChild(h("p",{class:"business-settings-notice","role":"status"},[businessSettingsNotice]));businessSettingsNotice="";}
   page.appendChild(h("button",{type:"button",class:"platform-action secondary",style:"margin:16px 0;",onclick:function(){editingBusinessSettingsField="";businessSettingsEditSnapshot=null;showProgramSection("settings");}},["← Voltar às configurações"]));
   var items=[
@@ -3929,7 +3925,7 @@ function renderProfileEditor(root,activeTab){
   var page=h("section",{class:"platform-page"});
   page.appendChild(h("p",{class:"platform-eyebrow"},["PERFIL PÚBLICO"]));
   page.appendChild(h("h1",{},[activeTab==="products"?(profileCatalogEditMode?"Gerenciar catálogo":"Vitrine de produtos"):"Editar perfil"]));
-  page.appendChild(h("p",{class:"platform-lead"},[activeTab==="products"?(profileCatalogEditMode?"Atualize fotos, SKU e descrições dos produtos.":"Veja como os produtos da empresa aparecem no perfil público."):"Atualize as imagens e a apresentação pública do negócio."]));
+
   page.appendChild(h("button",{type:"button",class:"platform-action secondary",style:"margin:0 0 16px;",onclick:function(){showProgramSection("settings");}},["← Voltar às configurações"]));
   var sectionTabs=h("nav",{class:"profile-section-switch","aria-label":"Editar perfil da empresa"});
   [["profile","Apresentação"],["products","Produtos"]].forEach(function(tab){sectionTabs.appendChild(h("button",{type:"button",class:activeTab===tab[0]?"active":"",onclick:function(){if(tab[0]==="products")profileCatalogEditMode=false;showProgramSection(tab[0]);}},[tab[1]]));});page.appendChild(sectionTabs);
@@ -4080,7 +4076,7 @@ function renderConnectionJourney(){
     h("div",{},[
       h("p",{class:"platform-eyebrow"},["SUA TRILHA NA REDE"]),
       h("h2",{id:"connectionJourneyTitle"},["Missões de conexão"]),
-      h("p",{},["Cada passo aproxima quem compra, vende e fornece. Comece pelas relações reais do seu negócio e amplie o alcance quando isso for viável. O foco é utilidade e reciprocidade, não quantidade de cadastros."])
+
     ]),
     h("strong",{style:"color:#1D347B;font-size:13px;white-space:nowrap;"},[completed+" de "+missions.length+" etapas"])
   ]));
@@ -4091,7 +4087,6 @@ function renderConnectionJourney(){
   missions.forEach(function(item,index){
     missionGrid.appendChild(h("div",{class:"journey-mission"+(item.done?" done":"")},[
       h("strong",{},[h("span",{class:"journey-check","aria-hidden":"true"},[item.done?"✓":String(index+1)]),item.title]),
-      h("p",{},[item.detail])
     ]));
   });
   card.appendChild(missionGrid);
@@ -4115,7 +4110,7 @@ function renderConnectionJourney(){
     scopes.appendChild(h("span",{class:"journey-scale"},[item[0]+" · ",h("strong",{},[String(item[1])])]));
   });
   card.appendChild(scopes);
-  card.appendChild(h("p",{style:"margin:10px 0 0;color:#65718B;font-size:11px;"},["O alcance conta empresas com localização informada. Os vínculos são os que os participantes declararam."]));
+
   var journeyAction=isBusinessRegistered()?"Atualizar minhas conexões":(completed===missions.length?"Atualizar minhas conexões":"Continuar meu cadastro");
   card.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},[journeyAction]));
   return card;
@@ -4381,13 +4376,13 @@ function renderNetworkPage(root,network,workforce,isOverview){
     }else page.appendChild(h("div",{class:"platform-registered-heading"},[
       h("p",{class:"platform-eyebrow"},["BUSCA DE FORNECEDORES"]),
       h("h1",{},["Descubra fornecedores por setor"]),
-      h("p",{class:"platform-lead"},["Consulte as conexões informadas por setor."])
+
     ]));
   }else{
     var copy=h("div",{class:"platform-hero-copy"},[
       h("p",{class:"platform-eyebrow"},[isOverview?"REDE LOCAL DE NEGÓCIOS":"BUSCA DE FORNECEDORES"]),
       h("h1",{},[isOverview?"Encontre fornecedores, clientes e oportunidades para o seu negócio":"Descubra fornecedores por setor"]),
-      h("p",{class:"platform-lead"},["Apresente o que sua empresa oferece, encontre negócios que podem atender às suas necessidades e descubra novas possibilidades na sua região. Você decide se seus dados de contato empresarial podem ser sugeridos a outros participantes."])
+
     ]);
     var actions=h("div",{class:"platform-hero-actions"});
     actions.appendChild(h("button",{class:"platform-action",type:"button",onclick:function(){showProgramSection("survey");}},["Cadastrar meu negócio"]));
@@ -4399,20 +4394,19 @@ function renderNetworkPage(root,network,workforce,isOverview){
   if(isOverview) {page.appendChild(renderConnectionJourney());page.appendChild(renderResaleCustomersCard());}
   if(externalInformativeProfiles.length)page.appendChild(renderInformativeCompanyCatalog(externalInformativeProfiles));
   var grid=h("div",{class:"platform-grid"}), mapCard=h("div",{class:"platform-card"}), side=h("aside",{class:"platform-card"});
-  mapCard.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Fornecedores por setor"]),h("p",{},["Escolha um setor para ver as conexões informadas."])] )]));
+  mapCard.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{},["Fornecedores por setor"])] )]));
   var geoControls=h("div",{class:"geo-test-controls","aria-label":"Visualização das conexões"});
   var sectorViewButton=h("button",{type:"button",class:"active"},["Esquema por setor"]), geoViewButton=h("button",{type:"button"},["Mapa geográfico (teste)"]);
   geoControls.appendChild(sectorViewButton);geoControls.appendChild(geoViewButton);mapCard.appendChild(geoControls);
   var scaleDefinitions=[
-    {key:"business",name:"Empresarial",prev:"Municipal",next:"Comunitária",description:"Uma empresa no centro e suas necessidades nas 12 áreas."},
-    {key:"community",name:"Comunitária",prev:"Empresarial",next:"Municipal",description:"Uma comunidade reúne 12 células. Cada célula contempla as 12 áreas; cada área pode reunir até 144 soluções (12 × 12)."},
-    {key:"municipal",name:"Municipal",prev:"Comunitária",next:"Empresarial",description:"A estrutura municipal reúne 12 células comunitárias; cada uma contém as 12 áreas e suas soluções."}
+    {key:"business",name:"Empresarial",prev:"Municipal",next:"Comunitária"},
+    {key:"community",name:"Comunitária",prev:"Empresarial",next:"Municipal"},
+    {key:"municipal",name:"Municipal",prev:"Comunitária",next:"Empresarial"}
   ];
   var activeScaleIndex=0;
   var scaleNav=h("div",{class:"scale-switcher","aria-label":"Escala da visualização"});
   var scalePrev=h("button",{type:"button",class:"scale-prev","aria-label":"Escala anterior"},[]),scaleCurrent=h("button",{type:"button",class:"scale-current","aria-live":"polite"},[]),scaleNext=h("button",{type:"button",class:"scale-next","aria-label":"Próxima escala"},[]);
   scaleNav.appendChild(scalePrev);scaleNav.appendChild(scaleCurrent);scaleNav.appendChild(scaleNext);mapCard.appendChild(scaleNav);
-  var scaleDescription=h("p",{class:"scale-description"},[]);mapCard.appendChild(scaleDescription);
   var wrap=h("div",{class:"platform-map-wrap"}), svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("viewBox","0 0 840 600");svg.setAttribute("class","platform-scale-svg");svg.setAttribute("role","img");svg.setAttribute("aria-label","Esquema das 12 áreas na escala empresarial");
   var sourceAreas=network.areas||[];
   var areaOrder=AREAS_12.slice().sort(function(a,b){if(a.num===12)return -1;if(b.num===12)return 1;return a.num-b.num;});
@@ -4436,14 +4430,14 @@ function renderNetworkPage(root,network,workforce,isOverview){
     var group=svgNode("g",{class:"platform-area-node"+(active?" has-data":""),tabindex:"0",role:"button"});
     var poly=svgNode("polygon",{points:regularHex(cx,cy,rx,ry)},group),text=svgNode("text",{x:cx,y:cy+4},group);text.textContent=String(areaNumber(area)).padStart(2,"0");
     if(extraText){var title=svgNode("title",{},group);title.textContent=area.name+" — "+extraText;}
-    function select(){var title=document.getElementById("selectedAreaTitle"),count=document.getElementById("selectedAreaCount");if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.registeredOfferCompanies||0)+" empresas com oferta cadastrada · "+(area.registeredOffers||0)+" produtos ou serviços · "+(area.knownSupplierLinks||0)+" vínculos informados · meta teórica 144 soluções";else count.textContent="Área integrante de cada uma das 12 células teóricas do município.";}}
+    function select(){var title=document.getElementById("selectedAreaTitle"),count=document.getElementById("selectedAreaCount");if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.registeredOfferCompanies||0)+" empresas com oferta cadastrada · "+(area.registeredOffers||0)+" produtos ou serviços · "+(area.knownSupplierLinks||0)+" vínculos informados";else count.textContent="Sem dados por célula";}}
     group.addEventListener("click",select);group.addEventListener("keydown",function(evt){if(evt.key==="Enter"||evt.key===" "){evt.preventDefault();select();}});return group;
   }
   function renderScaleSchema(){
     while(svg.firstChild)svg.removeChild(svg.firstChild);
     var scale=scaleDefinitions[activeScaleIndex],centerX=420,centerY=300;
     svg.setAttribute("aria-label","Esquema das 12 áreas na escala "+scale.name.toLowerCase());
-    scalePrev.textContent="‹ Escala: "+scale.prev;scaleCurrent.textContent="Escala: "+scale.name;scaleNext.textContent="Escala: "+scale.next;scaleDescription.textContent=scale.description;
+    scalePrev.textContent="‹ Escala: "+scale.prev;scaleCurrent.textContent="Escala: "+scale.name;scaleNext.textContent="Escala: "+scale.next;
     if(activeScaleIndex===0){
       var points=[];for(var i=0;i<12;i++){var angle=Math.PI*2*i/12-Math.PI/2;points.push({x:centerX+260*Math.cos(angle),y:centerY+205*Math.sin(angle)});}
       points.forEach(function(p,i){var next=points[(i+1)%12];svgNode("line",{x1:p.x,y1:p.y,x2:next.x,y2:next.y,class:"platform-link"});});
@@ -4479,15 +4473,14 @@ function renderNetworkPage(root,network,workforce,isOverview){
   geoPanel.appendChild(geoStatus);geoPanel.appendChild(geoCanvas);geoPanel.appendChild(geoAccuracy);geoPanel.appendChild(geoNearest);mapCard.appendChild(geoPanel);
   sectorViewButton.addEventListener("click",function(){wrap.hidden=false;geoPanel.hidden=true;sectorViewButton.classList.add("active");geoViewButton.classList.remove("active");});
   geoViewButton.addEventListener("click",function(){wrap.hidden=true;geoPanel.hidden=false;sectorViewButton.classList.remove("active");geoViewButton.classList.add("active");if(!geoPanel.getAttribute("data-loaded")){geoPanel.setAttribute("data-loaded","1");initializeGeographicTestMap(geoCanvas,geoStatus,geoAccuracy,geoNearest);}});
-  mapCard.appendChild(h("div",{class:"platform-note"},["A capacidade de 144 soluções por área é teórica. A cobertura observada soma ofertas cadastradas pelas empresas e vínculos informados pelos participantes; o CNAE, sozinho, não confirma uma oferta. As células comunitárias e municipais ainda são uma estrutura conceitual até que haja localização e associação das empresas a cada célula."]));
   var first=displayAreas.filter(function(area){return Object.keys(businessAreaMetrics[area.name].suppliers).length>0;})[0]||displayAreas[0]||{name:AREAS_12[11].nome,knownSupplierLinks:0};
-  side.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{id:"scaleSideTitle"},["Áreas atendidas"]),h("p",{id:"scaleSideDescription"},["Soluções e fornecedores informados por este negócio"])] )]));
+  side.appendChild(h("div",{class:"platform-card-head"},[h("div",{},[h("h2",{id:"scaleSideTitle"},["Áreas atendidas"])] )]));
   side.appendChild(h("div",{class:"platform-empty"},[h("strong",{id:"selectedAreaTitle"},[first.name]),h("div",{id:"selectedAreaCount",style:"margin-top:4px;"},["0 fornecedores · 0 soluções informadas para este negócio"])]));
   var selectedAreaDetails=h("div",{class:"area-solution-details",id:"selectedAreaDetails"});side.appendChild(selectedAreaDetails);
   var list=h("div",{class:"platform-area-list",style:"margin-top:12px;"});
-  function areaSummary(area){var metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{}};if(activeScaleIndex===0)return Object.keys(metric.suppliers).length+" forn. · "+Object.keys(metric.solutions).length+" sol.";if(activeScaleIndex===1)return (area.registeredOfferCompanies||0)+" empresas · "+(area.registeredOffers||0)+" ofertas · meta 144";return "12 áreas por célula";}
-  function selectArea(area){var title=page.querySelector("#"+"selectedAreaTitle"),count=page.querySelector("#selectedAreaCount"),details=page.querySelector("#selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos observados na rede · capacidade teórica de 144 soluções nesta área";else count.textContent="Esta área está presente em cada uma das 12 células comunitárias do modelo.";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução foi associada a esta área neste negócio ainda."]));}else if(activeScaleIndex===1)details.appendChild(h("p",{class:"scale-capacity"},["O modelo prevê 12 empresas por necessidade e até 144 soluções por área. A lista comunitária será formada por ofertas e vínculos confirmados pelos participantes."]));else details.appendChild(h("p",{class:"scale-capacity"},["O esquema municipal compõe 12 células comunitárias. Cada célula contém as 12 áreas e sua própria cobertura de empresas e soluções."]));}}
-  function updateScaleSummary(){var title=document.getElementById("scaleSideTitle"),description=document.getElementById("scaleSideDescription"),selectedCount=document.getElementById("selectedAreaCount");if(title)title.textContent=activeScaleIndex===0?"Fornecedores por área":activeScaleIndex===1?"Soluções por área":"Células do município";if(description)description.textContent=activeScaleIndex===0?"Soluções e fornecedores informados por este negócio":activeScaleIndex===1?"Empresas e capacidade teórica por área":"12 células comunitárias, cada uma com as 12 áreas";if(selectedCount)selectArea(displayAreas[0]||first);Array.prototype.forEach.call(list.children,function(row,index){var count=row.querySelector(".platform-area-count");if(count&&displayAreas[index])count.textContent=areaSummary(displayAreas[index]);});}
+  function areaSummary(area){var metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{}};if(activeScaleIndex===0)return Object.keys(metric.suppliers).length+" forn. · "+Object.keys(metric.solutions).length+" sol.";if(activeScaleIndex===1)return (area.registeredOfferCompanies||0)+" empresas · "+(area.registeredOffers||0)+" ofertas";return "12 áreas por célula";}
+  function selectArea(area){var title=page.querySelector("#"+"selectedAreaTitle"),count=page.querySelector("#selectedAreaCount"),details=page.querySelector("#selectedAreaDetails"),metric=businessAreaMetrics[area.name]||{suppliers:{},solutions:{},supplierRows:{}};if(title)title.textContent=area.name;if(count){if(activeScaleIndex===0)count.textContent=supplierSolutionsLabel(metric);else if(activeScaleIndex===1)count.textContent=(area.knownSupplierLinks||0)+" vínculos informados";else count.textContent="Sem dados por célula";}if(details){details.innerHTML="";if(activeScaleIndex===0){var rows=Object.keys(metric.supplierRows||{}).map(function(key){return metric.supplierRows[key];});rows.forEach(function(supplier){var relevant=(supplier.categorias||[]).filter(function(solution){return (CATEGORIA_INSUMO_AREA[solution]||SEGMENTO_AREA[solution]||inferAreaFromText(solution))===area.name;});details.appendChild(h("div",{class:"area-solution-company"},[h("strong",{},[supplier.empresa]),h("span",{},[relevant.join(" · ")||supplier.areaNecessidade||"Solução informada pelo fornecedor"])]));});if(!rows.length)details.appendChild(h("p",{class:"scale-capacity"},["Nenhuma empresa ou solução"]));}}}
+  function updateScaleSummary(){var title=document.getElementById("scaleSideTitle"),selectedCount=document.getElementById("selectedAreaCount");if(title)title.textContent=activeScaleIndex===0?"Fornecedores por área":activeScaleIndex===1?"Soluções por área":"Células do município";if(selectedCount)selectArea(displayAreas[0]||first);Array.prototype.forEach.call(list.children,function(row,index){var count=row.querySelector(".platform-area-count");if(count&&displayAreas[index])count.textContent=areaSummary(displayAreas[index]);});}
   displayAreas.forEach(function(area,i){var row=h("button",{type:"button",class:"platform-area-row"},[h("span",{class:"platform-area-number"},[String(areaNumber(area,i)).padStart(2,"0")]),h("span",{class:"platform-area-name"},[area.name]),h("span",{class:"platform-area-count"},[areaSummary(area)])]);row.addEventListener("click",function(){selectArea(area);});list.appendChild(row);});side.appendChild(list);
   [scalePrev,scaleNext].forEach(function(button){button.addEventListener("click",updateScaleSummary);});
   grid.appendChild(mapCard);grid.appendChild(side);page.appendChild(grid);root.appendChild(page);selectArea(first);
@@ -4798,9 +4791,9 @@ function submitAiSearch(query,input,status,result){
 }
 
 function renderWorkforcePage(root,workforce){
-  var page=h("section",{class:"platform-page"});page.appendChild(h("p",{class:"platform-eyebrow"},["MERCADO DE TRABALHO LOCAL"]));page.appendChild(h("h1",{},["Pessoas e trabalho"]));page.appendChild(h("p",{class:"platform-lead"},["Acompanhe estimativas de pessoas trabalhando e vagas abertas nos negócios cadastrados na região."]));
+  var page=h("section",{class:"platform-page"});page.appendChild(h("p",{class:"platform-eyebrow"},["MERCADO DE TRABALHO LOCAL"]));page.appendChild(h("h1",{},["Pessoas e trabalho"]));
   var kpis=h("div",{class:"workforce-kpis"});[["Pessoas ativas",workforce.active||0],["Vagas abertas",workforce.vacancies||0],["Negócios respondentes",workforce.businessesReported||0]].forEach(function(item){kpis.appendChild(h("div",{class:"platform-stat"},[h("span",{},[item[0]]),h("strong",{},[String(item[1])]),h("small",{},["Soma autodeclarada e agregada"])]));});page.appendChild(kpis);
-  var card=h("div",{class:"platform-card"});card.appendChild(h("h2",{},["Indicadores da rede"]));card.appendChild(h("p",{class:"platform-lead",style:"margin-top:8px;"},["Os números são estimativas informadas pelas empresas e exibidas de forma agregada."]));card.appendChild(h("div",{class:"workforce-callout"},[h("strong",{},["Perfis profissionais em breve"]),h("p",{},["Por enquanto, esta página reúne apenas totais de pessoas ativas e vagas abertas; não coleta dados individuais de trabalhadores."])]));card.appendChild(h("button",{class:"platform-action",type:"button",style:"margin-top:16px;",onclick:function(){showProgramSection("survey");}},["Informar pessoas e vagas"]));page.appendChild(card);root.appendChild(page);
+  var card=h("div",{class:"platform-card"});card.appendChild(h("h2",{},["Indicadores da rede"]));card.appendChild(h("button",{class:"platform-action",type:"button",style:"margin-top:16px;",onclick:function(){showProgramSection("survey");}},["Informar pessoas e vagas"]));page.appendChild(card);root.appendChild(page);
 }
 
 /* ============================= NAVEGAÇÃO ============================= */
@@ -5356,8 +5349,6 @@ function renderConversation(container){
   if(!q){ renderConversationReview(container); return; }
   container.appendChild(h("div",{class:"question-card"},[
     h("h2",{},[q.prompt]),
-    q.help ? h("p",{class:"question-help"},[q.help]) : null,
-    (q.key==="categoriasClientes"||q.key==="produtosSelecionados") ? h("p",{class:"question-help"},["As sugestões são priorizadas pelo tipo de negócio informado."]) : null,
     (function(){
       if(q.kind==="business-offers"){
         if(!state.business.ofertas.length && (state.answers[q.key]||[]).length){state.business.ofertas=state.answers[q.key].map(function(name){return {id:uid(),nome:name,tipo:OFERTA_TIPO_OPTS[0],descricao:"",areas:[SEGMENTO_AREA[name]||inferAreaFromText(name)].filter(Boolean)};});}
