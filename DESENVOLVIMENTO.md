@@ -541,8 +541,9 @@ de pendências; não há mudança nos dados, regras de oferta ou permissões.
 ## Página visual de empresas
 
 O Início exibe um diretório em cartões com menu lateral, busca por nome/CNPJ,
-produto e localização, filtros de perfis publicados/informativos e das relações
-privadas da própria conta, contagem total e paginação de 24 registros. O esquema
+produto e localização, filtros das relações privadas da própria conta, contagem
+total e paginação de 24 registros. Perfis publicados e informativos aparecem juntos
+em Todas as empresas, sem filtros laterais separados por origem do perfil. O esquema
 anterior permanece em Fornecedores e setores. A busca e os filtros sobrevivem à
 atualização do catálogo, preservando o foco da busca quando ela está ativa.
 

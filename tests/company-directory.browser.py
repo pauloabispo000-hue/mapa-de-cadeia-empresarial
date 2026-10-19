@@ -33,7 +33,11 @@ with sync_playwright() as p:
  expect(page.locator('.company-directory-count')).to_have_text('1 de 1 empresas')
  page.get_by_role('button',name='Clientes revendedores',exact=True).click()
  expect(page.locator('.company-directory-empty')).to_have_text('Nenhuma empresa encontrada')
- page.get_by_role('button',name='Perfis informativos',exact=True).click()
+ assert page.get_by_role('button',name='Explorar setores',exact=True).count()==0
+ assert page.get_by_role('button',name='Perfis no Avante',exact=True).count()==0
+ assert page.get_by_role('button',name='Perfis informativos',exact=True).count()==0
+ page.get_by_role('button',name='Todas as empresas',exact=True).click()
+ page.get_by_role('searchbox').fill(records[0]['fields']['name']['value'])
  expect(page.locator('.company-directory-count')).to_have_text('1 de 1 empresas')
  page.get_by_role('button',name='Ver empresa',exact=True).click()
  expect(page.get_by_role('dialog')).to_contain_text('Vínculo com CNPJ pendente')
@@ -44,6 +48,7 @@ with sync_playwright() as p:
  page.locator('.supplier-contact-plan details summary').first.click()
  assert page.get_by_role('button',name='Preparar mensagem de cotação').is_disabled()
  page.get_by_role('button',name='Todas as empresas',exact=True).click()
+ page.get_by_role('searchbox').fill('')
  page.get_by_role('button',name='Planejar contato com os resultados',exact=True).click()
  expect(page.locator('.supplier-contact-plan summary').first).to_have_text('Plano de contato — 56 resultados incluídos')
  for theme in ['light','dark']:
