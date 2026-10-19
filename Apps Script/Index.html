@@ -1634,17 +1634,38 @@ function isAppsScriptApp(){
   return typeof google!=="undefined"&&google.script&&google.script.run;
 }
 function setLoginError(message){document.getElementById("loginError").textContent=message;}
+// Uma chamada pendente não pode bloquear o acesso indefinidamente nem reabrir sessão tardiamente.
+var avanteAccessRequest=null;
+function startAvanteAccessRequest(message,onResult){
+  if(avanteAccessRequest)return null;
+  var request={finished:false},button=document.getElementById("loginSubmit"),toggle=document.getElementById("loginModeToggle");
+  avanteAccessRequest=request;button.disabled=true;toggle.disabled=true;
+  document.getElementById("loginForm").setAttribute("aria-busy","true");setLoginError(message);
+  function finish(kind,result){
+    if(request.finished||avanteAccessRequest!==request)return;
+    request.finished=true;clearTimeout(request.timer);avanteAccessRequest=null;
+    button.disabled=false;toggle.disabled=false;document.getElementById("loginForm").removeAttribute("aria-busy");
+    if(kind==="timeout"){setLoginError("O serviço de acesso não respondeu em 20 segundos. Seu rascunho foi preservado. Clique em Entrar para tentar novamente.");return;}
+    if(kind==="failure"){setLoginError("Não foi possível comunicar com o serviço de acesso. Seu rascunho foi preservado. Clique em Entrar para tentar novamente.");return;}
+    onResult(result);
+  }
+  request.timer=setTimeout(function(){finish("timeout");},20000);
+  return {success:function(result){finish("success",result);},failure:function(){finish("failure");}};
+}
+function clearAvanteStoredSession(){
+  authSession=null;try{sessionStorage.removeItem("avante_admin_session");}catch(ignored){}
+}
 function validateStoredAvanteSession(){
   if(!authSession)return;
-  if(!isAppsScriptApp()){
-    authSession=null;
-    sessionStorage.removeItem("avante_admin_session");
-    return;
-  }
-  google.script.run.withSuccessHandler(function(result){
-    if(result&&result.ok){enterAvanteSession(authSession);return;}
-    authSession=null;sessionStorage.removeItem("avante_admin_session");
-  }).withFailureHandler(function(){authSession=null;sessionStorage.removeItem("avante_admin_session");}).validateAvanteSession(authSession.token);
+  if(!isAppsScriptApp()){clearAvanteStoredSession();return;}
+  var expectedSession=authSession;
+  var request=startAvanteAccessRequest("Recuperando seu acesso…",function(result){
+    if(result&&result.ok){setLoginError("");enterAvanteSession(expectedSession);return;}
+    clearAvanteStoredSession();setLoginError("Sua sessão expirou ou não é válida. Entre novamente. Seu rascunho foi preservado.");
+  });
+  if(!request)return;
+  try{google.script.run.withSuccessHandler(request.success).withFailureHandler(request.failure).validateAvanteSession(expectedSession.token);}
+  catch(ignored){request.failure();}
 }
 function submitAvanteLogin(username,password){
   if(!isAppsScriptApp()){
@@ -1652,12 +1673,13 @@ function submitAvanteLogin(username,password){
     var link=document.getElementById("secureAppLink");if(link)link.hidden=false;
     return;
   }
-  setLoginError("Verificando acesso…");
-  google.script.run.withSuccessHandler(function(result){
+  var request=startAvanteAccessRequest("Verificando acesso…",function(result){
     if(!result||!result.ok){setLoginError(result&&result.error||"Não foi possível entrar.");return;}
-    setLoginError("");
-    enterAvanteSession({username:result.username,token:result.token});
-  }).withFailureHandler(function(){setLoginError("Falha ao acessar o serviço de autenticação. Tente novamente.");}).loginAvante(username,password);
+    setLoginError("");enterAvanteSession({username:result.username,token:result.token});
+  });
+  if(!request)return;
+  try{google.script.run.withSuccessHandler(request.success).withFailureHandler(request.failure).loginAvante(username,password);}
+  catch(ignored){request.failure();}
 }
 function setAvanteLoginMode(mode){
   loginMode=mode;

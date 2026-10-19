@@ -512,3 +512,20 @@ com uma coluna no celular. Cores de texto, fontes, títulos e links são escopad
 por tema, com contraste mínimo 4,5 verificado nos cinco perfis em 1366 e 360 px.
 O teste alcança o último link pela rolagem normal e confere navegação acessível.
 Não muda autenticação, sessão, dados, contatos, CNPJs pendentes ou permissões.
+
+## Recuperação do acesso sem espera indefinida
+
+Login e validação da sessão armazenada têm prazo de interface de 20 segundos,
+sem repetição automática. Durante a chamada os botões de entrada/troca de modo
+ficam desabilitados; sucesso, recusa, erro e timeout liberam o formulário. Respostas
+atrasadas são descartadas, inclusive depois de nova tentativa manual. Uma falha de
+transporte preserva a sessão armazenada e o rascunho; somente uma recusa explícita
+na validação remove a sessão. O prazo da interface não cancela o Apps Script.
+
+Testes isolados: tests/access-recovery.browser.py usa RPCs fictícias e rede bloqueada,
+verificando timeout, recusa, falha de comunicação/início, ausência de duplicação,
+retorno tardio, preservação de sessão/rascunho e navegação após login confirmado.
+O servidor público respondeu HTTP 200 nesta investigação; o HTML efetivamente
+publicado inicializou sem erro JS em teste isolado. O usuário confirmou recuperação
+online sem nova implantação. Não foi confirmada a causa da demora da sessão real;
+a proteção preparada não é prova de resolução de indisponibilidade externa.
