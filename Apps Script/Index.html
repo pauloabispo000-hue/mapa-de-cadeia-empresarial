@@ -3396,7 +3396,7 @@ function renderInformativeCompanyProfile(root,result){
   root.appendChild(h("a",{href:informativeProfileUrl(profile.id),target:"_blank",rel:"noopener noreferrer"},["Link deste perfil informativo no Avante"]));
 }
 function renderInformativeCompanyCatalog(profiles){
-  var section=h("section",{class:"platform-card informative-company-catalog"});section.appendChild(h("h2",{},["Perfis informativos de fontes públicas"]));section.appendChild(h("p",{class:"company-profile-meta"},[profiles.length+" registros externos não reivindicados. Fontes e vínculos cadastrais pendentes são mostrados em cada perfil; não são empresas inscritas ou validadas por este catálogo."]));
+  var section=h("section",{class:"platform-card informative-company-catalog","aria-label":"Empresas"});
   profiles.forEach(function(profile){var row=h("details",{class:"informative-catalog-item"}),content=h("div",{});row.appendChild(h("summary",{},[profile.fields.name.value+" — não reivindicado"]));row.appendChild(content);var loaded=false;row.addEventListener("toggle",function(){if(row.open&&!loaded){loaded=true;renderInformativeCompanyProfile(content,{ok:true,informativeProfile:profile});}});section.appendChild(row);});return section;
 }
 function loadInformativeCompanyProfile(id){
