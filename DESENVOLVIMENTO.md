@@ -566,3 +566,29 @@ company-directory.browser.py cobre busca, filtros privados, deduplicação, pagi
 perfis, teclado/foco, plano completo e três larguras nos dois temas. As outras
 suítes mantêm acesso, pesquisa, fontes, formulários, consentimento e comunicação.
 Não houve validação online nem gravação de cadastros ou mensagens reais neste ciclo.
+
+## Perfil empresarial com capa e identidade
+
+Perfis públicos e informativos usam cabeçalho visual compartilhado: capa ampla,
+imagem circular, nome/localização em destaque e ações. Imagens vêm apenas dos
+campos públicos já autorizados; na ausência delas, usa capa padrão e iniciais.
+Não importa mídias de Facebook, seguidores, avaliações ou relações presumidas.
+Não há feed, posts, vídeos, álbum ou upload de publicações. Imagens de identidade
+(capa/avatar) e catálogo de produtos já existente continuam separados de posts.
+
+Informativos possuem abas Sobre, Produtos e serviços e Contato, mantendo fontes
+por campo, dados ausentes e CNPJ pendente. Categoria não vira oferta confirmada.
+Perfis publicados mantêm vitrine e busca por produto/SKU; Sobre apresenta detalhes
+e ofertas em duas colunas, com uma coluna no celular. O diálogo do diretório usa
+a mesma identidade visual. A rota pública publicada usa agora o mesmo contêiner
+amplo e navegação Avante que os informativos, sem auth-card limitando a página.
+
+Ligar usa somente o telefone público informado; abrir o perfil não aciona contatos.
+Planejar contato aparece na sessão autenticada e utiliza o plano privado existente,
+sem enviar mensagem ou habilitar opt-in. Visitantes recebem link para entrar.
+Autenticação e permissões no servidor permanecem obrigatórias e inalteradas.
+
+Validação: npm run sync/check, 114 testes e sete suítes de navegador isoladas.
+A nova business-profile.browser.py cobre abas, capa/identidade, celular/desktop,
+contraste inclusive hover, vitrine, ausência de feed/upload de posts e plano local.
+Sem gravação de cadastro, envio real ou validação online nesta rodada.

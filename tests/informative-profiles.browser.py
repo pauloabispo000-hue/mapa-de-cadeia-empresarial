@@ -25,7 +25,8 @@ with sync_playwright() as p:
   assert 'NÃO REIVINDICADO' in page.locator('#platformContent').inner_text()
   assert 'não foram declarados no Facebook' in page.locator('#platformContent').inner_text()
   assert 'Vínculo com CNPJ pendente' in page.locator('#platformContent').inner_text()
-  assert page.locator('#platformContent button').count()==0
+  assert page.locator('#platformContent input[type=checkbox],#platformContent form').count()==0
+  assert page.get_by_role('button',name='Produtos e serviços',exact=True).count()==1
   assert profile['fields']['address']['value'] in page.locator('#platformContent').inner_text()
   assert page.locator('#platformContent img').count()==0
   assert page.locator('#platformContent a[href*="informativo="]').count()==1
